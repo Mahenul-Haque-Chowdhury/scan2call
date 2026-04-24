@@ -1,0 +1,114 @@
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { AppConfigService } from '../config/config.service';
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import * as crypto from 'crypto';
+
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+@Injectable()
+export class MediaService {
+  private readonly logger = new Logger(MediaService.name);
+  private readonly s3Client: S3Client;
+  private readonly bucket: string;
+
+  constructor(private readonly configService: AppConfigService) {
+    this.s3Client = new S3Client({
+      region: this.configService.s3Region,
+      endpoint: this.configService.s3Endpoint,
+      credentials: {
+        accessKeyId: this.configService.s3AccessKeyId,
+        secretAccessKey: this.configService.s3SecretAccessKey,
+      },
+      forcePathStyle: true, // Required for R2 / MinIO
+    });
+
+    this.bucket = this.configService.s3Bucket;
+  }
+
+  /**
+   * Generate a pre-signed PUT URL for direct client-side upload to S3/R2.
+   * Returns the upload URL and the final public URL for the object.
+   */
+  async generateUploadUrl(params: {
+    fileName: string;
+    contentType: string;
+    fileSize: number;
+    folder?: string;
+  }): Promise<{ uploadUrl: string; key: string; publicUrl: string }> {
+    // Validate content type
+    if (!ALLOWED_MIME_TYPES.includes(params.contentType)) {
+      throw new BadRequestException(
+        `Invalid file type "${params.contentType}". Allowed: ${ALLOWED_MIME_TYPES.join(', ')}`,
+      );
+    }
+
+    // Validate file size
+    if (params.fileSize > MAX_FILE_SIZE) {
+      throw new BadRequestException(
+        `File size ${params.fileSize} bytes exceeds maximum of ${MAX_FILE_SIZE} bytes (5MB)`,
+      );
+    }
+
+    // Generate unique key
+    const ext = this.getExtension(params.contentType);
+    const uniqueId = crypto.randomBytes(16).toString('hex');
+    const folder = params.folder || 'uploads';
+    const key = `${folder}/${uniqueId}${ext}`;
+
+    // Create pre-signed PUT URL (expires in 15 minutes)
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      ContentType: params.contentType,
+      ContentLength: params.fileSize,
+    });
+
+    const uploadUrl = await getSignedUrl(this.s3Client, command, {
+      expiresIn: 900, // 15 minutes
+    });
+
+    // Build public URL
+    const cdnUrl = this.configService.cdnUrl;
+    const publicUrl = cdnUrl ? `${cdnUrl}/${key}` : `${this.configService.s3Endpoint}/${this.bucket}/${key}`;
+
+    this.logger.log(`Generated upload URL for key: ${key}`);
+
+    return { uploadUrl, key, publicUrl };
+  }
+
+  /**
+   * Delete an object from S3/R2 by its key.
+   */
+  async deleteObject(key: string): Promise<void> {
+    if (!key) {
+      throw new BadRequestException('Object key is required');
+    }
+
+    const command = new DeleteObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+    });
+
+    await this.s3Client.send(command);
+
+    this.logger.log(`Deleted object: ${key}`);
+  }
+
+  /**
+   * Map content type to file extension.
+   */
+  private getExtension(contentType: string): string {
+    const map: Record<string, string> = {
+      'image/jpeg': '.jpg',
+      'image/png': '.png',
+      'image/webp': '.webp',
+    };
+    return map[contentType] || '.bin';
+  }
+}

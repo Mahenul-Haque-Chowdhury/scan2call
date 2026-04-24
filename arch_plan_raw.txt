@@ -1,0 +1,1390 @@
+Now I have sufficient context from the technology documentation to produce a comprehensive architecture. Below is the full Scan2Call architecture document.
+
+---
+
+# Scan2Call Architecture Document
+
+## Table of Contents
+1. Project Structure (Monorepo Layout)
+2. Database Schema (Prisma Models)
+3. API Design (REST Endpoints)
+4. Key Design Decisions
+
+---
+
+## 1. Project Structure
+
+### 1.1 Root Monorepo Layout
+
+```
+scan2call/
+├── apps/
+│   ├── web/                          # Next.js frontend
+│   └── api/                          # NestJS backend
+├── packages/
+│   └── shared/                       # Shared types, constants, validation
+├── prisma/
+│   ├── schema.prisma                 # Prisma schema (single source of truth)
+│   ├── migrations/                   # Auto-generated migration files
+│   └── seed.ts                       # Database seeding script
+├── docker/
+│   ├── Dockerfile.api                # NestJS production build
+│   ├── Dockerfile.web                # Next.js production build
+│   └── docker-compose.yml            # Local dev: postgres, redis, app services
+├── .github/
+│   └── workflows/
+│       ├── ci.yml                    # Lint, test, build on PR
+│       └── deploy.yml                # Staging/production deploy
+├── package.json                      # Root workspace config
+├── pnpm-workspace.yaml               # pnpm workspace declaration
+├── pnpm-lock.yaml
+├── tsconfig.base.json                # Base TypeScript config extended by all
+├── .eslintrc.js                      # Root ESLint config
+├── .prettierrc                       # Prettier config
+├── .env.example                      # Template for environment variables
+├── .gitignore
+├── turbo.json                        # Turborepo pipeline config (build/test/lint)
+└── README.md
+```
+
+### 1.2 NestJS Backend (`apps/api/`)
+
+The backend follows domain-driven module organization. Every domain gets its own NestJS module containing a controller, service, DTOs, and optionally guards/interceptors specific to that domain.
+
+```
+apps/api/
+├── src/
+│   ├── main.ts                       # Bootstrap, global pipes, CORS, Swagger
+│   ├── app.module.ts                 # Root module, imports all domain modules
+│   │
+│   ├── common/                       # Cross-cutting concerns
+│   │   ├── decorators/
+│   │   │   ├── current-user.decorator.ts      # Extract user from JWT
+│   │   │   ├── roles.decorator.ts             # @Roles('ADMIN','CUSTOMER')
+│   │   │   └── public.decorator.ts            # Mark route as no-auth
+│   │   ├── guards/
+│   │   │   ├── jwt-auth.guard.ts              # Global JWT verification
+│   │   │   ├── roles.guard.ts                 # RBAC enforcement
+│   │   │   └── throttle.guard.ts              # Rate limiting guard
+│   │   ├── interceptors/
+│   │   │   ├── transform.interceptor.ts       # Standardise response shape
+│   │   │   └── logging.interceptor.ts         # Request/response logging
+│   │   ├── filters/
+│   │   │   └── http-exception.filter.ts       # Global exception formatting
+│   │   ├── pipes/
+│   │   │   └── validation.pipe.ts             # Zod/class-validator pipe
+│   │   ├── middleware/
+│   │   │   └── correlation-id.middleware.ts    # Attach request ID for tracing
+│   │   └── constants/
+│   │       └── index.ts                       # App-wide constants
+│   │
+│   ├── config/                       # Configuration module
+│   │   ├── config.module.ts
+│   │   ├── config.service.ts                  # Typed env access
+│   │   └── validation.ts                      # Env schema (Joi/Zod)
+│   │
+│   ├── auth/                         # Authentication & authorization
+│   │   ├── auth.module.ts
+│   │   ├── auth.controller.ts
+│   │   ├── auth.service.ts
+│   │   ├── strategies/
+│   │   │   ├── jwt.strategy.ts
+│   │   │   └── jwt-refresh.strategy.ts
+│   │   └── dto/
+│   │       ├── register.dto.ts
+│   │       ├── login.dto.ts
+│   │       ├── refresh-token.dto.ts
+│   │       ├── verify-email.dto.ts
+│   │       ├── verify-phone.dto.ts
+│   │       ├── forgot-password.dto.ts
+│   │       └── reset-password.dto.ts
+│   │
+│   ├── users/                        # User profile & management
+│   │   ├── users.module.ts
+│   │   ├── users.controller.ts
+│   │   ├── users.service.ts
+│   │   └── dto/
+│   │       ├── update-profile.dto.ts
+│   │       └── update-notification-prefs.dto.ts
+│   │
+│   ├── tags/                         # QR tag lifecycle
+│   │   ├── tags.module.ts
+│   │   ├── tags.controller.ts
+│   │   ├── tags.service.ts
+│   │   ├── tags-public.controller.ts          # Unauthenticated scan endpoint
+│   │   └── dto/
+│   │       ├── create-tag.dto.ts
+│   │       ├── update-tag.dto.ts
+│   │       ├── activate-tag.dto.ts
+│   │       └── toggle-lost-mode.dto.ts
+│   │
+│   ├── scans/                        # Scan audit log
+│   │   ├── scans.module.ts
+│   │   ├── scans.service.ts                   # Write-only from tag scan events
+│   │   └── scans.controller.ts                # Dashboard: owner views scan history
+│   │
+│   ├── communication/                # Anonymous relay (Twilio)
+│   │   ├── communication.module.ts
+│   │   ├── communication.controller.ts        # Initiate call/SMS from finder
+│   │   ├── communication.service.ts           # Twilio Proxy session management
+│   │   ├── twilio/
+│   │   │   ├── twilio.module.ts
+│   │   │   ├── twilio.service.ts              # Low-level Twilio SDK wrapper
+│   │   │   └── twilio-webhook.controller.ts   # Status callbacks from Twilio
+│   │   └── dto/
+│   │       ├── initiate-call.dto.ts
+│   │       └── send-sms.dto.ts
+│   │
+│   ├── store/                        # E-commerce: products
+│   │   ├── store.module.ts
+│   │   ├── products.controller.ts
+│   │   ├── products.service.ts
+│   │   └── dto/
+│   │       └── product-query.dto.ts
+│   │
+│   ├── orders/                       # E-commerce: orders
+│   │   ├── orders.module.ts
+│   │   ├── orders.controller.ts
+│   │   ├── orders.service.ts
+│   │   └── dto/
+│   │       ├── create-order.dto.ts
+│   │       └── order-query.dto.ts
+│   │
+│   ├── subscriptions/                # Stripe subscriptions
+│   │   ├── subscriptions.module.ts
+│   │   ├── subscriptions.controller.ts
+│   │   ├── subscriptions.service.ts
+│   │   └── dto/
+│   │       ├── create-subscription.dto.ts
+│   │       └── update-subscription.dto.ts
+│   │
+│   ├── payments/                     # Stripe payments & webhooks
+│   │   ├── payments.module.ts
+│   │   ├── payments.service.ts
+│   │   ├── stripe-webhook.controller.ts       # POST /webhooks/stripe
+│   │   └── dto/
+│   │       └── create-checkout.dto.ts
+│   │
+│   ├── admin/                        # Admin panel endpoints
+│   │   ├── admin.module.ts
+│   │   ├── admin-users.controller.ts
+│   │   ├── admin-tags.controller.ts           # Batch generate, CSV import
+│   │   ├── admin-orders.controller.ts
+│   │   ├── admin-analytics.controller.ts
+│   │   ├── admin.service.ts
+│   │   └── dto/
+│   │       ├── batch-generate-tags.dto.ts
+│   │       ├── csv-import.dto.ts
+│   │       └── analytics-query.dto.ts
+│   │
+│   ├── notifications/                # Email/push notification dispatch
+│   │   ├── notifications.module.ts
+│   │   └── notifications.service.ts           # Sends email via SES/SendGrid, push
+│   │
+│   ├── media/                        # File upload (tag photos, avatars)
+│   │   ├── media.module.ts
+│   │   ├── media.controller.ts
+│   │   └── media.service.ts                   # Pre-signed URL generation (S3)
+│   │
+│   ├── health/                       # Health check endpoint
+│   │   ├── health.module.ts
+│   │   └── health.controller.ts
+│   │
+│   └── database/                     # Prisma client provider
+│       ├── database.module.ts
+│       └── prisma.service.ts                  # PrismaClient lifecycle management
+│
+├── test/
+│   ├── app.e2e-spec.ts
+│   └── jest-e2e.json
+├── nest-cli.json
+├── tsconfig.json                     # Extends ../../tsconfig.base.json
+├── tsconfig.build.json
+└── package.json
+```
+
+### 1.3 Next.js Frontend (`apps/web/`)
+
+Uses the App Router with route groups to separate public pages, authenticated dashboard, admin panel, and the finder-facing scan experience.
+
+```
+apps/web/
+├── public/
+│   ├── images/                       # Static images, logos
+│   ├── icons/                        # Favicons, PWA icons
+│   ├── robots.txt
+│   └── sitemap.xml                   # Auto-generated at build or via route
+├── src/
+│   ├── app/
+│   │   ├── layout.tsx                # Root layout: html, body, providers
+│   │   ├── page.tsx                  # Landing page (marketing)
+│   │   ├── not-found.tsx
+│   │   ├── error.tsx
+│   │   ├── globals.css
+│   │   ├── sitemap.ts                # Dynamic sitemap generation
+│   │   ├── robots.ts                 # Dynamic robots.txt
+│   │   │
+│   │   ├── (marketing)/              # Route group: public marketing pages
+│   │   │   ├── layout.tsx            # Marketing layout (nav + footer)
+│   │   │   ├── about/
+│   │   │   │   └── page.tsx
+│   │   │   ├── how-it-works/
+│   │   │   │   └── page.tsx
+│   │   │   ├── pricing/
+│   │   │   │   └── page.tsx
+│   │   │   ├── contact/
+│   │   │   │   └── page.tsx
+│   │   │   ├── faq/
+│   │   │   │   └── page.tsx
+│   │   │   ├── privacy/
+│   │   │   │   └── page.tsx
+│   │   │   ├── terms/
+│   │   │   │   └── page.tsx
+│   │   │   └── blog/
+│   │   │       ├── page.tsx          # Blog listing
+│   │   │       └── [slug]/
+│   │   │           └── page.tsx      # Individual blog post
+│   │   │
+│   │   ├── (auth)/                   # Route group: auth pages
+│   │   │   ├── layout.tsx            # Minimal centered layout
+│   │   │   ├── login/
+│   │   │   │   └── page.tsx
+│   │   │   ├── register/
+│   │   │   │   └── page.tsx
+│   │   │   ├── verify-email/
+│   │   │   │   └── page.tsx
+│   │   │   ├── forgot-password/
+│   │   │   │   └── page.tsx
+│   │   │   └── reset-password/
+│   │   │       └── page.tsx
+│   │   │
+│   │   ├── (dashboard)/              # Route group: authenticated customer area
+│   │   │   ├── layout.tsx            # Sidebar nav, auth check
+│   │   │   ├── dashboard/
+│   │   │   │   └── page.tsx          # Overview: tag summary, recent scans
+│   │   │   ├── tags/
+│   │   │   │   ├── page.tsx          # List user's tags
+│   │   │   │   ├── new/
+│   │   │   │   │   └── page.tsx      # Activate a new tag
+│   │   │   │   └── [tagId]/
+│   │   │   │       ├── page.tsx      # Tag detail / edit
+│   │   │   │       └── scans/
+│   │   │   │           └── page.tsx  # Scan history for this tag
+│   │   │   ├── orders/
+│   │   │   │   ├── page.tsx          # Order history
+│   │   │   │   └── [orderId]/
+│   │   │   │       └── page.tsx      # Order detail
+│   │   │   ├── subscription/
+│   │   │   │   └── page.tsx          # Plan management, upgrade/downgrade
+│   │   │   ├── settings/
+│   │   │   │   ├── page.tsx          # Profile settings
+│   │   │   │   ├── notifications/
+│   │   │   │   │   └── page.tsx      # Notification preferences
+│   │   │   │   └── billing/
+│   │   │   │       └── page.tsx      # Payment methods, invoices
+│   │   │   └── store/
+│   │   │       ├── page.tsx          # Product catalog
+│   │   │       ├── [productId]/
+│   │   │       │   └── page.tsx      # Product detail
+│   │   │       ├── cart/
+│   │   │       │   └── page.tsx
+│   │   │       └── checkout/
+│   │   │           ├── page.tsx      # Stripe checkout
+│   │   │           └── success/
+│   │   │               └── page.tsx  # Post-checkout confirmation
+│   │   │
+│   │   ├── (admin)/                  # Route group: admin panel
+│   │   │   ├── layout.tsx            # Admin layout, admin-role check
+│   │   │   └── admin/
+│   │   │       ├── page.tsx          # Admin dashboard / analytics overview
+│   │   │       ├── users/
+│   │   │       │   ├── page.tsx      # User management list
+│   │   │       │   └── [userId]/
+│   │   │       │       └── page.tsx  # User detail / moderation
+│   │   │       ├── tags/
+│   │   │       │   ├── page.tsx      # All tags, batch operations
+│   │   │       │   ├── generate/
+│   │   │       │   │   └── page.tsx  # QR batch generation tool
+│   │   │       │   └── import/
+│   │   │       │       └── page.tsx  # CSV import
+│   │   │       ├── orders/
+│   │   │       │   ├── page.tsx      # All orders
+│   │   │       │   └── [orderId]/
+│   │   │       │       └── page.tsx  # Order detail / fulfillment
+│   │   │       ├── products/
+│   │   │       │   ├── page.tsx      # Product management
+│   │   │       │   └── [productId]/
+│   │   │       │       └── page.tsx  # Edit product
+│   │   │       ├── analytics/
+│   │   │       │   └── page.tsx      # Detailed analytics
+│   │   │       ├── communications/
+│   │   │       │   └── page.tsx      # Relay logs, moderation
+│   │   │       └── audit-log/
+│   │   │           └── page.tsx      # Admin action audit trail
+│   │   │
+│   │   ├── scan/                     # Finder-facing: NO route group (distinct layout)
+│   │   │   └── [token]/
+│   │   │       ├── layout.tsx        # Minimal branded layout, no nav
+│   │   │       └── page.tsx          # Scan landing: contact options (call/SMS)
+│   │   │
+│   │   └── api/                      # Next.js API routes (minimal, mostly proxy)
+│   │       └── revalidate/
+│   │           └── route.ts          # On-demand ISR revalidation webhook
+│   │
+│   ├── components/
+│   │   ├── ui/                       # Primitive UI components (shadcn/ui style)
+│   │   │   ├── button.tsx
+│   │   │   ├── input.tsx
+│   │   │   ├── card.tsx
+│   │   │   ├── dialog.tsx
+│   │   │   ├── table.tsx
+│   │   │   ├── badge.tsx
+│   │   │   ├── toast.tsx
+│   │   │   └── ...
+│   │   ├── layout/
+│   │   │   ├── header.tsx
+│   │   │   ├── footer.tsx
+│   │   │   ├── sidebar.tsx
+│   │   │   └── mobile-nav.tsx
+│   │   ├── tags/
+│   │   │   ├── tag-card.tsx
+│   │   │   ├── tag-list.tsx
+│   │   │   ├── tag-form.tsx
+│   │   │   └── lost-mode-toggle.tsx
+│   │   ├── scan/
+│   │   │   ├── contact-options.tsx    # Call / SMS / WhatsApp buttons
+│   │   │   └── scan-map.tsx           # Optional: show scan location
+│   │   ├── store/
+│   │   │   ├── product-card.tsx
+│   │   │   ├── cart-drawer.tsx
+│   │   │   └── checkout-form.tsx
+│   │   └── admin/
+│   │       ├── analytics-chart.tsx
+│   │       ├── data-table.tsx
+│   │       └── qr-generator.tsx
+│   │
+│   ├── lib/
+│   │   ├── api-client.ts             # Typed fetch wrapper for backend API
+│   │   ├── auth.ts                   # Token management, refresh logic
+│   │   ├── stripe.ts                 # Client-side Stripe.js init
+│   │   └── utils.ts                  # General helpers
+│   │
+│   ├── hooks/
+│   │   ├── use-auth.ts
+│   │   ├── use-tags.ts
+│   │   ├── use-cart.ts
+│   │   └── use-media-query.ts
+│   │
+│   ├── providers/
+│   │   ├── auth-provider.tsx
+│   │   ├── cart-provider.tsx
+│   │   └── theme-provider.tsx
+│   │
+│   ├── types/                        # Frontend-only types (re-exports from shared)
+│   │   └── index.ts
+│   │
+│   └── styles/
+│       └── tailwind.css              # Tailwind base + custom tokens
+│
+├── next.config.js
+├── tailwind.config.ts
+├── postcss.config.js
+├── tsconfig.json
+└── package.json
+```
+
+### 1.4 Shared Package (`packages/shared/`)
+
+```
+packages/shared/
+├── src/
+│   ├── types/
+│   │   ├── user.types.ts             # User, Role enums
+│   │   ├── tag.types.ts              # Tag, TagType, TagStatus enums
+│   │   ├── order.types.ts            # Order, OrderStatus
+│   │   ├── subscription.types.ts     # Plan tiers, subscription status
+│   │   ├── communication.types.ts    # Call/SMS types
+│   │   └── api-response.types.ts     # Standard envelope: { data, meta, error }
+│   ├── constants/
+│   │   ├── tag-types.ts              # PET_COLLAR, CAR_STICKER, LUGGAGE_TAG, etc.
+│   │   ├── plan-tiers.ts             # FREE, BASIC, PREMIUM, FAMILY
+│   │   ├── roles.ts                  # ADMIN, MANAGER, CUSTOMER, FINDER
+│   │   └── error-codes.ts            # App-specific error code registry
+│   ├── validation/
+│   │   ├── auth.schema.ts            # Zod schemas: register, login, etc.
+│   │   ├── tag.schema.ts             # Zod schemas: tag CRUD
+│   │   ├── order.schema.ts
+│   │   └── common.schema.ts          # Shared validators: email, phone (AU), etc.
+│   └── index.ts                      # Barrel export
+├── tsconfig.json
+└── package.json
+```
+
+---
+
+## 2. Database Schema (Prisma)
+
+### 2.1 Enums
+
+```prisma
+enum Role {
+  ADMIN
+  MANAGER
+  CUSTOMER
+  FINDER
+}
+
+enum TagType {
+  PET_COLLAR
+  CAR_STICKER
+  LUGGAGE_TAG
+  KEYCHAIN
+  MEDICAL_BAND
+  GENERIC
+}
+
+enum TagStatus {
+  INACTIVE        // Generated but not yet linked to an owner
+  ACTIVE          // Linked to owner, normal mode
+  LOST            // Owner toggled "Lost Mode"
+  FOUND           // Finder reported found, pending owner confirmation
+  DEACTIVATED     // Permanently disabled
+}
+
+enum CommunicationType {
+  VOICE_CALL
+  SMS
+  WHATSAPP
+}
+
+enum CommunicationStatus {
+  INITIATED
+  RINGING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  NO_ANSWER
+  BUSY
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  UNPAID
+  PAUSED
+  INCOMPLETE
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum AdminActionType {
+  USER_SUSPENDED
+  USER_UNSUSPENDED
+  TAG_DEACTIVATED
+  TAG_BATCH_GENERATED
+  TAG_CSV_IMPORTED
+  ORDER_UPDATED
+  PRODUCT_UPDATED
+  REFUND_ISSUED
+  MODERATION_ACTION
+}
+```
+
+### 2.2 Models
+
+```prisma
+// ─────────────────────────────────────────────
+// USERS
+// ─────────────────────────────────────────────
+
+model User {
+  id                  String              @id @default(cuid())
+  email               String              @unique
+  emailVerified       Boolean             @default(false)
+  emailVerifiedAt     DateTime?
+  phone               String?             @unique
+  phoneVerified       Boolean             @default(false)
+  phoneVerifiedAt     DateTime?
+  passwordHash        String
+  firstName           String
+  lastName            String
+  role                Role                @default(CUSTOMER)
+  avatarUrl           String?
+  timezone            String              @default("Australia/Sydney")
+  
+  // Notification preferences
+  notifyOnScan        Boolean             @default(true)
+  notifyViaSms        Boolean             @default(true)
+  notifyViaEmail      Boolean             @default(true)
+  notifyViaPush       Boolean             @default(false)
+  
+  // Stripe link
+  stripeCustomerId    String?             @unique
+  
+  // Account state
+  isSuspended         Boolean             @default(false)
+  suspendedAt         DateTime?
+  suspendedReason     String?
+  lastLoginAt         DateTime?
+  
+  // Soft delete
+  deletedAt           DateTime?
+  
+  // Timestamps
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  
+  // Relations
+  tags                Tag[]
+  scans               Scan[]              // Scans of the user's tags (as owner)
+  orders              Order[]
+  subscription        Subscription?
+  payments            Payment[]
+  communicationLogs   CommunicationLog[]  // As tag owner
+  refreshTokens       RefreshToken[]
+  adminAuditLogs      AdminAuditLog[]     // Actions taken BY this admin
+
+  @@index([email])
+  @@index([stripeCustomerId])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model RefreshToken {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  userAgent   String?
+  ipAddress   String?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+model VerificationToken {
+  id          String    @id @default(cuid())
+  identifier  String    // email or phone number
+  token       String    @unique
+  type        String    // "EMAIL_VERIFY" | "PHONE_VERIFY" | "PASSWORD_RESET"
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([identifier, type])
+  @@map("verification_tokens")
+}
+
+// ─────────────────────────────────────────────
+// TAGS (QR Tokens)
+// ─────────────────────────────────────────────
+
+model Tag {
+  id              String          @id @default(cuid())
+  token           String          @unique   // Cryptographic random, 12-char base62
+  type            TagType         @default(GENERIC)
+  status          TagStatus       @default(INACTIVE)
+  
+  // Owner link (nullable: tags exist before being claimed)
+  ownerId         String?
+  owner           User?           @relation(fields: [ownerId], references: [id])
+  
+  // Tag metadata set by owner
+  label           String?         // e.g., "Buddy's collar", "Blue Samsonite"
+  description     String?         // Extra info shown to finder (e.g., "Friendly dog")
+  photoUrl        String?         // Photo of item/pet
+  
+  // Lost mode
+  isLostMode      Boolean         @default(false)
+  lostModeAt      DateTime?
+  lostModeMessage String?         // Custom message shown to finder
+  
+  // Contact preferences per tag
+  allowVoiceCall  Boolean         @default(true)
+  allowSms        Boolean         @default(true)
+  allowWhatsApp   Boolean         @default(false)
+  
+  // Activation
+  activatedAt     DateTime?
+  deactivatedAt   DateTime?
+  
+  // Batch tracking (for admin-generated tags)
+  batchId         String?
+  batch           TagBatch?       @relation(fields: [batchId], references: [id])
+  
+  // Soft delete
+  deletedAt       DateTime?
+  
+  // Timestamps
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  // Relations
+  scans            Scan[]
+  communicationLogs CommunicationLog[]
+  orderItems       OrderItem[]    // Which order this tag was part of
+
+  @@index([token])
+  @@index([ownerId])
+  @@index([status])
+  @@index([batchId])
+  @@map("tags")
+}
+
+model TagBatch {
+  id          String    @id @default(cuid())
+  name        String    // "March 2026 Pet Collars"
+  quantity    Int
+  tagType     TagType
+  generatedBy String   // Admin user ID
+  notes       String?
+  createdAt   DateTime  @default(now())
+  
+  tags        Tag[]
+
+  @@map("tag_batches")
+}
+
+// ─────────────────────────────────────────────
+// SCANS (Audit Log)
+// ─────────────────────────────────────────────
+
+model Scan {
+  id              String    @id @default(cuid())
+  tagId           String
+  tag             Tag       @relation(fields: [tagId], references: [id])
+  ownerId         String?   // Denormalized for query speed
+  owner           User?     @relation(fields: [ownerId], references: [id])
+  
+  // Finder context (all optional, privacy-respecting)
+  ipAddress       String?   // Hashed, not raw, for abuse detection
+  userAgent       String?
+  latitude        Float?
+  longitude       Float?
+  city            String?   // Reverse geocoded, approximate
+  country         String?
+  
+  // Scan outcome
+  contactInitiated Boolean  @default(false) // Did finder attempt contact?
+  
+  createdAt       DateTime  @default(now())
+
+  @@index([tagId])
+  @@index([ownerId])
+  @@index([createdAt])
+  @@map("scans")
+}
+
+// ─────────────────────────────────────────────
+// COMMUNICATION (Anonymous Relay)
+// ─────────────────────────────────────────────
+
+model CommunicationLog {
+  id                  String              @id @default(cuid())
+  tagId               String
+  tag                 Tag                 @relation(fields: [tagId], references: [id])
+  ownerId             String
+  owner               User                @relation(fields: [ownerId], references: [id])
+  scanId              String?             // Link to the scan that triggered this
+  
+  type                CommunicationType
+  status              CommunicationStatus @default(INITIATED)
+  
+  // Twilio references
+  twilioSessionSid    String?             // Proxy session SID
+  twilioCallSid       String?             // Call SID
+  twilioMessageSid    String?             // Message SID
+  proxyNumber         String?             // The Twilio proxy number used
+  
+  // Metadata (NO real finder phone stored)
+  durationSeconds     Int?                // Call duration
+  messageCount        Int?                // SMS message count in session
+  
+  // Timestamps
+  initiatedAt         DateTime            @default(now())
+  connectedAt         DateTime?
+  endedAt             DateTime?
+  
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@index([tagId])
+  @@index([ownerId])
+  @@index([twilioSessionSid])
+  @@map("communication_logs")
+}
+
+// ─────────────────────────────────────────────
+// PRODUCTS (Store)
+// ─────────────────────────────────────────────
+
+model Product {
+  id              String      @id @default(cuid())
+  name            String
+  slug            String      @unique
+  description     String
+  shortDescription String?
+  
+  // Pricing
+  priceInCents    Int         // Price in AUD cents
+  compareAtPrice  Int?        // Strikethrough price (cents)
+  
+  // Inventory
+  sku             String      @unique
+  stockQuantity   Int         @default(0)
+  isInStock       Boolean     @default(true)
+  
+  // Product details
+  tagType         TagType?    // If this product is a tag, what type
+  includesTagCount Int        @default(0) // How many tags included with purchase
+  
+  // Media
+  images          ProductImage[]
+  
+  // Display
+  isActive        Boolean     @default(true)
+  isFeatured      Boolean     @default(false)
+  sortOrder       Int         @default(0)
+  
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  
+  // Stripe
+  stripePriceId   String?
+  stripeProductId String?
+  
+  // Soft delete
+  deletedAt       DateTime?
+  
+  // Timestamps
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relations
+  orderItems      OrderItem[]
+
+  @@index([slug])
+  @@index([isActive, isFeatured])
+  @@map("products")
+}
+
+model ProductImage {
+  id          String    @id @default(cuid())
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url         String
+  altText     String?
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  @@index([productId])
+  @@map("product_images")
+}
+
+// ─────────────────────────────────────────────
+// ORDERS
+// ─────────────────────────────────────────────
+
+model Order {
+  id                  String        @id @default(cuid())
+  orderNumber         String        @unique // Human-readable: SC-20260403-XXXX
+  userId              String
+  user                User          @relation(fields: [userId], references: [id])
+  
+  status              OrderStatus   @default(PENDING)
+  
+  // Pricing
+  subtotalInCents     Int
+  shippingInCents     Int           @default(0)
+  taxInCents          Int           @default(0)  // GST for Australia
+  discountInCents     Int           @default(0)
+  totalInCents        Int
+  currency            String        @default("AUD")
+  
+  // Shipping address (stored, not referenced — snapshot at order time)
+  shippingFirstName   String
+  shippingLastName    String
+  shippingAddress1    String
+  shippingAddress2    String?
+  shippingCity        String
+  shippingState       String
+  shippingPostcode    String
+  shippingCountry     String        @default("AU")
+  
+  // Tracking
+  trackingNumber      String?
+  trackingCarrier     String?
+  shippedAt           DateTime?
+  deliveredAt         DateTime?
+  
+  // Stripe
+  stripePaymentIntentId String?     @unique
+  
+  // Notes
+  customerNotes       String?
+  internalNotes       String?
+  
+  // Timestamps
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  
+  // Relations
+  items               OrderItem[]
+  payment             Payment?
+
+  @@index([userId])
+  @@index([status])
+  @@index([orderNumber])
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String    @id @default(cuid())
+  orderId         String
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product   @relation(fields: [productId], references: [id])
+  
+  // Snapshot at order time
+  productName     String
+  productSku      String
+  quantity        Int
+  unitPriceInCents Int
+  totalPriceInCents Int
+  
+  // If this item generates tags, link them
+  tagId           String?
+  tag             Tag?      @relation(fields: [tagId], references: [id])
+  
+  createdAt       DateTime  @default(now())
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+// ─────────────────────────────────────────────
+// SUBSCRIPTIONS
+// ─────────────────────────────────────────────
+
+model Subscription {
+  id                      String              @id @default(cuid())
+  userId                  String              @unique
+  user                    User                @relation(fields: [userId], references: [id])
+  
+  plan                    String              // "FREE" | "BASIC" | "PREMIUM" | "FAMILY"
+  status                  SubscriptionStatus  @default(ACTIVE)
+  
+  // Limits (denormalized from plan for fast checks)
+  maxTags                 Int                 @default(1)
+  maxScansPerMonth        Int                 @default(50)
+  allowsWhatsApp          Boolean             @default(false)
+  allowsLocationTracking  Boolean             @default(false)
+  
+  // Stripe
+  stripeSubscriptionId    String?             @unique
+  stripePriceId           String?
+  
+  // Billing period
+  currentPeriodStart      DateTime?
+  currentPeriodEnd        DateTime?
+  cancelAtPeriodEnd       Boolean             @default(false)
+  
+  // Trial
+  trialStart              DateTime?
+  trialEnd                DateTime?
+  
+  // Timestamps
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+
+  @@index([stripeSubscriptionId])
+  @@map("subscriptions")
+}
+
+// ─────────────────────────────────────────────
+// PAYMENTS / INVOICES
+// ─────────────────────────────────────────────
+
+model Payment {
+  id                      String          @id @default(cuid())
+  userId                  String
+  user                    User            @relation(fields: [userId], references: [id])
+  orderId                 String?         @unique
+  order                   Order?          @relation(fields: [orderId], references: [id])
+  
+  amountInCents           Int
+  currency                String          @default("AUD")
+  status                  PaymentStatus   @default(PENDING)
+  
+  // Stripe
+  stripePaymentIntentId   String?         @unique
+  stripeInvoiceId         String?
+  stripeChargeId          String?
+  paymentMethod           String?         // "card", "au_becs_debit", etc.
+  cardLast4               String?
+  cardBrand               String?
+  
+  // Refund
+  refundedAmountInCents   Int             @default(0)
+  refundedAt              DateTime?
+  
+  // Receipt
+  receiptUrl              String?
+  
+  // Timestamps
+  paidAt                  DateTime?
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([stripePaymentIntentId])
+  @@map("payments")
+}
+
+// ─────────────────────────────────────────────
+// ADMIN AUDIT LOG
+// ─────────────────────────────────────────────
+
+model AdminAuditLog {
+  id              String          @id @default(cuid())
+  adminId         String
+  admin           User            @relation(fields: [adminId], references: [id])
+  action          AdminActionType
+  targetType      String          // "User" | "Tag" | "Order" | "Product"
+  targetId        String          // ID of the affected entity
+  metadata        Json?           // Arbitrary context: { reason, before, after }
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime        @default(now())
+
+  @@index([adminId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
+}
+```
+
+### 2.3 Schema Design Notes
+
+**Token generation**: The `Tag.token` field is a 12-character base62 string (a-z, A-Z, 0-9) generated via `crypto.randomBytes(16)` and encoded. This yields 62^12 (approximately 3.2 x 10^21) possible values -- non-sequential, non-guessable, and URL-friendly. The public scan URL becomes `https://scan2call.com.au/scan/{token}`.
+
+**Privacy by design**: The `Scan` model stores a hashed IP (SHA-256 with a server-side salt), never the raw IP. Latitude/longitude are rounded to city-level precision (2 decimal places, approximately 1.1km accuracy). No finder PII is ever persisted. The `CommunicationLog` stores Twilio session references, not real phone numbers.
+
+**Soft deletes**: Applied to `User`, `Tag`, and `Product` via the `deletedAt` nullable timestamp pattern. Prisma middleware or a query extension will auto-filter soft-deleted records on read queries.
+
+**Tag states**: The lifecycle is `INACTIVE` (generated, not yet sold/activated) then `ACTIVE` (linked to an owner, normal operation) then `LOST` (owner toggles lost mode, finder sees contact options) then `FOUND` (optional intermediate state when a finder reports found) and back to `ACTIVE` once the owner confirms. `DEACTIVATED` is a terminal state for stolen/broken/decommissioned tags.
+
+---
+
+## 3. API Design
+
+All endpoints are prefixed with `/api/v1`. The standard response envelope is:
+
+```json
+{
+  "data": { ... },
+  "meta": { "page": 1, "pageSize": 20, "total": 142 },
+  "error": null
+}
+```
+
+### 3.1 Auth Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/auth/register` | Public | Create account (email, password, name, phone) |
+| POST | `/auth/login` | Public | Email + password login, returns access + refresh tokens |
+| POST | `/auth/refresh` | Public (refresh token in body) | Exchange refresh token for new access token |
+| POST | `/auth/logout` | Customer+ | Revoke refresh token |
+| POST | `/auth/verify-email` | Public | Verify email with token from email link |
+| POST | `/auth/verify-phone` | Customer+ | Submit OTP sent via SMS to verify phone |
+| POST | `/auth/send-phone-otp` | Customer+ | Request a new phone OTP |
+| POST | `/auth/forgot-password` | Public | Send password reset email |
+| POST | `/auth/reset-password` | Public | Reset password with token from email |
+| POST | `/auth/change-password` | Customer+ | Authenticated password change (old + new) |
+
+### 3.2 Tag Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/tags` | Customer+ | List authenticated user's tags (paginated, filterable) |
+| POST | `/tags` | Customer+ | Create a new tag (manual, not via purchase) |
+| GET | `/tags/:id` | Customer+ (owner) | Get tag details including scan stats |
+| PATCH | `/tags/:id` | Customer+ (owner) | Update tag label, description, photo, contact prefs |
+| DELETE | `/tags/:id` | Customer+ (owner) | Soft-delete a tag |
+| POST | `/tags/activate` | Customer+ | Activate a tag by token (links it to the user's account) |
+| PATCH | `/tags/:id/lost-mode` | Customer+ (owner) | Toggle lost mode on/off, set lost-mode message |
+| GET | `/tags/:id/scans` | Customer+ (owner) | Get scan history for a specific tag |
+| **GET** | **`/scan/:token`** | **Public (no auth)** | **Public scan endpoint. Returns tag type, label, contact options (if in lost mode), and the owner's custom message. NEVER returns owner PII.** |
+| POST | `/scan/:token/report-found` | Public | Finder reports item as found (optional message) |
+
+### 3.3 Communication Relay Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/communication/call` | Public (rate-limited) | Initiate anonymous voice call from finder to owner via Twilio Proxy. Body: `{ token, finderPhone }` |
+| POST | `/communication/sms` | Public (rate-limited) | Send anonymous SMS from finder to owner. Body: `{ token, finderPhone, message }` |
+| POST | `/communication/whatsapp` | Public (rate-limited) | Initiate WhatsApp relay (premium only). Body: `{ token, finderPhone }` |
+| POST | `/communication/browser-call` | Public (rate-limited) | Get a Twilio Client token for browser-based calling (no phone needed) |
+| GET | `/communication/history` | Customer+ | Owner views their communication logs |
+| GET | `/communication/:id` | Customer+ (owner) | Get details of a specific communication session |
+
+### 3.4 Dashboard / User Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/users/me` | Customer+ | Get current user profile |
+| PATCH | `/users/me` | Customer+ | Update profile (name, timezone, avatar) |
+| PATCH | `/users/me/notifications` | Customer+ | Update notification preferences |
+| GET | `/users/me/scans` | Customer+ | Get all scans across all user's tags (paginated) |
+| GET | `/users/me/stats` | Customer+ | Dashboard summary: tag count, scan count, active lost tags |
+| DELETE | `/users/me` | Customer+ | Request account deletion (soft delete + GDPR queue) |
+
+### 3.5 Store / E-Commerce Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/products` | Public | List active products (paginated, filterable by type) |
+| GET | `/products/:slug` | Public | Get product detail by slug |
+| GET | `/products/featured` | Public | Get featured products for landing page |
+| POST | `/checkout/session` | Customer+ | Create Stripe Checkout session for cart items |
+| GET | `/orders` | Customer+ | List user's orders (paginated) |
+| GET | `/orders/:id` | Customer+ (owner) | Get order detail with items and tracking |
+
+### 3.6 Subscription Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/subscriptions/plans` | Public | List available subscription plans with features |
+| GET | `/subscriptions/me` | Customer+ | Get current user's subscription details |
+| POST | `/subscriptions` | Customer+ | Create a new subscription (redirects to Stripe Checkout) |
+| PATCH | `/subscriptions/me` | Customer+ | Change plan (upgrade/downgrade) |
+| POST | `/subscriptions/me/cancel` | Customer+ | Cancel subscription (at period end) |
+| POST | `/subscriptions/me/resume` | Customer+ | Resume a cancelled-but-not-yet-expired subscription |
+| POST | `/subscriptions/billing-portal` | Customer+ | Generate Stripe Billing Portal session URL |
+
+### 3.7 Media Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/media/upload-url` | Customer+ | Get pre-signed S3 upload URL. Body: `{ filename, contentType }` |
+| DELETE | `/media/:key` | Customer+ | Delete an uploaded file |
+
+### 3.8 Admin Endpoints
+
+All admin endpoints require `Role.ADMIN` or `Role.MANAGER`.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| **Users** | | | |
+| GET | `/admin/users` | Admin+ | List all users (paginated, searchable, filterable by role/status) |
+| GET | `/admin/users/:id` | Admin+ | Get user detail with tags, orders, subscription |
+| PATCH | `/admin/users/:id` | Admin | Update user role, suspend/unsuspend |
+| DELETE | `/admin/users/:id` | Admin | Force-delete a user account |
+| **Tags** | | | |
+| GET | `/admin/tags` | Admin+ | List all tags (paginated, filterable by status/type/batch) |
+| POST | `/admin/tags/generate` | Admin | Batch generate tags. Body: `{ quantity, tagType, batchName }` |
+| POST | `/admin/tags/import` | Admin | CSV import of pre-generated tag tokens |
+| GET | `/admin/tags/batches` | Admin+ | List tag batches |
+| GET | `/admin/tags/batches/:id` | Admin+ | Get batch detail with tags |
+| PATCH | `/admin/tags/:id` | Admin | Admin override: change tag status, reassign owner |
+| **Orders** | | | |
+| GET | `/admin/orders` | Admin+ | List all orders (paginated, filterable) |
+| GET | `/admin/orders/:id` | Admin+ | Get order detail |
+| PATCH | `/admin/orders/:id` | Admin+ | Update order status, add tracking, internal notes |
+| POST | `/admin/orders/:id/refund` | Admin | Issue full or partial refund |
+| **Products** | | | |
+| POST | `/admin/products` | Admin | Create product |
+| PATCH | `/admin/products/:id` | Admin | Update product |
+| DELETE | `/admin/products/:id` | Admin | Soft-delete product |
+| **Analytics** | | | |
+| GET | `/admin/analytics/overview` | Admin+ | Dashboard: total users, tags, scans, revenue, growth |
+| GET | `/admin/analytics/scans` | Admin+ | Scan trends over time (daily/weekly/monthly) |
+| GET | `/admin/analytics/revenue` | Admin+ | Revenue breakdown by product, subscription, period |
+| GET | `/admin/analytics/tags` | Admin+ | Tag activation rates, lost-mode frequency |
+| **Communications** | | | |
+| GET | `/admin/communications` | Admin+ | All relay sessions (paginated, for moderation) |
+| **Audit Log** | | | |
+| GET | `/admin/audit-log` | Admin | View admin action audit trail |
+
+### 3.9 Webhook Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/webhooks/stripe` | Stripe signature | Handle Stripe events: `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`, `checkout.session.completed`, `charge.refunded` |
+| POST | `/webhooks/twilio/voice` | Twilio signature | Voice call status callbacks: call initiated, ringing, answered, completed |
+| POST | `/webhooks/twilio/sms` | Twilio signature | SMS delivery status and incoming SMS relay |
+| POST | `/webhooks/twilio/whatsapp` | Twilio signature | WhatsApp message status callbacks |
+
+### 3.10 Utility Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/health` | Public | Health check (DB connectivity, Redis, Twilio) |
+| GET | `/health/ready` | Public | Readiness probe for orchestrators |
+
+---
+
+## 4. Key Design Decisions
+
+### 4.1 Anonymous Communication Relay -- Technical Architecture
+
+The relay uses **Twilio Proxy** as its foundation, supplemented by **Twilio Voice** for browser-based calling.
+
+**Flow for phone-based relay (SMS and voice):**
+
+1. Finder scans QR code, arrives at `https://scan2call.com.au/scan/{token}`.
+2. Frontend calls `GET /api/v1/scan/{token}` to load tag info (type, label, contact options). No owner PII is returned.
+3. Finder chooses "Call" or "Text" and enters their phone number (or uses browser calling).
+4. Frontend calls `POST /api/v1/communication/call` (or `/sms`) with `{ token, finderPhone }`.
+5. Backend:
+   a. Looks up the tag by token, verifies it is in ACTIVE or LOST status.
+   b. Retrieves the owner's real phone from the `User` record (server-side only, never sent to client).
+   c. Creates a **Twilio Proxy Session** with a short TTL (default: 10 minutes for calls, 30 minutes for SMS).
+   d. Adds two **Participants** to the session: the owner's real phone and the finder's real phone. Twilio assigns each a masked proxy number.
+   e. Twilio initiates the call/SMS through the proxy. Both parties see only the Twilio proxy number.
+   f. The backend stores the session SID in `CommunicationLog` but does NOT store the finder's real phone number.
+6. When the session TTL expires, the proxy number association is dissolved. Neither party can contact the other through that number again.
+
+**Flow for browser-based calling (no phone number needed):**
+
+1. Finder taps "Call from Browser" on the scan page.
+2. Frontend calls `POST /api/v1/communication/browser-call` with `{ token }`.
+3. Backend generates a **Twilio Client Access Token** (short-lived, scoped) and returns it.
+4. Frontend initializes the Twilio Client JS SDK, places a call.
+5. The call hits a **TwiML App** webhook on the backend which dials the owner's phone through Twilio, displaying the Twilio proxy number as the caller ID.
+6. The owner sees a call from the Twilio number, never from the finder's identity (the finder has no phone number involved at all).
+
+**WhatsApp relay (premium tier):**
+
+Uses the Twilio WhatsApp Business API. A Twilio Proxy session is created similarly, but the channel is set to WhatsApp. The finder sends a WhatsApp message to the Twilio WhatsApp number, which relays it to the owner. This requires the owner to have opted in to WhatsApp contact on that tag.
+
+### 4.2 QR Token Generation and Scan Flow
+
+**Token generation:**
+
+```
+crypto.randomBytes(9)  ->  12-character base62 string
+```
+
+Nine random bytes = 72 bits of entropy, encoded to base62 (A-Z, a-z, 0-9) yields a 12-character token. This gives approximately 3.2 x 10^21 possible tokens -- infeasible to brute-force, yet short enough for a clean URL. Tokens are generated server-side and checked for uniqueness against the database before insertion (with a retry on collision, though collisions are astronomically unlikely).
+
+**Batch generation** (admin): The `POST /admin/tags/generate` endpoint generates N tokens in a transaction, creates Tag records in `INACTIVE` status, links them to a `TagBatch`, and optionally returns a CSV or a zip of QR code PNGs. QR codes encode the full URL: `https://scan2call.com.au/scan/{token}`.
+
+**QR code encoding:** Each QR code encodes the full scan URL. The QR image is generated server-side using a library such as `qrcode` (npm), rendered as SVG or PNG, with the Scan2Call logo optionally embedded in the center (using error correction level H which tolerates 30% obscuring). Generated images are stored in the S3 bucket under `qr-codes/{batchId}/{token}.png`.
+
+**Full scan flow:**
+
+```
+Physical QR tag
+  -> Phone camera scans QR
+  -> Opens https://scan2call.com.au/scan/{token}
+  -> Next.js SSR/ISR page
+  -> Calls GET /api/v1/scan/{token}
+  -> Returns: { tagType, label, description, ownerFirstName (first name only),
+                contactOptions: { call: true, sms: true, whatsapp: false },
+                lostMode: true, lostMessage: "Please help me find my dog!" }
+  -> Finder sees branded page with contact buttons
+  -> Finder taps "Call" or "SMS"
+  -> Twilio Proxy session created
+  -> Anonymous communication happens
+  -> Owner is simultaneously notified (push/SMS/email) that their tag was scanned
+```
+
+### 4.3 Stripe Subscription Model
+
+Four tiers, structured to drive revenue while keeping the free tier functional enough to convert:
+
+| Feature | Free | Basic ($4.99/mo) | Premium ($9.99/mo) | Family ($14.99/mo) |
+|---------|------|-------------------|--------------------|--------------------|
+| Active Tags | 1 | 5 | 15 | 30 |
+| Scans per Month | 50 | Unlimited | Unlimited | Unlimited |
+| Voice Calls | Yes | Yes | Yes | Yes |
+| SMS Relay | Yes | Yes | Yes | Yes |
+| WhatsApp Relay | No | No | Yes | Yes |
+| Location on Scan | No | Approximate city | Precise | Precise |
+| Scan History | 30 days | 90 days | 1 year | 1 year |
+| Custom Lost Message | No | Yes | Yes | Yes |
+| Priority Notifications | No | No | Yes | Yes |
+| Family Members (shared accounts) | No | No | No | Up to 5 |
+| Tag Photo | No | Yes | Yes | Yes |
+
+All prices in AUD. Annual billing available at a 20% discount. Free tier requires email verification. Stripe Checkout is used for initial subscription creation. Plan changes (up/down) use the Stripe API with proration. The `Subscription` model stores denormalized limits (`maxTags`, `maxScansPerMonth`, `allowsWhatsApp`, `allowsLocationTracking`) which are synced from Stripe webhook events. This avoids needing to query Stripe for every authorization check.
+
+**Stripe webhook events handled:**
+
+- `checkout.session.completed` -- Provision subscription after initial checkout.
+- `invoice.paid` -- Renew subscription period, reset monthly counters.
+- `invoice.payment_failed` -- Mark subscription as `PAST_DUE`, notify owner, trigger dunning.
+- `customer.subscription.updated` -- Sync plan changes, period dates.
+- `customer.subscription.deleted` -- Mark subscription `CANCELLED`, downgrade to free limits.
+- `charge.refunded` -- Update `Payment` record with refund details.
+
+### 4.4 File/Image Storage Strategy
+
+**Storage provider:** S3-compatible object storage (AWS S3 or a provider like Cloudflare R2 which has no egress fees -- important for an Australian startup optimising costs).
+
+**Upload flow:** The client never uploads directly to the API server. Instead:
+
+1. Client requests a pre-signed upload URL: `POST /api/v1/media/upload-url` with `{ filename, contentType, context: "tag-photo" }`.
+2. Backend validates the request (file type whitelist: JPEG, PNG, WebP; max size: 5MB), generates a pre-signed S3 PUT URL with a 15-minute expiry, and returns it along with the final public CDN URL.
+3. Client uploads directly to S3 via the pre-signed URL.
+4. Client then submits the CDN URL when updating the tag or profile.
+
+**Bucket structure:**
+
+```
+scan2call-media/
+├── tag-photos/{userId}/{tagId}.webp
+├── avatars/{userId}.webp
+├── qr-codes/{batchId}/{token}.png
+└── product-images/{productId}/{index}.webp
+```
+
+**Image processing:** On upload, a background job (triggered by an S3 event or an API-side queue) resizes and converts images to WebP at multiple sizes (thumbnail 150px, medium 400px, large 800px). The CDN URL pattern supports size variants: `cdn.scan2call.com.au/tag-photos/{userId}/{tagId}_400.webp`.
+
+### 4.5 Rate Limiting and Abuse Prevention
+
+Rate limiting uses a layered approach:
+
+**Layer 1 -- Global (NestJS ThrottlerModule with Redis store):**
+- Default: 100 requests per minute per IP.
+- Applied via a global guard, overridable per-route with `@Throttle()`.
+
+**Layer 2 -- Endpoint-specific limits:**
+- `POST /auth/login`: 5 attempts per 15 minutes per IP (brute force protection).
+- `POST /auth/forgot-password`: 3 requests per hour per email.
+- `POST /communication/call`: 3 calls per 10 minutes per IP (prevents relay abuse).
+- `POST /communication/sms`: 5 SMS per 10 minutes per IP.
+- `POST /communication/browser-call`: 3 calls per 10 minutes per IP.
+- `GET /scan/:token`: 30 requests per minute per IP (prevents token enumeration).
+- `POST /admin/tags/generate`: 5 requests per hour (prevent runaway batch generation).
+
+**Layer 3 -- Business logic abuse detection:**
+- If a single tag receives more than 20 scans in an hour from different IPs, flag for review and optionally temporarily disable relay for that tag.
+- If a single IP scans more than 10 different tokens in 5 minutes, block that IP for 1 hour (token enumeration attempt).
+- CAPTCHA (hCaptcha or Turnstile) on the finder-facing contact form before initiating relay.
+
+**Layer 4 -- Infrastructure:**
+- Cloudflare (or equivalent) WAF in front of the application for DDoS protection, bot management, and geographic filtering.
+- The webhook endpoints (`/webhooks/stripe`, `/webhooks/twilio/*`) are exempt from rate limiting but protected by signature verification (see below).
+
+### 4.6 Webhook Signature Verification
+
+**Stripe:**
+
+Every incoming request to `POST /webhooks/stripe` is verified using the `stripe.webhooks.constructEvent()` method. This requires:
+1. The raw request body (not parsed). NestJS must be configured to preserve raw body for this route (via `rawBody: true` in the NestFactory options or a dedicated middleware).
+2. The `stripe-signature` header from the request.
+3. The webhook signing secret from the Stripe dashboard (stored in environment variable `STRIPE_WEBHOOK_SECRET`).
+
+If verification fails, the endpoint returns `400 Bad Request` immediately. The webhook controller should be stateless and idempotent -- it uses the Stripe event ID to deduplicate (checking against a `processed_webhook_events` table or a Redis set with TTL).
+
+**Twilio:**
+
+Every incoming request to `/webhooks/twilio/*` is verified using the `twilio.validateRequest()` method (or the `@twilio/webhook` middleware). This verifies:
+1. The `X-Twilio-Signature` header.
+2. The full URL of the webhook endpoint (must match exactly, including protocol and port).
+3. The request body parameters.
+4. The Twilio Auth Token (stored in environment variable `TWILIO_AUTH_TOKEN`).
+
+A NestJS guard (`TwilioWebhookGuard`) is applied to all Twilio webhook routes. This guard extracts the signature and validates it before the request reaches the controller. Requests with invalid signatures are rejected with `403 Forbidden`.
+
+### 4.7 Additional Architecture Decisions
+
+**JWT structure:**
+- Access token: 15-minute expiry, contains `{ sub: userId, role, email }`. Signed with RS256 (asymmetric) so the frontend can decode without the secret.
+- Refresh token: 7-day expiry, opaque (stored in database), rotated on each use (old token revoked, new one issued). Sent as an HttpOnly, Secure, SameSite=Strict cookie.
+
+**CORS:**
+- Frontend origin only: `https://scan2call.com.au` and `https://www.scan2call.com.au`.
+- The scan page (`/scan/:token`) is same-origin, so no CORS issue.
+- Webhook endpoints do not need CORS (server-to-server).
+
+**Australian data residency:**
+- Database hosted in `ap-southeast-2` (Sydney) region.
+- S3 bucket in the same region.
+- CDN with Australian edge nodes.
+- This satisfies the Australian Privacy Act requirements for an Australian business handling PII.
+
+**Caching strategy:**
+- Product listings: CDN cached (5-minute TTL) via Next.js ISR.
+- Scan pages: ISR with on-demand revalidation when tag data changes (the API calls the Next.js revalidation webhook).
+- API responses for product/plan listings: Redis cache with 5-minute TTL.
+- User-specific data (tags, orders): No caching, always fresh from the database.
+
+**Testing strategy:**
+- Backend: Unit tests for services (mocked Prisma, Twilio, Stripe), integration tests for controllers (using `@nestjs/testing` with a test database), E2E tests for critical flows (scan, relay, checkout).
+- Frontend: Component tests with React Testing Library, E2E with Playwright for the scan flow and checkout flow.
+- Shared: Pure function tests for validation schemas.
+
+**Environment variables (critical ones):**
+
+```
+# Database
+DATABASE_URL=postgresql://...
+
+# Auth
+JWT_ACCESS_SECRET=...
+JWT_REFRESH_SECRET=...
+
+# Twilio
+TWILIO_ACCOUNT_SID=...
+TWILIO_AUTH_TOKEN=...
+TWILIO_PROXY_SERVICE_SID=...
+TWILIO_PHONE_NUMBER=...
+TWILIO_WHATSAPP_NUMBER=...
+TWILIO_TWIML_APP_SID=...
+
+# Stripe
+STRIPE_SECRET_KEY=...
+STRIPE_PUBLISHABLE_KEY=...
+STRIPE_WEBHOOK_SECRET=...
+
+# S3
+S3_BUCKET=...
+S3_REGION=ap-southeast-2
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+CDN_URL=https://cdn.scan2call.com.au
+
+# App
+APP_URL=https://scan2call.com.au
+API_URL=https://api.scan2call.com.au
+NODE_ENV=production
+```
+
+---
+
+### Critical Files for Implementation
+
+Since this is a greenfield project, the "critical files" represent the files that should be created first and will anchor the rest of the implementation:
+
+- `d:/scan2call/prisma/schema.prisma` - The Prisma schema is the single source of truth for the data model. All backend modules depend on it. Implement this first to generate the Prisma client and migration baseline.
+- `d:/scan2call/apps/api/src/tags/tags.service.ts` - Core business logic: token generation, tag activation, lost-mode toggling, and the public scan endpoint. This is the central domain that everything else connects to.
+- `d:/scan2call/apps/api/src/communication/communication.service.ts` - The Twilio Proxy integration for anonymous relay. This is the primary differentiating feature and the most technically complex module.
+- `d:/scan2call/apps/api/src/payments/stripe-webhook.controller.ts` - Stripe webhook handler for subscription lifecycle and payment events. Must handle raw body preservation, signature verification, and idempotent event processing. Getting this right is essential for revenue.
+- `d:/scan2call/apps/web/src/app/scan/[token]/page.tsx` - The finder-facing scan page. This is the most-visited page in the entire application (every QR scan hits it) and must be fast (ISR/SSR), mobile-first, and privacy-safe. It drives the core value proposition.

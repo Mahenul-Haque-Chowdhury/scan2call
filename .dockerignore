@@ -1,0 +1,15 @@
+node_modules
+.pnpm-store
+.git
+.gitignore
+.github
+.turbo
+apps/*/.next
+apps/*/dist
+packages/*/dist
+coverage
+tmp
+backups
+*.log
+.env
+docker/.env.production

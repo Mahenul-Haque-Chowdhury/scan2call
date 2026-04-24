@@ -1,0 +1,130 @@
+# Production Docker Compose - Scan2Call
+# Do NOT use this file directly. Use with docker-compose override:
+#   docker-compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: scan2call-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-scan2call}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:5432:5432"  # Only expose to localhost
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-scan2call} -d ${POSTGRES_DB:-scan2call}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  api:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.api
+    container_name: scan2call-api
+    restart: always
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: ${REDIS_URL:-}
+      NODE_OPTIONS: --max-old-space-size=512
+    env_file:
+      - .env.production
+    ports:
+      - "127.0.0.1:3001:3001"  # Expose to localhost, use nginx/caddy in front
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/v1/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  web:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.web
+    container_name: scan2call-web
+    restart: always
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=384
+    env_file:
+      - .env.production
+    ports:
+      - "127.0.0.1:3000:3000"  # Expose to localhost, use nginx/caddy in front
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: scan2call-caddy
+    restart: always
+    depends_on:
+      web:
+        condition: service_started
+      api:
+        condition: service_started
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_HOST: ${APP_HOST}
+      API_HOST: ${API_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  postgres_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

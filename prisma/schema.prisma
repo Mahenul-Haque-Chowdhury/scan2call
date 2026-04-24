@@ -1,0 +1,571 @@
+// ──────────────────────────────────────────────
+// Scan2Call — Prisma Schema
+// ──────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────────────
+// ENUMS
+// ──────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  MANAGER
+  CUSTOMER
+  FINDER
+}
+
+enum TagType {
+  PET_COLLAR
+  CAR_STICKER
+  LUGGAGE_TAG
+  KEYCHAIN
+  MEDICAL_BAND
+  GENERIC
+}
+
+enum TagStatus {
+  INACTIVE
+  ACTIVE
+  LOST
+  FOUND
+  DEACTIVATED
+}
+
+enum CommunicationType {
+  VOICE_CALL
+  SMS
+  WHATSAPP
+  LOCATION_SHARE
+}
+
+enum CommunicationStatus {
+  INITIATED
+  RINGING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  NO_ANSWER
+  BUSY
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  UNPAID
+  INCOMPLETE
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum AdminActionType {
+  USER_SUSPENDED
+  USER_UNSUSPENDED
+  TAG_DEACTIVATED
+  TAG_REACTIVATED
+  TAG_BATCH_GENERATED
+  TAG_CSV_IMPORTED
+  ORDER_UPDATED
+  PRODUCT_UPDATED
+  REFUND_ISSUED
+  MODERATION_ACTION
+  QR_GENERATED
+  ORDER_TAGS_ACTIVATED
+}
+
+// ──────────────────────────────────────────────
+// USERS
+// ──────────────────────────────────────────────
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  googleId        String?   @unique
+  facebookId      String?   @unique
+  emailVerified   Boolean   @default(false)
+  emailVerifiedAt DateTime?
+  phone           String?   @unique
+  phoneVerified   Boolean   @default(false)
+  phoneVerifiedAt DateTime?
+  passwordHash    String?
+  firstName       String
+  lastName        String
+  role            Role      @default(CUSTOMER)
+  avatarUrl       String?
+  timezone        String    @default("Australia/Sydney")
+
+  // Notification preferences
+  notifyOnScan  Boolean @default(true)
+  notifyViaSms  Boolean @default(true)
+  notifyViaEmail Boolean @default(true)
+  notifyViaPush Boolean @default(false)
+
+  // Stripe link
+  stripeCustomerId String? @unique
+
+  // Account state
+  isSuspended    Boolean   @default(false)
+  suspendedAt    DateTime?
+  suspendedReason String?
+  lastLoginAt    DateTime?
+
+  // Soft delete
+  deletedAt DateTime?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tags              Tag[]
+  scans             Scan[]
+  orders            Order[]
+  subscription      Subscription?
+  payments          Payment[]
+  communicationLogs CommunicationLog[]
+  refreshTokens     RefreshToken[]
+  adminAuditLogs    AdminAuditLog[]
+  tagBatchesGenerated TagBatch[] @relation("tagBatchesGenerated")
+
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  ipAddress String?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model VerificationToken {
+  id         String    @id @default(cuid())
+  identifier String
+  token      String    @unique
+  type       String    // EMAIL_VERIFY | PHONE_VERIFY | PASSWORD_RESET
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([identifier, type])
+  @@index([expiresAt])
+  @@map("verification_tokens")
+}
+
+// ──────────────────────────────────────────────
+// TAGS (QR Tokens)
+// ──────────────────────────────────────────────
+
+model Tag {
+  id     String    @id @default(cuid())
+  token  String    @unique // 12-char base62 via crypto.randomBytes(9)
+  type   TagType   @default(GENERIC)
+  status TagStatus @default(INACTIVE)
+
+  // Owner link (nullable: tags exist before being claimed)
+  ownerId String?
+  owner   User?   @relation(fields: [ownerId], references: [id])
+
+  // Tag metadata set by owner
+  label       String?
+  description String?
+  photoUrl    String?
+
+  // Lost mode
+  isLostMode      Boolean  @default(true)
+  lostModeAt      DateTime?
+  lostModeMessage String?
+
+  // Contact preferences per tag
+  allowVoiceCall    Boolean @default(true)
+  allowSms          Boolean @default(true)
+  allowWhatsApp     Boolean @default(false)
+  allowSendLocation Boolean @default(true)
+
+  // Activation
+  activatedAt   DateTime?
+  deactivatedAt DateTime?
+
+  // Batch tracking (admin-generated tags)
+  batchId String?
+  batch   TagBatch? @relation(fields: [batchId], references: [id])
+
+  // Order item link (tag created from order)
+  orderItemId String?
+  orderItem   OrderItem? @relation(fields: [orderItemId], references: [id])
+
+  // Soft delete
+  deletedAt DateTime?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  scans             Scan[]
+  communicationLogs CommunicationLog[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([type])
+  @@index([batchId])
+  @@index([orderItemId])
+  @@index([deletedAt])
+  @@map("tags")
+}
+
+model TagBatch {
+  id          String   @id @default(cuid())
+  name        String
+  quantity    Int
+  tagType     TagType
+  generatedBy String
+  generatedByUser User @relation("tagBatchesGenerated", fields: [generatedBy], references: [id])
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  tags Tag[]
+
+  @@index([generatedBy])
+  @@map("tag_batches")
+}
+
+// ──────────────────────────────────────────────
+// SCANS (Audit Log)
+// ──────────────────────────────────────────────
+
+model Scan {
+  id      String  @id @default(cuid())
+  tagId   String
+  tag     Tag     @relation(fields: [tagId], references: [id])
+  ownerId String?
+  owner   User?   @relation(fields: [ownerId], references: [id])
+
+  // Finder context (privacy-respecting)
+  ipAddress String? // SHA-256 hashed, never raw
+  userAgent String?
+  latitude  Float?
+  longitude Float?
+  city      String?
+  country   String?
+
+  // Scan outcome
+  contactInitiated Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([tagId])
+  @@index([ownerId])
+  @@index([createdAt])
+  @@map("scans")
+}
+
+// ──────────────────────────────────────────────
+// COMMUNICATION (Anonymous Relay)
+// ──────────────────────────────────────────────
+
+model CommunicationLog {
+  id      String @id @default(cuid())
+  tagId   String
+  tag     Tag    @relation(fields: [tagId], references: [id])
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id])
+  scanId  String?
+
+  type   CommunicationType
+  status CommunicationStatus @default(INITIATED)
+
+  // Twilio references
+  twilioSessionSid String?
+  twilioCallSid    String?
+  twilioMessageSid String?
+  proxyNumber      String?
+
+  // Metadata (NO real finder phone stored)
+  durationSeconds Int?
+  messageCount    Int?
+
+  // Timestamps
+  initiatedAt DateTime  @default(now())
+  connectedAt DateTime?
+  endedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tagId])
+  @@index([ownerId])
+  @@index([twilioSessionSid])
+  @@index([createdAt])
+  @@map("communication_logs")
+}
+
+// ──────────────────────────────────────────────
+// PRODUCTS (Store)
+// ──────────────────────────────────────────────
+
+model Product {
+  id               String  @id @default(cuid())
+  name             String
+  slug             String  @unique
+  description      String
+  shortDescription String?
+
+  // Pricing (AUD cents)
+  priceInCents   Int
+  compareAtPrice Int?
+
+  // Inventory
+  sku           String @unique
+  stockQuantity Int    @default(0)
+  isInStock     Boolean @default(true)
+
+  // Product details
+  tagType          TagType?
+  includesTagCount Int      @default(0)
+
+  // Media
+  images ProductImage[]
+
+  // Display
+  isActive   Boolean @default(true)
+  isFeatured Boolean @default(false)
+  sortOrder  Int     @default(0)
+
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+
+  // Stripe
+  stripePriceId   String?
+  stripeProductId String?
+
+  // Soft delete
+  deletedAt DateTime?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  orderItems OrderItem[]
+
+  @@index([isActive, isFeatured])
+  @@index([deletedAt])
+  @@map("products")
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  altText   String?
+  sortOrder Int     @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@map("product_images")
+}
+
+// ──────────────────────────────────────────────
+// ORDERS
+// ──────────────────────────────────────────────
+
+model Order {
+  id          String      @id @default(cuid())
+  orderNumber String      @unique // SC-YYYYMMDD-XXXX
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  status      OrderStatus @default(PENDING)
+
+  // Pricing (AUD cents)
+  subtotalInCents Int
+  shippingInCents Int    @default(0)
+  taxInCents      Int    @default(0)
+  discountInCents Int    @default(0)
+  totalInCents    Int
+  currency        String @default("AUD")
+
+  // Shipping address (snapshot at order time)
+  shippingFirstName String
+  shippingLastName  String
+  shippingAddress1  String
+  shippingAddress2  String?
+  shippingCity      String
+  shippingState     String
+  shippingPostcode  String
+  shippingCountry   String @default("AU")
+
+  // Tracking
+  trackingNumber  String?
+  trackingCarrier String?
+  shippedAt       DateTime?
+  deliveredAt     DateTime?
+
+  // Stripe
+  stripePaymentIntentId String? @unique
+
+  // Notes
+  customerNotes String?
+  internalNotes String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  items   OrderItem[]
+  payment Payment?
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  // Snapshot at order time
+  productName      String
+  productSku       String
+  quantity         Int
+  unitPriceInCents Int
+  totalPriceInCents Int
+
+  // Tag customization (set by user at checkout)
+  tagLabel       String?
+  tagDescription String?
+
+  // Tags generated for this item (one per unit)
+  tags Tag[]
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+// ──────────────────────────────────────────────
+// SUBSCRIPTIONS
+// ──────────────────────────────────────────────
+
+model Subscription {
+  id     String             @id @default(cuid())
+  userId String             @unique
+  user   User               @relation(fields: [userId], references: [id])
+  status SubscriptionStatus @default(ACTIVE)
+
+  // Stripe
+  stripeSubscriptionId String? @unique
+  stripePriceId        String?
+
+  // Billing period
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean   @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("subscriptions")
+}
+
+// ──────────────────────────────────────────────
+// PAYMENTS / INVOICES
+// ──────────────────────────────────────────────
+
+model Payment {
+  id      String        @id @default(cuid())
+  userId  String
+  user    User          @relation(fields: [userId], references: [id])
+  orderId String?       @unique
+  order   Order?        @relation(fields: [orderId], references: [id])
+  status  PaymentStatus @default(PENDING)
+
+  amountInCents Int
+  currency      String @default("AUD")
+
+  // Stripe
+  stripePaymentIntentId String? @unique
+  stripeInvoiceId       String?
+  stripeChargeId        String?
+  paymentMethod         String?
+  cardLast4             String?
+  cardBrand             String?
+
+  // Refund
+  refundedAmountInCents Int       @default(0)
+  refundedAt            DateTime?
+
+  // Receipt
+  receiptUrl String?
+
+  // Timestamps
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("payments")
+}
+
+// ──────────────────────────────────────────────
+// ADMIN AUDIT LOG
+// ──────────────────────────────────────────────
+
+model AdminAuditLog {
+  id         String          @id @default(cuid())
+  adminId    String
+  admin      User            @relation(fields: [adminId], references: [id])
+  action     AdminActionType
+  targetType String
+  targetId   String
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime        @default(now())
+
+  @@index([adminId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
+}

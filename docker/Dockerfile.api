@@ -1,0 +1,32 @@
+FROM node:20-bookworm-slim AS builder
+
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+
+RUN corepack enable
+
+WORKDIR /app
+
+COPY . .
+
+RUN pnpm install --frozen-lockfile
+
+RUN pnpm -C packages/shared exec tsc -p tsconfig.build.json && pnpm -C apps/api exec nest build
+
+FROM node:20-bookworm-slim AS runner
+
+ENV NODE_ENV=production
+
+WORKDIR /app
+
+COPY --from=builder /app/node_modules node_modules
+COPY --from=builder /app/apps/api/dist apps/api/dist
+COPY --from=builder /app/apps/api/package.json apps/api/package.json
+COPY --from=builder /app/packages/shared/dist packages/shared/dist
+COPY --from=builder /app/packages/shared/package.json packages/shared/package.json
+COPY --from=builder /app/prisma prisma
+COPY --from=builder /app/package.json package.json
+
+EXPOSE 3001
+
+CMD ["node", "apps/api/dist/main.js"]
