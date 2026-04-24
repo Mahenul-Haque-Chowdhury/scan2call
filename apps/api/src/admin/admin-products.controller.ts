@@ -10,7 +10,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
-import { Role, TagType } from '@prisma/client';
+import { TagType } from '@prisma/client';
+import { Role } from '@scan2call/shared';
 import { IsString, IsOptional, IsInt, Min, MaxLength } from 'class-validator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';

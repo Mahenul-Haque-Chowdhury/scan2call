@@ -10,7 +10,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
+import type { Role as PrismaRole } from '@prisma/client';
+import { Role } from '@scan2call/shared';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -30,12 +31,12 @@ export class AdminUsersController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'pageSize', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
-  @ApiQuery({ name: 'role', required: false, enum: Role })
+  @ApiQuery({ name: 'role', required: false, enum: Object.values(Role) })
   async listUsers(
     @Query('page') page?: number,
     @Query('pageSize') pageSize?: number,
     @Query('search') search?: string,
-    @Query('role') role?: Role,
+    @Query('role') role?: PrismaRole,
   ) {
     return this.adminService.listUsers({ page, pageSize, search, role });
   }
@@ -52,7 +53,7 @@ export class AdminUsersController {
   async updateUser(
     @CurrentUser() admin: JwtPayload,
     @Param('id') id: string,
-    @Body() body: { role?: Role; isSuspended?: boolean; suspendedReason?: string },
+    @Body() body: { role?: PrismaRole; isSuspended?: boolean; suspendedReason?: string },
   ) {
     return this.adminService.updateUser(admin.id, id, body);
   }
