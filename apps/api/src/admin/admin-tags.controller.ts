@@ -15,8 +15,8 @@ import {
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
-import { TagStatus, TagType } from '@prisma/client';
-import { Role } from '@scan2call/shared';
+import type { TagStatus as PrismaTagStatus, TagType as PrismaTagType } from '@prisma/client';
+import { Role, TagStatus, TagType } from '@scan2call/shared';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -47,8 +47,8 @@ export class AdminTagsController {
   async listTags(
     @Query('page') page?: number,
     @Query('pageSize') pageSize?: number,
-    @Query('status') status?: TagStatus,
-    @Query('type') type?: TagType,
+    @Query('status') status?: PrismaTagStatus,
+    @Query('type') type?: PrismaTagType,
     @Query('search') search?: string,
   ) {
     return this.adminService.listTags({ page, pageSize, status, type, search });

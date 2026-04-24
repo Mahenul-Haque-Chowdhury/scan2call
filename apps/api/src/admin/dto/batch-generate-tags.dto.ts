@@ -1,7 +1,7 @@
 import { IsInt, IsEnum, IsString, IsOptional, Min, Max } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { TagType } from '@prisma/client';
+import { TagType } from '@scan2call/shared';
 
 export class BatchGenerateTagsDto {
   @ApiProperty({ example: 50, description: 'Number of tags to generate (1-10000)' })

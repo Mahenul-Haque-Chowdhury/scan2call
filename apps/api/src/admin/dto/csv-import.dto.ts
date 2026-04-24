@@ -1,6 +1,6 @@
 import { IsOptional, IsString, IsEnum } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { TagType } from '@prisma/client';
+import { TagType } from '@scan2call/shared';
 
 export class CsvImportDto {
   @ApiPropertyOptional({ enum: TagType, description: 'Tag type for all imported tags' })

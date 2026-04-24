@@ -10,8 +10,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
-import { TagType } from '@prisma/client';
-import { Role } from '@scan2call/shared';
+import type { TagType as PrismaTagType } from '@prisma/client';
+import { Role, TagType } from '@scan2call/shared';
 import { IsString, IsOptional, IsInt, Min, MaxLength } from 'class-validator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -55,7 +55,7 @@ export class AdminProductsController {
     @Query('page') page?: number,
     @Query('pageSize') pageSize?: number,
     @Query('search') search?: string,
-    @Query('tagType') tagType?: TagType,
+    @Query('tagType') tagType?: PrismaTagType,
     @Query('includeDeleted') includeDeleted?: string,
   ) {
     return this.adminService.listProducts({

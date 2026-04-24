@@ -9,7 +9,8 @@ import {
   Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TagType } from '@prisma/client';
+import type { TagType as PrismaTagType } from '@prisma/client';
+import { TagType } from '@scan2call/shared';
 
 export class CreateProductDto {
   @ApiProperty()
@@ -59,7 +60,7 @@ export class CreateProductDto {
   @ApiPropertyOptional({ enum: TagType })
   @IsOptional()
   @IsEnum(TagType)
-  tagType?: TagType;
+  tagType?: PrismaTagType;
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
@@ -153,7 +154,7 @@ export class UpdateProductDto {
   @ApiPropertyOptional({ enum: TagType })
   @IsOptional()
   @IsEnum(TagType)
-  tagType?: TagType;
+  tagType?: PrismaTagType;
 
   @ApiPropertyOptional()
   @IsOptional()
