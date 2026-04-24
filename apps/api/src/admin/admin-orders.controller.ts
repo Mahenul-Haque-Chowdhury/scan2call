@@ -9,8 +9,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
-import { OrderStatus } from '@prisma/client';
-import { Role } from '@scan2call/shared';
+import type { OrderStatus as PrismaOrderStatus } from '@prisma/client';
+import { OrderStatus, Role } from '@scan2call/shared';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -34,7 +34,7 @@ export class AdminOrdersController {
   async listOrders(
     @Query('page') page?: number,
     @Query('pageSize') pageSize?: number,
-    @Query('status') status?: OrderStatus,
+    @Query('status') status?: PrismaOrderStatus,
     @Query('search') search?: string,
   ) {
     return this.adminService.listOrders({ page, pageSize, status, search });
@@ -53,7 +53,7 @@ export class AdminOrdersController {
     @Param('id') id: string,
     @Body()
     body: {
-      status?: OrderStatus;
+      status?: PrismaOrderStatus;
       trackingNumber?: string;
       trackingCarrier?: string;
       internalNotes?: string;
