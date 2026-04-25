@@ -209,23 +209,47 @@ export default function ProductForm({ productId }: ProductFormProps) {
 
     try {
       for (const file of Array.from(files)) {
-        // 1. Get presigned URL (response wrapped in { data } envelope)
-        const result = await apiClient.post<{
-          data: { uploadUrl: string; key: string; publicUrl: string };
-        }>('/media/upload-url', {
-          fileName: file.name,
-          contentType: file.type,
-          fileSize: file.size,
-          folder: 'products',
-        });
-        const { uploadUrl, key, publicUrl } = result.data;
+        let uploadUrl: string;
+        let key: string;
+        let publicUrl: string;
 
-        // 2. Upload directly to S3/R2
-        await fetch(uploadUrl, {
-          method: 'PUT',
-          body: file,
-          headers: { 'Content-Type': file.type },
-        });
+        try {
+          const result = await apiClient.post<{
+            data: { uploadUrl: string; key: string; publicUrl: string };
+          }>('/media/upload-url', {
+            fileName: file.name,
+            contentType: file.type,
+            fileSize: file.size,
+            folder: 'products',
+          });
+          ({ uploadUrl, key, publicUrl } = result.data);
+        } catch (error) {
+          throw new Error(
+            error instanceof Error
+              ? `Could not prepare image upload: ${error.message}`
+              : 'Could not prepare image upload.',
+          );
+        }
+
+        try {
+          const uploadResponse = await fetch(uploadUrl, {
+            method: 'PUT',
+            body: file,
+            headers: { 'Content-Type': file.type },
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(`Storage upload failed (${uploadResponse.status} ${uploadResponse.statusText})`);
+          }
+        } catch (error) {
+          throw new Error(
+            error instanceof Error && error.message.includes('Failed to fetch')
+              ? 'Direct upload to storage failed. Check the R2 bucket CORS rules and S3 endpoint configuration.'
+              : error instanceof Error
+                ? error.message
+                : 'Direct upload to storage failed.',
+          );
+        }
 
         // 3. Add to local images state (will save with product)
         setImages((prev) => [

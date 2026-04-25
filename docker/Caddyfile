@@ -1,3 +1,7 @@
+{$WWW_APP_HOST} {
+  redir https://{$APP_HOST}{uri} permanent
+}
+
 {$APP_HOST} {
   encode zstd gzip
 

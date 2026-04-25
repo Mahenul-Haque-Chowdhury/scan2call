@@ -112,6 +112,7 @@ services:
       - "443:443"
     environment:
       APP_HOST: ${APP_HOST}
+      WWW_APP_HOST: ${WWW_APP_HOST}
       API_HOST: ${API_HOST}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
