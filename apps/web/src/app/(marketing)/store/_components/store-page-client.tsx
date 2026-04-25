@@ -10,6 +10,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { FadeIn } from '@/components/ui/motion';
+import { getApiOrigin } from '@/lib/api-origin';
 
 interface ProductImage {
   url: string;
@@ -41,7 +42,7 @@ interface ProductsResponse {
   meta: { page: number; pageSize: number; total: number };
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE = getApiOrigin();
 
 function formatPrice(cents: number): string {
   return (cents / 100).toFixed(2);

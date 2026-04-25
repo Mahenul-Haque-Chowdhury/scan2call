@@ -7,7 +7,9 @@
  * - On 401 responses, fetchWithAuth transparently attempts a token refresh
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { getApiOrigin } from './api-origin';
+
+const API_BASE = getApiOrigin();
 const API_PREFIX = `${API_BASE}/api/v1`;
 
 // ---------------------------------------------------------------------------
