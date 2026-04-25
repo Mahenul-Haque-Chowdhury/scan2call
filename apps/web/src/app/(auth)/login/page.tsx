@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert } from '@/components/ui/alert';
 import { Divider } from '@/components/ui/divider';
+import { getApiOrigin } from '@/lib/api-origin';
+
+const API_BASE = getApiOrigin();
 
 const stagger = {
   hidden: {},
@@ -75,7 +78,7 @@ export default function LoginPage() {
       <motion.div variants={fadeUp} className="mt-6">
         <div className="grid grid-cols-2 gap-3">
           <motion.a
-            href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/v1/auth/google`}
+            href={`${API_BASE}/api/v1/auth/google`}
             className="flex items-center justify-center gap-2 rounded-xl border border-border py-2.5 text-sm font-medium text-text transition-all hover:bg-surface-raised hover:border-border-hover"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -89,7 +92,7 @@ export default function LoginPage() {
             Google
           </motion.a>
           <motion.a
-            href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/v1/auth/facebook`}
+            href={`${API_BASE}/api/v1/auth/facebook`}
             className="flex items-center justify-center gap-2 rounded-xl border border-border py-2.5 text-sm font-medium text-text transition-all hover:bg-surface-raised hover:border-border-hover"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
