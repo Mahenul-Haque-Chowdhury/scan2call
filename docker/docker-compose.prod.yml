@@ -67,6 +67,10 @@ services:
     build:
       context: ../
       dockerfile: docker/Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        APP_URL: ${APP_URL}
+        API_URL: ${API_URL}
     container_name: scan2call-web
     restart: always
     environment:
