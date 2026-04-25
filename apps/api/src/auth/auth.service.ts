@@ -652,6 +652,12 @@ export class AuthService {
       },
     });
 
+    await this.notificationsService.sendSocialWelcomeEmail(
+      newUser.email,
+      newUser.firstName,
+      'Google',
+    );
+
     const tokens = await this.issueTokenPair(newUser.id, newUser.email, newUser.role, userAgent, ipAddress);
     return { tokens, user: newUser, isNewUser: true };
   }
@@ -727,6 +733,12 @@ export class AuthService {
         avatarUrl,
       },
     });
+
+    await this.notificationsService.sendSocialWelcomeEmail(
+      newUser.email,
+      newUser.firstName,
+      'Facebook',
+    );
 
     const tokens = await this.issueTokenPair(newUser.id, newUser.email, newUser.role, userAgent, ipAddress);
     return { tokens, user: newUser, isNewUser: true };

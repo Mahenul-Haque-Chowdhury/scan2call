@@ -42,6 +42,16 @@ interface DeliveryOptions {
   context?: string;
 }
 
+interface EmailTemplateOptions {
+  eyebrow?: string;
+  title: string;
+  intro: string;
+  body: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+  note?: string;
+}
+
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
@@ -123,39 +133,65 @@ export class NotificationsService {
       .replaceAll("'", '&#39;');
   }
 
+  private renderEmailTemplate(options: EmailTemplateOptions): string {
+    const eyebrowHtml = options.eyebrow
+      ? `<p style="margin: 0 0 12px; color: #facc15; font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;">${options.eyebrow}</p>`
+      : '';
+
+    const ctaHtml = options.ctaLabel && options.ctaUrl
+      ? `
+          <div style="text-align: center; margin: 32px 0 0;">
+            <a href="${options.ctaUrl}" style="display: inline-block; background: linear-gradient(135deg, #facc15 0%, #fde68a 100%); color: #0c0a09; font-size: 15px; font-weight: 700; text-decoration: none; padding: 14px 28px; border-radius: 999px; box-shadow: 0 12px 30px rgba(250, 204, 21, 0.18);">
+              ${options.ctaLabel}
+            </a>
+          </div>
+        `
+      : '';
+
+    const noteHtml = options.note
+      ? `<p style="margin: 24px 0 0; color: #a1a1aa; font-size: 13px; line-height: 1.6;">${options.note}</p>`
+      : '';
+
+    return `
+      <div style="margin: 0; padding: 32px 16px; background-color: #0a0a0a; background-image: radial-gradient(circle at top left, rgba(250, 204, 21, 0.12), transparent 32%), radial-gradient(circle at bottom right, rgba(124, 196, 250, 0.10), transparent 36%); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #fafafa;">
+        <div style="max-width: 600px; margin: 0 auto;">
+          <div style="margin-bottom: 18px; text-align: center; color: #facc15; font-size: 28px; font-weight: 800; letter-spacing: -0.03em;">
+            Scan2Call
+          </div>
+          <div style="border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: 36px 30px; background: rgba(20, 20, 20, 0.92); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);">
+            ${eyebrowHtml}
+            <h1 style="margin: 0 0 16px; color: #fafafa; font-size: 30px; line-height: 1.15; font-weight: 800; letter-spacing: -0.03em;">${options.title}</h1>
+            <p style="margin: 0 0 16px; color: #d4d4d8; font-size: 16px; line-height: 1.75;">${options.intro}</p>
+            <div style="margin-top: 20px; padding: 18px 20px; border-radius: 18px; background: rgba(250, 204, 21, 0.08); border: 1px solid rgba(250, 204, 21, 0.16); color: #e4e4e7; font-size: 15px; line-height: 1.75;">
+              ${options.body}
+            </div>
+            ${ctaHtml}
+            ${noteHtml}
+          </div>
+          <p style="margin: 18px 0 0; text-align: center; color: #71717a; font-size: 12px; line-height: 1.6;">
+            Privacy-first QR identity tags with secure contact relay.
+          </p>
+        </div>
+      </div>
+    `;
+  }
+
   /**
    * Send email verification link to a new user.
    */
   async sendVerificationEmail(email: string, firstName: string, token: string): Promise<void> {
     const verifyUrl = `${this.configService.appUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
 
-    const html = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 40px 20px;">
-        <div style="text-align: center; margin-bottom: 32px;">
-          <h1 style="color: #111827; font-size: 24px; font-weight: 700; margin: 0;">Scan2Call</h1>
-        </div>
-        <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 32px;">
-          <p style="color: #111827; font-size: 16px; line-height: 1.6; margin: 0 0 16px;">Hi ${firstName},</p>
-          <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 24px;">
-            Thanks for signing up for Scan2Call. Please verify your email address by clicking the button below.
-          </p>
-          <div style="text-align: center; margin: 32px 0;">
-            <a href="${verifyUrl}" style="display: inline-block; background-color: #111827; color: #ffffff; font-size: 16px; font-weight: 600; text-decoration: none; padding: 12px 32px; border-radius: 6px;">
-              Verify Email
-            </a>
-          </div>
-          <p style="color: #6b7280; font-size: 14px; line-height: 1.5; margin: 0 0 8px;">
-            This link expires in 24 hours.
-          </p>
-          <p style="color: #6b7280; font-size: 14px; line-height: 1.5; margin: 0;">
-            If you did not create an account, you can safely ignore this email.
-          </p>
-        </div>
-        <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 32px;">
-          Scan2Call - Smart NFC tags for instant contact
-        </p>
-      </div>
-    `;
+    const escapedFirstName = this.escapeHtml(firstName);
+    const html = this.renderEmailTemplate({
+      eyebrow: 'Account Security',
+      title: `Verify your email, ${escapedFirstName}`,
+      intro: 'Thanks for creating your Scan2Call account. Confirm your email address to unlock account access and keep your recovery options secure.',
+      body: 'Click the button below to verify your email. This verification link expires in 24 hours. If you did not create an account, you can safely ignore this email.',
+      ctaLabel: 'Verify Email',
+      ctaUrl: verifyUrl,
+      note: 'Scan2Call protects your identity with privacy-first QR tags and controlled contact relay.',
+    });
 
     await this.sendEmail(email, 'Verify your Scan2Call email', html, {
       critical: true,
@@ -169,37 +205,39 @@ export class NotificationsService {
   async sendPasswordResetEmail(email: string, firstName: string, token: string): Promise<void> {
     const resetUrl = `${this.configService.appUrl}/reset-password?token=${token}`;
 
-    const html = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 40px 20px;">
-        <div style="text-align: center; margin-bottom: 32px;">
-          <h1 style="color: #111827; font-size: 24px; font-weight: 700; margin: 0;">Scan2Call</h1>
-        </div>
-        <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 32px;">
-          <p style="color: #111827; font-size: 16px; line-height: 1.6; margin: 0 0 16px;">Hi ${firstName},</p>
-          <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 24px;">
-            We received a request to reset your password. Click the button below to choose a new one.
-          </p>
-          <div style="text-align: center; margin: 32px 0;">
-            <a href="${resetUrl}" style="display: inline-block; background-color: #111827; color: #ffffff; font-size: 16px; font-weight: 600; text-decoration: none; padding: 12px 32px; border-radius: 6px;">
-              Reset Password
-            </a>
-          </div>
-          <p style="color: #6b7280; font-size: 14px; line-height: 1.5; margin: 0 0 8px;">
-            This link expires in 1 hour.
-          </p>
-          <p style="color: #6b7280; font-size: 14px; line-height: 1.5; margin: 0;">
-            If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.
-          </p>
-        </div>
-        <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 32px;">
-          Scan2Call - Smart NFC tags for instant contact
-        </p>
-      </div>
-    `;
+    const escapedFirstName = this.escapeHtml(firstName);
+    const html = this.renderEmailTemplate({
+      eyebrow: 'Account Recovery',
+      title: `Reset your password, ${escapedFirstName}`,
+      intro: 'We received a request to reset your Scan2Call password.',
+      body: 'Use the button below to choose a new password. This reset link expires in 1 hour. If you did not request a password reset, you can safely ignore this email and your password will remain unchanged.',
+      ctaLabel: 'Reset Password',
+      ctaUrl: resetUrl,
+      note: 'If you continue having trouble accessing your account, contact Scan2Call Support.',
+    });
 
     await this.sendEmail(email, 'Reset your Scan2Call password', html, {
       critical: true,
       context: 'password reset email',
+    });
+  }
+
+  async sendSocialWelcomeEmail(email: string, firstName: string, provider: 'Google' | 'Facebook'): Promise<void> {
+    const escapedFirstName = this.escapeHtml(firstName);
+    const dashboardUrl = `${this.configService.appUrl}/dashboard`;
+    const html = this.renderEmailTemplate({
+      eyebrow: `${provider} Sign-In`,
+      title: `Welcome to Scan2Call, ${escapedFirstName}`,
+      intro: `Your account is now active with ${provider} sign-in, and you can start managing your tags immediately.`,
+      body: 'Scan2Call helps people protect valuables with privacy-first QR identity tags, secure contact relay, and a clean dashboard for scans, subscriptions, and recovery actions.',
+      ctaLabel: 'Open Dashboard',
+      ctaUrl: dashboardUrl,
+      note: 'This is a welcome email for a new social sign-in account. You will not receive this email again on future logins.',
+    });
+
+    await this.sendEmail(email, `Welcome to Scan2Call via ${provider}`, html, {
+      critical: false,
+      context: `${provider.toLowerCase()} welcome email`,
     });
   }
 
