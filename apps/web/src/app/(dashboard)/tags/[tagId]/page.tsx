@@ -416,7 +416,7 @@ export default function TagDetailPage() {
 
   if (!tag) return null;
 
-  const scanUrl = `https://scan2call.com.au/scan/${tag.token}`;
+  const scanUrl = `${window.location.origin}/scan/${tag.token}`;
   const editableContactPreferences = [
     {
       id: 'edit-allow-voice-calls',
