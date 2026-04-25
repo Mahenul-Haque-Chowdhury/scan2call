@@ -11,7 +11,7 @@ const sections = [
   { title: '2. How We Use Your Information', content: 'Your information is used to facilitate anonymous relay communication between tag owners and finders, manage your subscription, and improve our services.' },
   { title: '3. Data Storage', content: 'All data is stored in the ap-southeast-2 (Sydney) region in compliance with the Australian Privacy Act 1988.' },
   { title: '4. Third-Party Services', content: 'We use Twilio for communication relay, Stripe for payment processing, and Cloudflare R2 for asset storage. Each provider has their own privacy policy.' },
-  { title: '5. Contact', content: 'For privacy-related enquiries, please contact us at privacy@scan2call.com.au.' },
+  { title: '5. Contact', content: 'For privacy-related enquiries, please contact us at privacy@scan2call.net.' },
 ];
 
 export default function PrivacyPage() {
