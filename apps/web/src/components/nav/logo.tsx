@@ -15,22 +15,22 @@ const sizeStyles = {
 };
 
 const iconSizes = {
-  sm: 48,
-  md: 64,
-  lg: 72,
+  sm: 26,
+  md: 32,
+  lg: 42,
 };
 
 export function Logo({ size = 'md', className, linkTo = '/' }: LogoProps) {
   const iconSize = iconSizes[size];
 
   return (
-    <Link href={linkTo} className="inline-flex items-center -space-x-3 hover:opacity-90 transition-opacity">
+    <Link href={linkTo} className="inline-flex items-center gap-2.5 hover:opacity-90 transition-opacity">
       <Image
         src="/sca2call-logo.png"
         alt="Scan2Call logo"
         width={iconSize}
         height={iconSize}
-        className="shrink-0 -translate-y-0.5"
+        className="block shrink-0 object-contain"
       />
       <span className={cn('font-bold tracking-tight font-display', sizeStyles[size], className)}>
         Scan<span className="text-primary">2</span>Call
