@@ -6,12 +6,14 @@ import { AppConfigService } from '../../config/config.service';
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(configService: AppConfigService) {
+    const apiUrl = configService.apiUrl || 'http://localhost:3001';
+
     super({
       clientID: configService.googleClientId || 'not-configured',
       clientSecret: configService.googleClientSecret || 'not-configured',
       callbackURL:
         configService.googleCallbackUrl ||
-        'http://localhost:3001/api/v1/auth/google/callback',
+        `${apiUrl}/api/v1/auth/google/callback`,
       scope: ['email', 'profile'],
     });
   }

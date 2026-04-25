@@ -14,12 +14,14 @@ interface FacebookOAuthUser {
 @Injectable()
 export class FacebookStrategy extends PassportStrategy(Strategy, 'facebook') {
   constructor(configService: AppConfigService) {
+    const apiUrl = configService.apiUrl || 'http://localhost:3001';
+
     super({
       clientID: configService.facebookAppId || 'not-configured',
       clientSecret: configService.facebookAppSecret || 'not-configured',
       callbackURL:
         configService.facebookCallbackUrl ||
-        'http://localhost:3001/api/v1/auth/facebook/callback',
+        `${apiUrl}/api/v1/auth/facebook/callback`,
       scope: ['email'],
       profileFields: ['id', 'emails', 'name', 'photos'],
     });
