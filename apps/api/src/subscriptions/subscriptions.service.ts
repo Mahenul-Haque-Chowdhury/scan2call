@@ -89,7 +89,7 @@ export class SubscriptionsService {
     // Prevent duplicate active subscriptions
     const existing = await this.prisma.subscription.findUnique({
       where: { userId },
-      select: { status: true },
+      select: { status: true, stripeSubscriptionId: true },
     });
 
     if (existing?.status === 'ACTIVE' && existing.stripeSubscriptionId) {
