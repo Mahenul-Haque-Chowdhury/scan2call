@@ -136,7 +136,7 @@ export default function BillingSettingsPage() {
                   </div>
                 )}
               </div>
-              {subscription.cancelAtPeriodEnd && (
+              {subscription.cancelAtPeriodEnd && subscription.currentPeriodEnd && (
                 <Alert variant="warning" className="mt-4">
                   Your subscription is cancelled and will end on <span className="font-semibold">{formatDate(subscription.currentPeriodEnd)}</span>. Visit the <Link href="/subscription" className="font-medium underline hover:opacity-80">subscription page</Link> to resume.
                 </Alert>

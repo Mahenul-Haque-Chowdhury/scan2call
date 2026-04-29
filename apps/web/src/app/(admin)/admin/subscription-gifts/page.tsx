@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiClient } from '@/lib/api-client';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Search, Gift, Copy, UserPlus } from 'lucide-react';
 
@@ -84,7 +83,7 @@ export default function AdminSubscriptionGiftsPage() {
 
   useEffect(() => {
     fetchCodes(1, statusFilter, search);
-  }, [fetchCodes, statusFilter]);
+  }, [fetchCodes, statusFilter, search]);
 
   const handleSearch = () => {
     fetchCodes(1, statusFilter, search);

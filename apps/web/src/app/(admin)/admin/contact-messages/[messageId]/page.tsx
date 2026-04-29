@@ -135,7 +135,7 @@ export default function AdminContactMessageDetailPage() {
             >
               {message.status}
             </span>
-            <Badge variant="secondary">
+            <Badge variant="neutral">
               {new Date(message.createdAt).toLocaleString()}
             </Badge>
           </div>
