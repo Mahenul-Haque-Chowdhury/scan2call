@@ -300,7 +300,7 @@ export default function SubscriptionPage() {
         </div>
 
         <AnimatePresence>
-          {isCancelled && (
+          {isCancelled && subscription.currentPeriodEnd && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
               <Alert variant="warning" className="mt-4">
                 Your subscription has been cancelled and will end on <span className="font-semibold">{formatDate(subscription.currentPeriodEnd)}</span>. You can resume at any time before then.
@@ -324,7 +324,10 @@ export default function SubscriptionPage() {
                   animate={{ opacity: 1, height: 'auto' }}
                   className="w-full rounded-xl border border-error/20 bg-error-muted p-4"
                 >
-                  <p className="text-sm font-medium text-error">Are you sure you want to cancel? You will retain access until {formatDate(subscription.currentPeriodEnd)}.</p>
+                  <p className="text-sm font-medium text-error">
+                    Are you sure you want to cancel? You will retain access until{' '}
+                    {subscription.currentPeriodEnd ? formatDate(subscription.currentPeriodEnd) : '—'}.
+                  </p>
                   <div className="mt-3 flex gap-3">
                     <Button variant="danger" onClick={handleCancel} loading={cancelling}>{cancelling ? 'Cancelling...' : 'Confirm Cancellation'}</Button>
                     <Button variant="secondary" onClick={() => setShowCancelConfirm(false)}>Keep Subscription</Button>
