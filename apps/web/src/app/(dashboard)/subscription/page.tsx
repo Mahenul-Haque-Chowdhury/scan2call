@@ -13,9 +13,14 @@ import { Sparkles, Check, Crown, CreditCard } from 'lucide-react';
 interface Subscription {
   id: string;
   status: string;
-  currentPeriodStart: string;
-  currentPeriodEnd: string;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
+  source?: string;
+  giftExpiresAt?: string | null;
+  isLifetime?: boolean;
+  isGiftActive?: boolean;
+  isActive?: boolean;
 }
 
 function formatDate(dateStr: string): string {
@@ -53,6 +58,9 @@ export default function SubscriptionPage() {
   const [portalLoading, setPortalLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [redeemCode, setRedeemCode] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
+  const [redeemResult, setRedeemResult] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,6 +123,26 @@ export default function SubscriptionPage() {
       setPortalLoading(false);
     }
   }, []);
+
+  const handleRedeem = useCallback(async () => {
+    if (!redeemCode.trim()) {
+      setRedeemResult('Please enter a redeem code.');
+      return;
+    }
+    setRedeeming(true);
+    setRedeemResult(null);
+    try {
+      await apiClient.post('/subscriptions/redeem', { code: redeemCode.trim() });
+      setRedeemResult('Gift code applied successfully.');
+      setRedeemCode('');
+      const result = await apiClient.get<{ data: Subscription | null }>('/subscriptions/me');
+      setSubscription(result.data);
+    } catch (err) {
+      setRedeemResult(err instanceof ApiError ? err.message : 'Failed to redeem code.');
+    } finally {
+      setRedeeming(false);
+    }
+  }, [redeemCode]);
 
   if (loading) {
     return (
@@ -197,11 +225,37 @@ export default function SubscriptionPage() {
             </Button>
           </motion.div>
         </motion.div>
+
+        <div className="mt-8 rounded-2xl border border-border bg-surface p-6">
+          <h2 className="text-lg font-semibold text-text">Redeem a gift code</h2>
+          <p className="mt-1 text-sm text-text-muted">Have a gift code? Apply it here to unlock access.</p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <input
+              value={redeemCode}
+              onChange={(e) => setRedeemCode(e.target.value)}
+              className="flex-1 min-w-55 rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              placeholder="Scan2Call-Gift-XXXX"
+            />
+            <Button onClick={handleRedeem} loading={redeeming}>
+              {redeeming ? 'Applying...' : 'Redeem Code'}
+            </Button>
+          </div>
+          {redeemResult && (
+            <Alert variant={redeemResult.includes('successfully') ? 'success' : 'error'} className="mt-4">
+              {redeemResult}
+            </Alert>
+          )}
+        </div>
       </div>
     );
   }
 
   const isCancelled = subscription.cancelAtPeriodEnd;
+  const giftLabel = subscription.isLifetime
+    ? 'Lifetime gift access'
+    : subscription.giftExpiresAt
+      ? `Gift access until ${formatDate(subscription.giftExpiresAt)}`
+      : null;
 
   return (
     <div>
@@ -227,12 +281,22 @@ export default function SubscriptionPage() {
         <div className="mt-6 space-y-3 text-sm">
           <div className="flex justify-between">
             <span className="text-text-muted">Current period started</span>
-            <span className="font-medium text-text">{formatDate(subscription.currentPeriodStart)}</span>
+            <span className="font-medium text-text">
+              {subscription.currentPeriodStart ? formatDate(subscription.currentPeriodStart) : '—'}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-text-muted">{isCancelled ? 'Access until' : 'Next billing date'}</span>
-            <span className="font-medium text-text">{formatDate(subscription.currentPeriodEnd)}</span>
+            <span className="font-medium text-text">
+              {subscription.currentPeriodEnd ? formatDate(subscription.currentPeriodEnd) : '—'}
+            </span>
           </div>
+          {giftLabel && (
+            <div className="flex justify-between">
+              <span className="text-text-muted">Gift access</span>
+              <span className="font-medium text-text">{giftLabel}</span>
+            </div>
+          )}
         </div>
 
         <AnimatePresence>
@@ -274,6 +338,27 @@ export default function SubscriptionPage() {
           </Button>
         </div>
       </motion.div>
+
+      <div className="mt-6 rounded-2xl border border-border bg-surface p-6">
+        <h2 className="text-lg font-semibold text-text">Redeem a gift code</h2>
+        <p className="mt-1 text-sm text-text-muted">Apply a gift code to extend your access beyond your current plan.</p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <input
+            value={redeemCode}
+            onChange={(e) => setRedeemCode(e.target.value)}
+            className="flex-1 min-w-55 rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            placeholder="Scan2Call-Gift-XXXX"
+          />
+          <Button onClick={handleRedeem} loading={redeeming}>
+            {redeeming ? 'Applying...' : 'Redeem Code'}
+          </Button>
+        </div>
+        {redeemResult && (
+          <Alert variant={redeemResult.includes('successfully') ? 'success' : 'error'} className="mt-4">
+            {redeemResult}
+          </Alert>
+        )}
+      </div>
     </div>
   );
 }

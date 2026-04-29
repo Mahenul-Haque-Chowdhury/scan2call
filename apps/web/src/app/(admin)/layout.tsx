@@ -16,6 +16,8 @@ import {
   BarChart3,
   Activity,
   FileText,
+  Mail,
+  Gift,
   ArrowLeft,
   Menu,
   X,
@@ -29,6 +31,8 @@ const adminLinks = [
   { href: '/admin/orders', label: 'Orders', icon: Package },
   { href: '/admin/products', label: 'Products', icon: Store },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/admin/contact-messages', label: 'Contact Inbox', icon: Mail },
+  { href: '/admin/subscription-gifts', label: 'Subscription Gifts', icon: Gift },
   { href: '/admin/audit-log', label: 'Audit Log', icon: FileText },
   { href: '/admin/system-status', label: 'System Status', icon: Activity },
 ];

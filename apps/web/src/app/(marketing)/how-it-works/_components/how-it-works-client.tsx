@@ -68,7 +68,7 @@ export default function HowItWorksClient() {
               The Full Picture
             </span>
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
-              How Scan2Call works
+              How Scan<span className="text-primary">2</span>Call works
             </h1>
             <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
               From purchase to protection in minutes. Your identity stays hidden at every step.

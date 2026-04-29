@@ -4,6 +4,7 @@ import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser, JwtPayload } from '../common/decorators/current-user.decorator';
 import { SubscriptionsService } from './subscriptions.service';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
+import { RedeemGiftDto } from './dto/redeem-gift.dto';
 
 @ApiTags('subscriptions')
 @Controller('subscriptions')
@@ -53,5 +54,12 @@ export class SubscriptionsController {
   @ApiOperation({ summary: 'Generate Stripe Billing Portal URL' })
   async billingPortal(@CurrentUser() user: JwtPayload) {
     return this.subscriptionsService.createBillingPortalSession(user.id);
+  }
+
+  @Post('redeem')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Redeem a subscription gift code' })
+  async redeemGift(@CurrentUser() user: JwtPayload, @Body() dto: RedeemGiftDto) {
+    return this.subscriptionsService.redeemGiftCode(user.id, dto.code);
   }
 }

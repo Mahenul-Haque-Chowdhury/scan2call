@@ -15,6 +15,13 @@ import { PageHeader } from '@/components/ui/page-header';
 
 interface UserProfile { id: string; email: string; firstName: string; lastName: string; phone: string | null; }
 
+const baseCountryOptions = [
+  { code: '+61', label: 'Australia (+61)' },
+  { code: '+64', label: 'New Zealand (+64)' },
+  { code: '+1', label: 'United States (+1)' },
+  { code: '+44', label: 'United Kingdom (+44)' },
+];
+
 const cardAnim = (delay: number) => ({
   initial: { opacity: 0, y: 16 } as const,
   animate: { opacity: 1, y: 0 } as const,
@@ -27,7 +34,9 @@ export default function SettingsPage() {
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phoneCountryCode, setPhoneCountryCode] = useState('+61');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [customCountryCode, setCustomCountryCode] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
@@ -57,7 +66,30 @@ export default function SettingsPage() {
     (async () => {
       try {
         const result = await apiClient.get<{ data: UserProfile }>('/users/me');
-        if (!cancelled) { const p = result.data; setFirstName(p.firstName || ''); setLastName(p.lastName || ''); setPhone(p.phone || ''); }
+        if (!cancelled) {
+          const p = result.data;
+          setFirstName(p.firstName || '');
+          setLastName(p.lastName || '');
+          if (p.phone) {
+            const matching = baseCountryOptions.find((opt) => p.phone?.startsWith(opt.code));
+            if (matching) {
+              setPhoneCountryCode(matching.code);
+              setPhoneNumber(p.phone.slice(matching.code.length).trim());
+            } else if (p.phone.startsWith('+')) {
+              const match = p.phone.match(/^\+\d{1,3}/);
+              const code = match ? match[0] : '+61';
+              setCustomCountryCode(code);
+              setPhoneCountryCode(code);
+              setPhoneNumber(p.phone.slice(code.length).trim());
+            } else {
+              setPhoneCountryCode('+61');
+              setPhoneNumber(p.phone);
+            }
+          } else {
+            setPhoneCountryCode('+61');
+            setPhoneNumber('');
+          }
+        }
       } catch {
         if (!cancelled && user) { setFirstName(user.firstName || ''); setLastName(user.lastName || ''); }
       } finally {
@@ -70,11 +102,13 @@ export default function SettingsPage() {
   const handleProfileSave = useCallback(async (e: React.FormEvent) => {
     e.preventDefault(); setProfileSaving(true); setProfileError(null); setProfileSuccess(false);
     try {
-      await apiClient.patch('/users/me', { firstName: firstName.trim(), lastName: lastName.trim(), phone: phone.trim() || null });
+      const trimmedLocal = phoneNumber.replace(/\s+/g, '').replace(/-/g, '');
+      const formattedPhone = trimmedLocal ? `${phoneCountryCode}${trimmedLocal}` : null;
+      await apiClient.patch('/users/me', { firstName: firstName.trim(), lastName: lastName.trim(), phone: formattedPhone });
       setProfileSuccess(true); await refreshUser(); setTimeout(() => setProfileSuccess(false), 3000);
     } catch (err) { setProfileError(err instanceof ApiError ? err.message : 'Failed to update profile.'); }
     finally { setProfileSaving(false); }
-  }, [firstName, lastName, phone, refreshUser]);
+  }, [firstName, lastName, phoneCountryCode, phoneNumber, refreshUser]);
 
   const handlePasswordChange = useCallback(async (e: React.FormEvent) => {
     e.preventDefault(); setPasswordError(null); setPasswordSuccess(false);
@@ -143,12 +177,34 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div>
-                  <label htmlFor="phone" className="block text-sm font-medium text-text-muted">Phone</label>
-                  <input type="tel" id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+61 4XX XXX XXX" className="mt-1 block w-full rounded-xl border border-border bg-surface-raised px-4 py-2 text-sm text-text placeholder:text-text-dim focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+                  <label htmlFor="phoneNumber" className="block text-sm font-medium text-text-muted">Phone</label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <select
+                      id="phoneCountryCode"
+                      value={phoneCountryCode}
+                      onChange={(e) => setPhoneCountryCode(e.target.value)}
+                      className="h-10 rounded-xl border border-border bg-surface-raised px-3 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      {customCountryCode && !baseCountryOptions.some((opt) => opt.code === customCountryCode) && (
+                        <option value={customCountryCode}>{customCountryCode} (Custom)</option>
+                      )}
+                      {baseCountryOptions.map((opt) => (
+                        <option key={opt.code} value={opt.code}>{opt.label}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="tel"
+                      id="phoneNumber"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="4XX XXX XXX"
+                      className="block w-full rounded-xl border border-border bg-surface-raised px-4 py-2 text-sm text-text placeholder:text-text-dim focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
                   <p className="mt-1 text-xs text-text-dim">Used for SMS notifications and anonymous call relay.</p>
                   {user?.phoneVerified ? (
                     <Badge variant="success" className="mt-2 gap-1"><CheckCircle className="h-3 w-3" />Verified</Badge>
-                  ) : phone ? (
+                  ) : phoneNumber ? (
                     <div className="mt-2">
                       <Badge variant="warning" className="gap-1"><AlertCircle className="h-3 w-3" />Not Verified</Badge>
                       {!phoneOtpSent ? (

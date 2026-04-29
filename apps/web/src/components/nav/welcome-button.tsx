@@ -35,15 +35,15 @@ export function WelcomeButton({ firstName }: WelcomeButtonProps) {
   return (
     <Link
       href="/dashboard"
-      className="hidden md:inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors"
+      className="hidden md:inline-flex items-center gap-2 px-4 py-2 text-[15px] font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors"
     >
       <User className="h-4 w-4 shrink-0" />
 
       {/* Measure spans (hidden) */}
-      <span ref={welcomeRef} className="absolute invisible whitespace-nowrap text-sm font-semibold">
+      <span ref={welcomeRef} className="absolute invisible whitespace-nowrap text-[15px] font-semibold">
         Welcome! {firstName}
       </span>
-      <span ref={nameRef} className="absolute invisible whitespace-nowrap text-sm font-semibold">
+      <span ref={nameRef} className="absolute invisible whitespace-nowrap text-[15px] font-semibold">
         {firstName}
       </span>
 

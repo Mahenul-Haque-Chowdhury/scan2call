@@ -6,7 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
 import { FadeIn } from '@/components/ui/motion';
-import { Mail, MessageCircle, Clock } from 'lucide-react';
+import Link from 'next/link';
+import { Mail, MessageCircle, Clock, Phone } from 'lucide-react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -14,14 +15,20 @@ const contactInfo = [
   {
     icon: Mail,
     label: 'Email',
-    value: 'support@scan2call.com.au',
+    value: 'support@scan2call.net',
     note: "We'll reply within 24 hours",
   },
   {
     icon: MessageCircle,
     label: 'Live Chat',
     value: 'Available in dashboard',
-    note: 'For active subscribers',
+    note: 'Available for all subscribers',
+  },
+  {
+    icon: Phone,
+    label: 'Phone',
+    value: 'Callback available',
+    note: 'Include your number and a good time to reach you.',
   },
   {
     icon: Clock,
@@ -161,6 +168,13 @@ export default function ContactPage() {
                         placeholder="How can we help?"
                         className="min-h-32"
                       />
+                      <p className="text-xs text-text-dim">
+                        By sending this message, you agree to our{' '}
+                        <Link href="/privacy" className="text-primary hover:underline underline-offset-4">
+                          Privacy Policy
+                        </Link>{' '}
+                        and consent to be contacted about your request.
+                      </p>
                       <Button type="submit" loading={isSubmitting} className="w-full">
                         {isSubmitting ? 'Sending...' : 'Send Message'}
                       </Button>

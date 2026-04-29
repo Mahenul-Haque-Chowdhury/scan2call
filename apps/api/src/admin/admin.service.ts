@@ -6,10 +6,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { AppConfigService } from '../config/config.service';
-import { Role, TagType, TagStatus, OrderStatus } from '@prisma/client';
+import { Role, TagType, TagStatus, OrderStatus, ContactMessageStatus } from '@prisma/client';
 import { BatchGenerateTagsDto } from './dto/batch-generate-tags.dto';
 import { AnalyticsQueryDto, AnalyticsGranularity } from './dto/analytics-query.dto';
 import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 import * as crypto from 'crypto';
 import Stripe from 'stripe';
 
@@ -24,6 +25,7 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: AppConfigService,
+    private readonly notificationsService: NotificationsService,
   ) {
     const key = this.configService.stripeSecretKey;
     this.stripe = key
@@ -222,6 +224,131 @@ export class AdminService {
 
     this.logger.log(`Admin ${adminId} deleted user ${userId}`);
     return { deleted: true };
+  }
+
+  // ──────────────────────────────────────────────
+  // CONTACT MESSAGES
+  // ──────────────────────────────────────────────
+
+  async listContactMessages(params: {
+    page?: number;
+    pageSize?: number;
+    status?: ContactMessageStatus;
+    search?: string;
+  }) {
+    const page = params.page || 1;
+    const pageSize = Math.min(params.pageSize || 20, 100);
+    const skip = (page - 1) * pageSize;
+
+    const where: Record<string, unknown> = {};
+
+    if (params.status) {
+      where.status = params.status;
+    }
+
+    if (params.search) {
+      where.OR = [
+        { name: { contains: params.search, mode: 'insensitive' } },
+        { email: { contains: params.search, mode: 'insensitive' } },
+        { message: { contains: params.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [messages, total] = await Promise.all([
+      this.prisma.contactMessage.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          message: true,
+          status: true,
+          createdAt: true,
+          repliedAt: true,
+          _count: { select: { replies: true } },
+        },
+      }),
+      this.prisma.contactMessage.count({ where }),
+    ]);
+
+    return {
+      data: messages,
+      meta: { page, pageSize, total },
+    };
+  }
+
+  async getContactMessageById(messageId: string) {
+    const message = await this.prisma.contactMessage.findUnique({
+      where: { id: messageId },
+      include: {
+        replies: {
+          orderBy: { sentAt: 'desc' },
+          include: {
+            sentBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+          },
+        },
+      },
+    });
+
+    if (!message) {
+      throw new NotFoundException('Contact message not found');
+    }
+
+    return { data: message };
+  }
+
+  async replyContactMessage(
+    adminId: string,
+    messageId: string,
+    data: { subject?: string; body: string },
+  ) {
+    const message = await this.prisma.contactMessage.findUnique({
+      where: { id: messageId },
+    });
+
+    if (!message) {
+      throw new NotFoundException('Contact message not found');
+    }
+
+    const subject = (data.subject || '').trim() || 'Scan2Call Support';
+    const body = data.body.trim();
+
+    await this.notificationsService.sendContactReply({
+      name: message.name,
+      email: message.email,
+      subject,
+      body,
+    });
+
+    const updated = await this.prisma.contactMessage.update({
+      where: { id: messageId },
+      data: {
+        status: 'REPLIED',
+        repliedAt: new Date(),
+        repliedById: adminId,
+        replies: {
+          create: {
+            subject,
+            body,
+            sentById: adminId,
+          },
+        },
+      },
+      include: {
+        replies: {
+          orderBy: { sentAt: 'desc' },
+          include: {
+            sentBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+          },
+        },
+      },
+    });
+
+    this.logger.log(`Admin ${adminId} replied to contact message ${messageId}`);
+    return { data: updated };
   }
 
   // ──────────────────────────────────────────────

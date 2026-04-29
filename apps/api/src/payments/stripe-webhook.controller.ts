@@ -188,6 +188,7 @@ export class StripeWebhookController {
         create: {
           userId,
           status: SubscriptionStatus.ACTIVE,
+          source: 'STRIPE',
           stripeSubscriptionId,
           stripePriceId: stripeSub.items.data[0]?.price.id,
           currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
@@ -196,6 +197,7 @@ export class StripeWebhookController {
         },
         update: {
           status: SubscriptionStatus.ACTIVE,
+          source: 'STRIPE',
           stripeSubscriptionId,
           stripePriceId: stripeSub.items.data[0]?.price.id,
           currentPeriodStart: new Date(stripeSub.current_period_start * 1000),

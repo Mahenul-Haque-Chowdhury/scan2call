@@ -23,7 +23,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] as const }}
           className="relative"
         >
-          <Logo size="lg" />
+          <Logo size="lg" className="top-0" />
         </motion.div>
 
         <motion.div
@@ -69,7 +69,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] as const }}
             className="mb-8 text-center lg:hidden"
           >
-            <Logo size="lg" />
+            <Logo size="lg" className="top-0" />
           </motion.div>
 
           <motion.div

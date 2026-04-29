@@ -6,12 +6,15 @@ import { AdminProductsController } from './admin-products.controller';
 import { AdminAnalyticsController } from './admin-analytics.controller';
 import { AdminAuditLogController } from './admin-audit-log.controller';
 import { AdminSystemController } from './admin-system.controller';
+import { AdminContactMessagesController } from './admin-contact-messages.controller';
+import { AdminGiftCodesController } from './admin-gift-codes.controller';
 import { AdminService } from './admin.service';
 import { AdminSystemService } from './admin-system.service';
 import { QrCodeModule } from '../qr-code/qr-code.module';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 
 @Module({
-  imports: [QrCodeModule],
+  imports: [QrCodeModule, SubscriptionsModule],
   controllers: [
     AdminUsersController,
     AdminTagsController,
@@ -20,6 +23,8 @@ import { QrCodeModule } from '../qr-code/qr-code.module';
     AdminAnalyticsController,
     AdminAuditLogController,
     AdminSystemController,
+    AdminContactMessagesController,
+    AdminGiftCodesController,
   ],
   providers: [AdminService, AdminSystemService],
   exports: [AdminService],

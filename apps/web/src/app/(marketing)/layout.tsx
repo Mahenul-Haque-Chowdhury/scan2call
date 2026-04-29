@@ -55,7 +55,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       {/* Header - floating pill nav */}
       <header className="fixed top-4 left-1/2 -translate-x-1/2 z-30 w-[calc(100%-2rem)] max-w-7xl rounded-2xl border border-border/50 bg-bg/60 backdrop-blur-lg shadow-lg shadow-shadow">
         <nav className="relative flex items-center justify-between px-6 h-14">
-          <Logo />
+          <div className="-translate-y-1">
+            <Logo />
+          </div>
 
           {/* Desktop nav - absolutely centered */}
           <ul className="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
@@ -84,7 +86,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               ) : (
                 <Link
                   href="/login"
-                  className="hidden md:inline-flex items-center px-4 py-2 text-sm font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors"
+                  className="hidden md:inline-flex items-center px-4 py-2 text-[15px] font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors"
                 >
                   Sign in
                 </Link>
@@ -111,7 +113,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
             {/* Brand */}
             <div className="col-span-2 md:col-span-1">
-              <Logo size="lg" />
+              <Logo size="lg" align="center" />
               <p className="mt-3 text-sm text-text-muted max-w-xs">
                 Privacy-first QR identity tags. Protect your valuables with anonymous contact relay.
               </p>
@@ -139,7 +141,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
 
           <div className="mt-10 pt-6 border-t border-accent/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <p className="text-xs text-text-dim">
-              &copy; {new Date().getFullYear()} Scan2Call. All rights reserved.
+              &copy; {new Date().getFullYear()} Scan2Call is a product of ZTAC Group. All rights reserved.
             </p>
             <p className="text-xs text-text-dim">
               Designed & Developed by{' '}

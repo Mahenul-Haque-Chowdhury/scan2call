@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PrismaService } from '../database/prisma.service';
 import { ContactFormDto } from './dto/contact-form.dto';
 
 @ApiTags('contact')
@@ -10,7 +11,10 @@ import { ContactFormDto } from './dto/contact-form.dto';
 export class ContactController {
   private readonly logger = new Logger(ContactController.name);
 
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Post()
   @Public()
@@ -20,12 +24,16 @@ export class ContactController {
     const maskedEmail = dto.email.replace(/(.{2}).*(@.*)/, '$1***$2');
     this.logger.log(`Contact form submission from ${dto.name} <${maskedEmail}>`);
 
+    const payload = {
+      name: dto.name.trim(),
+      email: dto.email.trim(),
+      message: dto.message.trim(),
+    };
+
+    await this.prisma.contactMessage.create({ data: payload });
+
     // Send notification email to admin
-    await this.notificationsService.sendContactFormNotification({
-      name: dto.name,
-      email: dto.email,
-      message: dto.message,
-    });
+    await this.notificationsService.sendContactFormNotification(payload);
 
     return {
       data: { message: 'Thank you for your message. We will get back to you soon.' },

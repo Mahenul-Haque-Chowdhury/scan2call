@@ -38,6 +38,8 @@ export class UsersService {
             status: true,
             currentPeriodEnd: true,
             cancelAtPeriodEnd: true,
+            giftExpiresAt: true,
+            isLifetime: true,
           },
         },
       },
@@ -47,11 +49,21 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
+    const isGiftActive = user.subscription
+      ? this.isGiftActive(user.subscription.giftExpiresAt, user.subscription.isLifetime)
+      : false;
+
     return {
       ...user,
-      isSubscribed: user.subscription?.status === 'ACTIVE',
-      hasActiveSubscription: user.subscription?.status === 'ACTIVE',
+      isSubscribed: (user.subscription?.status === 'ACTIVE') || isGiftActive,
+      hasActiveSubscription: (user.subscription?.status === 'ACTIVE') || isGiftActive,
     };
+  }
+
+  private isGiftActive(giftExpiresAt: Date | null, isLifetime: boolean) {
+    if (isLifetime) return true;
+    if (!giftExpiresAt) return false;
+    return giftExpiresAt.getTime() > Date.now();
   }
 
   /**

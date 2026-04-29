@@ -74,6 +74,18 @@ enum SubscriptionStatus {
   INCOMPLETE
 }
 
+enum SubscriptionSource {
+  STRIPE
+  GIFT
+}
+
+enum GiftCodeStatus {
+  ACTIVE
+  REDEEMED
+  EXPIRED
+  REVOKED
+}
+
 enum PaymentStatus {
   PENDING
   SUCCEEDED
@@ -95,6 +107,12 @@ enum AdminActionType {
   MODERATION_ACTION
   QR_GENERATED
   ORDER_TAGS_ACTIVATED
+}
+
+enum ContactMessageStatus {
+  NEW
+  REPLIED
+  ARCHIVED
 }
 
 // ──────────────────────────────────────────────
@@ -150,6 +168,10 @@ model User {
   refreshTokens     RefreshToken[]
   adminAuditLogs    AdminAuditLog[]
   tagBatchesGenerated TagBatch[] @relation("tagBatchesGenerated")
+  contactMessagesReplied ContactMessage[] @relation("contactMessageRepliedBy")
+  contactRepliesSent ContactReply[] @relation("contactReplySentBy")
+  giftCodesCreated SubscriptionGiftCode[] @relation("giftCodeCreatedBy")
+  giftRedemptions SubscriptionGiftRedemption[] @relation("giftRedemptions")
 
   @@index([deletedAt])
   @@map("users")
@@ -182,6 +204,44 @@ model VerificationToken {
   @@index([identifier, type])
   @@index([expiresAt])
   @@map("verification_tokens")
+}
+
+// ──────────────────────────────────────────────
+// CONTACT MESSAGES
+// ──────────────────────────────────────────────
+
+model ContactMessage {
+  id         String               @id @default(cuid())
+  name       String
+  email      String
+  message    String
+  status     ContactMessageStatus @default(NEW)
+  repliedAt  DateTime?
+  repliedById String?
+  repliedBy  User?                @relation("contactMessageRepliedBy", fields: [repliedById], references: [id])
+
+  replies ContactReply[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([email])
+  @@map("contact_messages")
+}
+
+model ContactReply {
+  id        String   @id @default(cuid())
+  messageId String
+  message   ContactMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  subject   String
+  body      String
+  sentById  String?
+  sentBy    User?    @relation("contactReplySentBy", fields: [sentById], references: [id])
+  sentAt    DateTime @default(now())
+
+  @@index([messageId])
+  @@map("contact_replies")
 }
 
 // ──────────────────────────────────────────────
@@ -492,6 +552,7 @@ model Subscription {
   userId String             @unique
   user   User               @relation(fields: [userId], references: [id])
   status SubscriptionStatus @default(ACTIVE)
+  source SubscriptionSource @default(STRIPE)
 
   // Stripe
   stripeSubscriptionId String? @unique
@@ -502,11 +563,58 @@ model Subscription {
   currentPeriodEnd   DateTime?
   cancelAtPeriodEnd  Boolean   @default(false)
 
+  // Gift subscription details
+  giftExpiresAt DateTime?
+  isLifetime    Boolean   @default(false)
+
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("subscriptions")
+}
+
+// ──────────────────────────────────────────────
+// SUBSCRIPTION GIFTING
+// ──────────────────────────────────────────────
+
+model SubscriptionGiftCode {
+  id            String         @id @default(cuid())
+  code          String         @unique
+  status        GiftCodeStatus @default(ACTIVE)
+  durationMonths Int?
+  lifetime      Boolean        @default(false)
+  expiresAt     DateTime?
+  maxRedemptions Int           @default(1)
+  redeemedCount  Int           @default(0)
+
+  createdById String
+  createdBy   User @relation("giftCodeCreatedBy", fields: [createdById], references: [id])
+
+  redemptions SubscriptionGiftRedemption[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([expiresAt])
+  @@map("subscription_gift_codes")
+}
+
+model SubscriptionGiftRedemption {
+  id        String   @id @default(cuid())
+  giftCodeId String
+  userId    String
+  redeemedAt DateTime @default(now())
+  note      String?
+
+  giftCode SubscriptionGiftCode @relation(fields: [giftCodeId], references: [id], onDelete: Cascade)
+  user     User                 @relation("giftRedemptions", fields: [userId], references: [id])
+
+  @@unique([giftCodeId, userId])
+  @@index([giftCodeId])
+  @@index([userId])
+  @@map("subscription_gift_redemptions")
 }
 
 // ──────────────────────────────────────────────

@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import {
-  Shield, Phone, MapPin, QrCode,
+  Shield, Phone, MapPin, QrCode, User,
   PawPrint, Car, Luggage, KeyRound, HeartPulse, ArrowRight,
   EyeOff, ShieldCheck, Lock, Globe, Star, CheckCircle2,
   Zap, Users, ScanLine, Clock,
@@ -13,6 +13,15 @@ import {
 import { FadeIn, StaggerContainer, StaggerItem } from '@/components/ui/motion';
 
 const products = [
+  {
+    name: 'Luggage Tag',
+    description: 'Durable tags so finders can reach you at the airport.',
+    icon: Luggage,
+    image: '/images/products/luggage-tag.png',
+    iconColor: 'text-violet-400',
+    badge: 'Most Popular',
+    price: '$14.99',
+  },
   {
     name: 'Pet Collar Tag',
     description: 'Keep your furry friends safe with scannable collar tags.',
@@ -23,24 +32,6 @@ const products = [
     price: '$12.99',
   },
   {
-    name: 'Car Windshield Sticker',
-    description: 'Window stickers for anonymous contact if your car is bumped.',
-    icon: Car,
-    image: '/images/products/car-sticker.png',
-    iconColor: 'text-blue-400',
-    badge: 'Featured',
-    price: '$8.99',
-  },
-  {
-    name: 'Luggage Tag',
-    description: 'Durable tags so finders can reach you at the airport.',
-    icon: Luggage,
-    image: '/images/products/luggage-tag.png',
-    iconColor: 'text-violet-400',
-    badge: null,
-    price: '$14.99',
-  },
-  {
     name: 'Keychain Tag',
     description: 'Attach to keys, bags, or anything you carry daily.',
     icon: KeyRound,
@@ -48,6 +39,24 @@ const products = [
     iconColor: 'text-emerald-400',
     badge: null,
     price: '$7.99',
+  },
+  {
+    name: 'Car Windshield Sticker',
+    description: 'Window stickers for anonymous contact if your car is bumped.',
+    icon: Car,
+    image: '/images/products/car-sticker.png',
+    iconColor: 'text-blue-400',
+    badge: null,
+    price: '$8.99',
+  },
+  {
+    name: 'Passport Sticker & Standard Stickers',
+    description: 'Low-profile stickers for passports, notebooks, and everyday gear.',
+    icon: QrCode,
+    image: '/images/products/passport.png',
+    iconColor: 'text-yellow-400',
+    badge: 'Featured',
+    price: '$6.99',
   },
   {
     name: 'Medical ID Band',
@@ -63,33 +72,33 @@ const products = [
 const steps = [
   {
     icon: QrCode,
-    title: 'Subscribe',
-    description: 'Sign up for $9.99/mo AUD. One plan, everything included.',
+    title: 'Sign in & Subscribe',
+    description: 'Create your account and activate the one plan to protect every tag.',
     number: '01',
   },
   {
     icon: Shield,
-    title: 'Buy Tags',
-    description: 'Pick the tag types you need from our store - collar tags, car stickers, and more.',
+    title: 'Get Tags (online or in-store)',
+    description: 'Order online or pick up pre-assigned tags at a physical store.',
     number: '02',
   },
   {
     icon: Phone,
-    title: 'Activate & Attach',
-    description: 'Scan and link each tag, then stick it on your stuff. Takes under a minute.',
+    title: 'Activate Tags',
+    description: 'Sign in, scan, and link each tag to your account in seconds.',
     number: '03',
   },
   {
     icon: MapPin,
-    title: 'Stay Protected',
-    description: 'If someone finds your item, they scan and contact you - completely anonymously.',
+    title: 'Attach & Stay Protected',
+    description: 'Attach the tag to your item. Finders can contact you anonymously.',
     number: '04',
   },
 ];
 
 const stats = [
-  { icon: Users, value: '10,000+', label: 'Tags Activated' },
-  { icon: Zap, value: '< 30s', label: 'Avg. Response Time' },
+  { icon: Users, value: '1,000+', label: 'Tags Activated' },
+  { icon: Zap, value: '< 60s', label: 'Avg. Response Time' },
   { icon: ScanLine, value: '100%', label: 'Anonymous Relay' },
   { icon: Clock, value: '24 / 7', label: 'Always Active' },
 ];
@@ -133,6 +142,20 @@ const testimonials = [
     text: "Someone bumped my parked car and actually reached out because of my Scan2Call sticker. Got my repair sorted without a police report fuss.",
     stars: 5,
     tag: 'Car Sticker',
+  },
+  {
+    name: 'Daniel P.',
+    location: 'Perth, WA',
+    text: "My passport sticker saved me on a trip. Someone scanned it at the hotel and I got it back without exposing my details.",
+    stars: 5,
+    tag: 'Passport Sticker',
+  },
+  {
+    name: 'Leah R.',
+    location: 'Adelaide, SA',
+    text: "The medical band gave my family peace of mind. In an emergency, the right contact could reach me fast and privately.",
+    stars: 5,
+    tag: 'Medical Band',
   },
 ];
 
@@ -220,7 +243,6 @@ export default function HomePageClient() {
     offset: ['start start', 'end start'],
   });
   const heroScale = useTransform(scrollYProgress, [0, 1], [1.0, 1.14]);
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0.35]);
   const safeActiveHeroSlide = activeHeroSlide < availableHeroSlides.length ? activeHeroSlide : 0;
 
   return (
@@ -255,10 +277,7 @@ export default function HomePageClient() {
         <div className="absolute inset-0 z-[1] bg-gradient-to-b from-black/62 via-black/50 to-black/90" />
         <div className="absolute inset-0 z-[1] bg-gradient-to-r from-black/60 via-transparent to-transparent" />
 
-        <motion.div
-          className="relative z-10 w-full text-white"
-          style={{ opacity: heroOpacity }}
-        >
+        <motion.div className="relative z-10 w-full text-white">
           <div className="mx-auto max-w-7xl px-6 pt-28 pb-16 lg:pb-20">
             <div className="max-w-3xl">
               <motion.div
@@ -283,9 +302,15 @@ export default function HomePageClient() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.1, ease }}
               >
-                Secure your world<br />
-                with a{' '}
-                <span className="text-gradient">simple scan.</span>
+                Secure your world
+                <br className="hidden sm:block" />
+                <span className="block sm:whitespace-nowrap">
+                  with a{' '}
+                  <span>
+                    <span className="text-white">simple</span>{' '}
+                    <span className="text-gradient">QR Code Solution.</span>
+                  </span>
+                </span>
               </motion.h1>
 
               <motion.p
@@ -308,7 +333,7 @@ export default function HomePageClient() {
                   href="/register"
                   className="group inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-4 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary-hover glow-md hover:glow-lg hover:scale-[1.03] active:scale-[0.98]"
                 >
-                  Get Started - $9.99/mo
+                  Get Started - $2.99/mo
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>
                 <Link
@@ -351,17 +376,42 @@ export default function HomePageClient() {
 
       {/* ─── Stats Strip ─────────────────────────── */}
       <section className="border-y border-border bg-surface">
-        <div className="mx-auto max-w-7xl px-6 py-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="mx-auto max-w-7xl px-8 lg:px-10 py-5 lg:py-4">
+          <div className="marquee md:hidden">
+            <div className="marquee-track">
+              {[...stats, ...stats].map((stat, i) => (
+                <div key={`${stat.label}-${i}`} className="inline-flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-muted border border-primary/20">
+                    <stat.icon className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-base font-bold text-text font-display leading-none">
+                      {stat.value}
+                    </span>
+                    <span className="text-xs text-text-muted">
+                      {stat.label}
+                    </span>
+                  </div>
+                  <span className="mx-2 h-1 w-1 rounded-full bg-border" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="hidden md:grid md:grid-cols-4 gap-6 xl:gap-10">
             {stats.map((stat, i) => (
               <FadeIn key={stat.label} delay={i * 0.08}>
-                <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-muted border border-primary/20">
-                    <stat.icon className="h-5 w-5 text-primary" />
+                <div className="flex items-center gap-3 xl:gap-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-muted border border-primary/20">
+                    <stat.icon className="h-4.5 w-4.5 text-primary" />
                   </div>
-                  <div>
-                    <div className="text-xl font-bold text-text font-display">{stat.value}</div>
-                    <div className="text-xs text-text-muted">{stat.label}</div>
+                  <div className="min-w-0 whitespace-nowrap">
+                    <span className="text-lg lg:text-xl font-bold text-text font-display leading-none">
+                      {stat.value}
+                    </span>{' '}
+                    <span className="text-[11px] lg:text-xs text-text-muted">
+                      {stat.label}
+                    </span>
                   </div>
                 </div>
               </FadeIn>
@@ -371,7 +421,7 @@ export default function HomePageClient() {
       </section>
 
       {/* ─── Product Showcase ─────────────────────── */}
-      <section className="py-28 relative overflow-hidden">
+      <section className="py-20 relative overflow-hidden">
         <div className="absolute inset-0 gradient-mesh-strong opacity-30" />
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full bg-primary/3 blur-[120px] pointer-events-none" />
 
@@ -389,17 +439,9 @@ export default function HomePageClient() {
             </p>
           </FadeIn>
 
-          <div className="grid gap-6 lg:grid-cols-3">
-            {products.slice(0, 3).map((product, i) => (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {products.map((product, i) => (
               <FadeIn key={product.name} delay={i * 0.1}>
-                <ProductCard product={product} />
-              </FadeIn>
-            ))}
-          </div>
-
-          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:max-w-[calc(66.666%+0.75rem)] lg:mx-auto">
-            {products.slice(3).map((product, i) => (
-              <FadeIn key={product.name} delay={(i + 3) * 0.1}>
                 <ProductCard product={product} />
               </FadeIn>
             ))}
@@ -441,27 +483,39 @@ export default function HomePageClient() {
             <StaggerContainer stagger={0.12} className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
               {steps.map((step) => (
                 <StaggerItem key={step.title}>
-                  <div className="group relative flex flex-col items-center text-center p-6 rounded-2xl border border-border bg-surface/60 backdrop-blur-sm hover:border-primary/30 transition-all duration-300 hover:bg-surface">
-                    <div className="relative mb-5">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-muted border border-primary/30 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300 group-hover:shadow-lg group-hover:shadow-primary/20">
-                        <step.icon className="h-6 w-6" />
+                  <div className="group relative flex flex-col items-start text-left p-6 rounded-2xl border border-primary/20 bg-surface/80 backdrop-blur-sm shadow-lg shadow-black/30 hover:border-primary/40 transition-all duration-300 hover:bg-surface hover:-translate-y-1">
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-muted border border-primary/30 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300 group-hover:shadow-lg group-hover:shadow-primary/20">
+                          <step.icon className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-black tracking-widest text-primary/70 uppercase">
+                            Step {step.number}
+                          </div>
+                          <h3 className="text-lg font-semibold tracking-tight text-text group-hover:text-primary transition-colors duration-300">
+                            {step.title}
+                          </h3>
+                        </div>
                       </div>
-                      <span className="absolute -top-2 -right-3 text-[10px] font-black text-primary/50 font-display group-hover:text-primary/80 transition-colors">
-                        {step.number}
-                      </span>
-                    </div>
 
-                    <h3 className="text-lg font-semibold tracking-tight group-hover:text-primary transition-colors duration-300">
-                      {step.title}
-                    </h3>
-                    <p className="mt-2 text-sm text-text-muted leading-relaxed">
-                      {step.description}
-                    </p>
-                  </div>
+                      <p className="text-sm text-text-muted leading-relaxed">
+                        {step.description}
+                      </p>
+                    </div>
                 </StaggerItem>
               ))}
             </StaggerContainer>
           </div>
+
+          <FadeIn delay={0.1} className="mt-10 text-center">
+            <Link
+              href="/store"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary-hover glow-sm hover:glow-md hover:scale-[1.02] active:scale-[0.98]"
+            >
+              Get Your Favorite Tag Now
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </FadeIn>
         </div>
       </section>
 
@@ -530,13 +584,15 @@ export default function HomePageClient() {
             </h2>
           </FadeIn>
 
-          <StaggerContainer stagger={0.1} className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {testimonials.map((t) => (
-              <StaggerItem key={t.name}>
-                <TestimonialCard testimonial={t} />
-              </StaggerItem>
-            ))}
-          </StaggerContainer>
+          <div className="marquee">
+            <div className="marquee-track">
+              {[...testimonials, ...testimonials].map((t, i) => (
+                <div key={`${t.name}-${i}`} className="w-[360px] sm:w-[420px]">
+                  <TestimonialCard testimonial={t} />
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -553,11 +609,11 @@ export default function HomePageClient() {
               Simple Pricing
             </span>
             <h2 className="text-4xl sm:text-5xl font-bold tracking-tight">
-              One plan.{' '}
-              <span className="text-gradient">$9.99 / mo.</span>
+              Affordable pricing.{" "}
+              <span className="text-gradient">One subscription.</span>
             </h2>
             <p className="mt-4 text-text-muted text-lg max-w-2xl mx-auto">
-              Everything you need to protect your world - unlimited tags, unlimited scans, and full relay access. No hidden fees.
+              Same plan, billed yearly - or save more with our 5-year discount. Includes unlimited tags, scans, and full relay access.
             </p>
           </FadeIn>
 
@@ -613,48 +669,108 @@ interface Product {
 }
 
 function ProductCard({ product }: { product: Product }) {
+  const [isFlipped, setIsFlipped] = useState(false);
+
+  const handleToggleFlip = () => {
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia('(hover: none)').matches) {
+      setIsFlipped((prev) => !prev);
+    }
+  };
+
+  const handleResetFlip = () => {
+    if (typeof window === 'undefined') return;
+    if (!window.matchMedia('(hover: none)').matches) {
+      setIsFlipped(false);
+    }
+  };
+
   return (
     <motion.div
       whileHover={{ y: -8, scale: 1.02 }}
       transition={{ type: 'spring', stiffness: 300, damping: 24 }}
-      className="group relative rounded-2xl border border-border bg-surface/80 backdrop-blur-sm overflow-hidden h-full cursor-default"
+      className="group relative rounded-2xl border border-border bg-surface/80 backdrop-blur-sm overflow-hidden h-full cursor-pointer"
+      onClick={handleToggleFlip}
+      onMouseLeave={handleResetFlip}
+      role="button"
+      tabIndex={0}
+      aria-pressed={isFlipped}
     >
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
       <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10 blur-3xl bg-gradient-to-br from-primary/10 via-transparent to-primary/5" />
+      <div className="relative min-h-[360px] [perspective:1200px]">
+        <div
+          className={`relative min-h-[360px] transition-transform duration-900 ease-in-out will-change-transform [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)] ${
+            isFlipped ? '[transform:rotateY(180deg)]' : ''
+          }`}
+        >
+          <div className="absolute inset-0 flex flex-col [backface-visibility:hidden]">
+            <div className="relative h-52 bg-gradient-to-b from-surface-raised/50 to-surface/50 overflow-hidden">
+              <Image
+                src={product.image}
+                alt={product.name}
+                fill
+                className="object-cover transition-transform duration-700 group-hover:scale-110"
+                sizes="(max-width: 768px) 100vw, 33vw"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent opacity-60" />
 
-      <div className="relative h-52 bg-gradient-to-b from-surface-raised/50 to-surface/50 overflow-hidden">
-        <Image
-          src={product.image}
-          alt={product.name}
-          fill
-          className="object-cover transition-transform duration-700 group-hover:scale-110"
-          sizes="(max-width: 768px) 100vw, 33vw"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent opacity-60" />
+              {product.badge && (
+                <span className="absolute top-3 left-3 text-[10px] font-bold text-primary bg-primary/15 border border-primary/25 rounded-full px-2.5 py-1 backdrop-blur-sm">
+                  {product.badge}
+                </span>
+              )}
+            </div>
 
-        {product.badge && (
-          <span className="absolute top-3 left-3 text-[10px] font-bold text-primary bg-primary/15 border border-primary/25 rounded-full px-2.5 py-1 backdrop-blur-sm">
-            {product.badge}
-          </span>
-        )}
-      </div>
-
-      <div className="p-5">
-        <div className="flex items-center gap-3 mb-2">
-          <div className={`flex h-8 w-8 items-center justify-center rounded-lg bg-surface-raised border border-border`}>
-            <product.icon className={`h-4 w-4 ${product.iconColor}`} />
+            <div className="p-5 flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-raised border border-border">
+                  <product.icon className={`h-4 w-4 ${product.iconColor}`} />
+                </div>
+                <h3 className="text-base font-semibold tracking-tight group-hover:text-primary transition-colors duration-300">
+                  {product.name}
+                </h3>
+              </div>
+              <p className="text-sm text-text-muted leading-relaxed">
+                {product.description}
+              </p>
+            </div>
           </div>
-          <h3 className="text-base font-semibold tracking-tight group-hover:text-primary transition-colors duration-300">
-            {product.name}
-          </h3>
-        </div>
-        <p className="text-sm text-text-muted leading-relaxed">
-          {product.description}
-        </p>
-        <div className="mt-4 flex items-center justify-between">
-          <span className="text-lg font-bold text-primary">{product.price} <span className="text-xs font-normal text-text-dim">AUD</span></span>
-          <div className="flex items-center gap-1 text-xs font-medium text-primary opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1">
-            View <ArrowRight className="h-3 w-3" />
+
+          <div className="absolute inset-0 flex flex-col justify-between p-5 bg-surface/95 [transform:rotateY(180deg)] [backface-visibility:hidden]">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-text-dim">
+                Details
+              </div>
+              <h3 className="mt-3 text-lg font-semibold text-text">
+                {product.name}
+              </h3>
+              <p className="mt-2 text-sm text-text-muted leading-relaxed">
+                {(() => {
+                  const stories: Record<string, string> = {
+                    'Pet Collar Tag': 'When your pet slips out, a quick scan turns a stranger into a helping hand in minutes.',
+                    'Car Windshield Sticker': 'Leave a parking lot with peace of mind knowing a finder can reach you without exposing your number.',
+                    'Luggage Tag': 'Missed a bag? A simple scan reconnects you before the carousel has even stopped.',
+                    'Keychain Tag': 'Lost keys become found keys when anyone can reach you with a single scan.',
+                    'Medical ID Band': 'Emergency details stay private, but the right help reaches you fast when it matters most.',
+                  };
+                  return stories[product.name] ?? 'A simple scan turns a moment of loss into a quick, private reconnection.';
+                })()}
+              </p>
+            </div>
+
+              <div className="flex flex-col gap-3">
+                <span className="text-lg font-bold text-primary">
+                  {product.price}
+                  <span className="text-xs font-normal text-text-dim"> AUD</span>
+                </span>
+                <Link
+                  href="/store"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover transition-colors"
+                >
+                  Visit Store <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
           </div>
         </div>
       </div>
@@ -674,16 +790,16 @@ function RelayDiagram() {
       </div>
 
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-4 rounded-xl border border-border bg-surface p-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-raised border border-border text-text-muted">
-            👤
+        <div className="flex items-center gap-4 rounded-xl border border-primary/30 bg-primary-muted p-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/20 border border-primary/30 text-primary">
+            <User className="h-5 w-5" />
           </div>
           <div>
-            <div className="text-sm font-semibold">Finder</div>
+            <div className="text-sm font-semibold text-primary">Finder</div>
             <div className="text-xs text-text-muted">Scans your QR tag</div>
           </div>
           <div className="ml-auto">
-            <span className="text-xs text-text-dim bg-surface-raised rounded-full px-2 py-1">Anonymous</span>
+            <span className="text-xs font-medium text-primary/80 bg-primary/10 rounded-full px-2 py-1 border border-primary/20">Anonymous</span>
           </div>
         </div>
 
@@ -728,16 +844,16 @@ function RelayDiagram() {
           />
         </div>
 
-        <div className="flex items-center gap-4 rounded-xl border border-primary/30 bg-primary-muted p-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/20 border border-primary/30">
-            <Shield className="h-5 w-5 text-primary" />
+        <div className="flex items-center gap-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 border border-emerald-400/30 text-emerald-300">
+            <Shield className="h-5 w-5" />
           </div>
           <div>
-            <div className="text-sm font-semibold text-primary">You</div>
-            <div className="text-xs text-text-muted">Receive call, SMS, or WhatsApp</div>
+            <div className="text-sm font-semibold text-emerald-300">You</div>
+            <div className="text-xs text-emerald-100/70">Receive call, SMS, or WhatsApp</div>
           </div>
           <div className="ml-auto">
-            <span className="text-xs font-medium text-primary/80 bg-primary/10 rounded-full px-2 py-1 border border-primary/20">Safe</span>
+            <span className="text-xs font-medium text-emerald-200 bg-emerald-500/15 rounded-full px-2 py-1 border border-emerald-400/30">Safe</span>
           </div>
         </div>
       </div>
@@ -775,7 +891,7 @@ function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
         ))}
       </div>
 
-      <p className="text-sm text-text-secondary leading-relaxed flex-1">
+      <p className="text-sm text-text-secondary leading-relaxed flex-1 whitespace-normal">
         &ldquo;{testimonial.text}&rdquo;
       </p>
 

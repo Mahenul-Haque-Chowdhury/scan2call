@@ -28,6 +28,13 @@ interface ContactFormPayload {
   message: string;
 }
 
+interface ContactReplyPayload {
+  name: string;
+  email: string;
+  subject: string;
+  body: string;
+}
+
 interface ItemFoundPayload {
   ownerEmail: string;
   ownerFirstName: string;
@@ -455,6 +462,27 @@ export class NotificationsService {
     `;
 
     await this.sendEmail(adminEmail, `Contact Form: ${payload.name}`, html);
+  }
+
+  /**
+   * Send a reply to a contact form message.
+   */
+  async sendContactReply(payload: ContactReplyPayload): Promise<void> {
+    const escapedName = this.escapeHtml(payload.name);
+    const escapedBody = this.escapeHtml(payload.body).replaceAll('\n', '<br />');
+
+    const html = this.renderEmailTemplate({
+      eyebrow: 'Support Reply',
+      title: `Hi ${escapedName},`,
+      intro: 'Thanks for reaching out. Here is our response:',
+      body: escapedBody,
+      note: 'If you need anything else, just reply to this email.',
+    });
+
+    await this.sendEmail(payload.email, payload.subject, html, {
+      critical: true,
+      context: 'contact reply email',
+    });
   }
 
   /**

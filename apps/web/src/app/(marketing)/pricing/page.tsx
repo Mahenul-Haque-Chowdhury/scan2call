@@ -4,7 +4,7 @@ import PricingClient from './_components/pricing-client';
 export const metadata: Metadata = {
   title: 'Pricing',
   description:
-    'Simple, transparent pricing. $9.99/mo or $99.99/year (save 17%). All Scan2Call features included.',
+    'Scan2Call pricing: $2.99/month, $14.49/year, $79.49 for 5 years, plus enterprise and bulk order proposals for businesses.',
 };
 
 export default function PricingPage() {

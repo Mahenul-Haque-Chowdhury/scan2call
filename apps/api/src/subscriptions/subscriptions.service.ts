@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../database/prisma.service';
 import { SUBSCRIPTION_PRICE_AUD_CENTS } from '@scan2call/shared';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
+import { GiftService } from './gift.service';
 import Stripe from 'stripe';
 
 @Injectable()
@@ -18,6 +19,7 @@ export class SubscriptionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly giftService: GiftService,
   ) {
     const key = this.config.get<string>('STRIPE_SECRET_KEY');
     this.stripe = key
@@ -61,7 +63,20 @@ export class SubscriptionsService {
       where: { userId },
     });
 
-    return { data: subscription };
+    if (!subscription) {
+      return { data: null };
+    }
+
+    const isGiftActive = this.isGiftActive(subscription.giftExpiresAt, subscription.isLifetime);
+    const isActive = subscription.status === 'ACTIVE' || isGiftActive;
+
+    return {
+      data: {
+        ...subscription,
+        isGiftActive,
+        isActive,
+      },
+    };
   }
 
   /**
@@ -77,7 +92,7 @@ export class SubscriptionsService {
       select: { status: true },
     });
 
-    if (existing?.status === 'ACTIVE') {
+    if (existing?.status === 'ACTIVE' && existing.stripeSubscriptionId) {
       throw new ConflictException('You already have an active subscription');
     }
 
@@ -197,15 +212,26 @@ export class SubscriptionsService {
     return { portalUrl: session.url };
   }
 
+  async redeemGiftCode(userId: string, code: string) {
+    return this.giftService.redeemGiftCode(userId, code);
+  }
+
   /**
    * Helper: checks whether a given user has an active subscription.
    */
   async isUserSubscribed(userId: string): Promise<boolean> {
     const subscription = await this.prisma.subscription.findUnique({
       where: { userId },
-      select: { status: true },
+      select: { status: true, giftExpiresAt: true, isLifetime: true },
     });
 
-    return subscription?.status === 'ACTIVE';
+    if (!subscription) return false;
+    return subscription.status === 'ACTIVE' || this.isGiftActive(subscription.giftExpiresAt, subscription.isLifetime);
+  }
+
+  private isGiftActive(giftExpiresAt: Date | null, isLifetime: boolean) {
+    if (isLifetime) return true;
+    if (!giftExpiresAt) return false;
+    return giftExpiresAt.getTime() > Date.now();
   }
 }

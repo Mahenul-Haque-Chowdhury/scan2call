@@ -12,7 +12,16 @@ import { Spinner } from '@/components/ui/spinner';
 import { Alert } from '@/components/ui/alert';
 import { PageHeader } from '@/components/ui/page-header';
 
-interface Subscription { id: string; status: string; currentPeriodStart: string; currentPeriodEnd: string; cancelAtPeriodEnd: boolean; }
+interface Subscription {
+  id: string;
+  status: string;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  giftExpiresAt?: string | null;
+  isLifetime?: boolean;
+  isGiftActive?: boolean;
+}
 
 function formatDate(dateStr: string): string { return new Date(dateStr).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }); }
 
@@ -93,12 +102,39 @@ export default function BillingSettingsPage() {
                       {subscription.cancelAtPeriodEnd ? 'Cancelling' : subscription.status.replace('_', ' ')}
                     </Badge>
                     <span className="text-sm text-text-muted">Scan2Call - $9.99/mo AUD</span>
+                    {subscription.isLifetime && (
+                      <Badge variant="success">Lifetime Gift</Badge>
+                    )}
                   </div>
                 </div>
               </div>
               <div className="mt-4 space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-text-muted">Current period</span><span className="font-medium text-text">{formatDate(subscription.currentPeriodStart)} - {formatDate(subscription.currentPeriodEnd)}</span></div>
-                <div className="flex justify-between"><span className="text-text-muted">{subscription.cancelAtPeriodEnd ? 'Access until' : 'Next payment'}</span><span className="font-medium text-text">{formatDate(subscription.currentPeriodEnd)}</span></div>
+                <div className="flex justify-between">
+                  <span className="text-text-muted">Current period</span>
+                  <span className="font-medium text-text">
+                    {subscription.currentPeriodStart && subscription.currentPeriodEnd
+                      ? `${formatDate(subscription.currentPeriodStart)} - ${formatDate(subscription.currentPeriodEnd)}`
+                      : '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-text-muted">{subscription.cancelAtPeriodEnd ? 'Access until' : 'Next payment'}</span>
+                  <span className="font-medium text-text">
+                    {subscription.currentPeriodEnd ? formatDate(subscription.currentPeriodEnd) : '—'}
+                  </span>
+                </div>
+                {subscription.giftExpiresAt && (
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Gift access</span>
+                    <span className="font-medium text-text">{formatDate(subscription.giftExpiresAt)}</span>
+                  </div>
+                )}
+                {subscription.isLifetime && (
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Gift access</span>
+                    <span className="font-medium text-text">Lifetime</span>
+                  </div>
+                )}
               </div>
               {subscription.cancelAtPeriodEnd && (
                 <Alert variant="warning" className="mt-4">
