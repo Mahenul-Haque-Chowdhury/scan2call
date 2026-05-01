@@ -15,7 +15,7 @@ RUN pnpm exec prisma generate
 
 RUN rm -rf packages/shared/dist && pnpm -C packages/shared exec tsc -p tsconfig.build.json --incremental false && pnpm -C apps/api exec nest build
 
-RUN pnpm deploy --filter @scan2call/api --prod /prod/api
+RUN pnpm deploy --filter @scan2call/api --prod /prod/api --legacy
 
 FROM node:24-bookworm-slim AS runner
 
