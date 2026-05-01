@@ -158,7 +158,7 @@ export default function ScanPageClient({ token }: { token: string }) {
               setFetchStatus('not-found');
               setFetchError('This tag was not found. It may have been removed or the link is incorrect.');
             } else if (res.status === 400) {
-              if (typeof message === 'string' && message.toLowerCase().includes('not been activated')) {
+              if (typeof message === 'string' && message.toLowerCase().includes('activate')) {
                 setFetchStatus('inactive');
                 setFetchError(message);
               } else if (typeof message === 'string' && message.toLowerCase().includes('deactivated')) {
@@ -503,7 +503,7 @@ export default function ScanPageClient({ token }: { token: string }) {
         ? 'Tag Deactivated'
         : 'Tag Not Found';
     const errorMessage = fetchStatus === 'inactive'
-      ? 'This tag is not active in our database. Please log in to activate it if you purchased the tag online or in store.'
+      ? 'This tag is inactive. Please log in to activate it after scanning your QR tag.'
       : fetchStatus === 'deactivated'
         ? 'This tag has been deactivated by its owner.'
         : fetchError || 'This tag could not be loaded. Please try again later.';

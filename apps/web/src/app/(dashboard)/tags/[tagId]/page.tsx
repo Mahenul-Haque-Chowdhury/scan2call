@@ -494,7 +494,7 @@ export default function TagDetailPage() {
               disabled={lostSaving}
               loading={lostSaving}
             >
-              {lostSaving ? 'Enabling...' : 'Re-enable Lost Mode'}
+              {lostSaving ? 'Saving...' : tag.status === 'INACTIVE' ? 'Activate Tag' : 'Re-enable Lost Mode'}
             </Button>
           )}
 
@@ -637,6 +637,14 @@ export default function TagDetailPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
           <Alert variant="warning" title="Lost Mode is Disabled" className="mt-4">
             <p>Your tag is not protected. If this item is lost, finders won&apos;t be able to contact you.</p>
+          </Alert>
+        </motion.div>
+      )}
+
+      {!tag.isLostMode && tag.status === 'INACTIVE' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
+          <Alert variant="info" title="Tag is Inactive" className="mt-4">
+            <p>This tag is assigned to your account but not live yet. Use the button below to activate it.</p>
           </Alert>
         </motion.div>
       )}
