@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { ProductQueryDto } from './dto/product-query.dto';
-import { TagType } from '@prisma/client';
+import { TagType } from '@/generated/prisma/client';
 
 @Injectable()
 export class ProductsService {

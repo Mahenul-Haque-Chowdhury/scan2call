@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { AppConfigService } from '../config/config.service';
-import { Role, TagType, TagStatus, OrderStatus, ContactMessageStatus } from '@prisma/client';
+import { Role, TagType, TagStatus, OrderStatus, ContactMessageStatus } from '@/generated/prisma/client';
 import { BatchGenerateTagsDto } from './dto/batch-generate-tags.dto';
 import { AnalyticsQueryDto, AnalyticsGranularity } from './dto/analytics-query.dto';
 import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';

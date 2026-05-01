@@ -9,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../database/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto } from './dto/order-query.dto';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus } from '@/generated/prisma/client';
 import Stripe from 'stripe';
 import { randomBytes } from 'crypto';
 

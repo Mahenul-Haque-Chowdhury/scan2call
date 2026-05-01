@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { GiftCodeStatus, TagType } from '@prisma/client';
+import { GiftCodeStatus, TagType } from '@/generated/prisma/client';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../database/prisma.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';

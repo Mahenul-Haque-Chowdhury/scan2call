@@ -13,7 +13,7 @@ import type { Request } from 'express';
 import { Public } from '../common/decorators/public.decorator';
 import { PrismaService } from '../database/prisma.service';
 import { PaymentsService } from './payments.service';
-import { OrderStatus, SubscriptionStatus } from '@prisma/client';
+import { OrderStatus, SubscriptionStatus } from '@/generated/prisma/client';
 import Stripe from 'stripe';
 
 @ApiTags('webhooks')

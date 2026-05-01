@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
-import { GiftCodeStatus, SubscriptionSource } from '@prisma/client';
+import { GiftCodeStatus, SubscriptionSource } from '@/generated/prisma/client';
 
 const GIFT_CODE_PREFIX = 'Scan2Call-Gift-';
 const GIFT_CODE_LENGTH = 8;

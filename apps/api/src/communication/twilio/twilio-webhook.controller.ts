@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { CommunicationStatus } from '@prisma/client';
+import { CommunicationStatus } from '@/generated/prisma/client';
 import { Public } from '../../common/decorators/public.decorator';
 import { TwilioService } from './twilio.service';
 import { PrismaService } from '../../database/prisma.service';
