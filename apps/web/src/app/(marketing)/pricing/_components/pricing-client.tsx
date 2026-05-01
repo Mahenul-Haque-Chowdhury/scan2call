@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Check, Zap, Globe, HeadphonesIcon, Building2, Sparkles, ShieldCheck } from 'lucide-react';
 import { FadeIn, StaggerContainer, StaggerItem } from '@/components/ui/motion';
+import { useAuth } from '@/providers/auth-provider';
 
 const features = [
   'Unlimited QR identity tags',
@@ -80,6 +81,9 @@ const highlights = [
 ];
 
 export default function PricingClient() {
+  const { user } = useAuth();
+  const ctaHref = user ? '/subscription' : '/register';
+
   return (
     <>
       {/* Header */}
@@ -178,7 +182,7 @@ export default function PricingClient() {
                   </ul>
 
                   <Link
-                    href={plan.ctaHref}
+                    href={ctaHref}
                     className={`mt-8 block w-full rounded-xl py-3.5 text-center text-sm font-semibold transition-all ${
                       plan.highlight
                         ? 'bg-primary text-primary-foreground hover:bg-primary-hover glow-sm hover:glow-md'

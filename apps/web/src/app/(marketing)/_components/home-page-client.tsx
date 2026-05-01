@@ -11,6 +11,7 @@ import {
   Zap, Users, ScanLine, Clock,
 } from 'lucide-react';
 import { FadeIn, StaggerContainer, StaggerItem } from '@/components/ui/motion';
+import { useAuth } from '@/providers/auth-provider';
 
 const products = [
   {
@@ -96,13 +97,6 @@ const steps = [
   },
 ];
 
-const stats = [
-  { icon: Users, value: '1,000+', label: 'Tags Activated' },
-  { icon: Zap, value: '< 60s', label: 'Avg. Response Time' },
-  { icon: ScanLine, value: '100%', label: 'Anonymous Relay' },
-  { icon: Clock, value: '24 / 7', label: 'Always Active' },
-];
-
 const privacyFeatures = [
   {
     icon: EyeOff,
@@ -159,17 +153,6 @@ const testimonials = [
   },
 ];
 
-const pricingFeatures = [
-  'Unlimited active tags',
-  'Anonymous call & SMS relay',
-  'WhatsApp message relay',
-  'Real-time location alerts',
-  'Full store access',
-  'Instant tag disable / block',
-  'Australian data residency',
-  'Cancel anytime',
-];
-
 const ease = [0.16, 1, 0.3, 1] as const;
 const HERO_FIRST_SWAP_DELAY_MS = 4200;
 const HERO_SWAP_INTERVAL_MS = 6000;
@@ -179,6 +162,8 @@ const heroSlides = [
 ] as const;
 
 export default function HomePageClient() {
+  const { user } = useAuth();
+  const getStartedHref = user ? '/subscription' : '/register';
   const heroRef = useRef<HTMLElement>(null);
   const [availableHeroSlides, setAvailableHeroSlides] = useState<string[]>([heroSlides[0]]);
   const [activeHeroSlide, setActiveHeroSlide] = useState(0);
@@ -274,8 +259,8 @@ export default function HomePageClient() {
           ))}
         </motion.div>
 
-        <div className="absolute inset-0 z-[1] bg-gradient-to-b from-black/62 via-black/50 to-black/90" />
-        <div className="absolute inset-0 z-[1] bg-gradient-to-r from-black/60 via-transparent to-transparent" />
+        <div className="absolute inset-0 z-1 bg-linear-to-b from-black/62 via-black/50 to-black/90" />
+        <div className="absolute inset-0 z-1 bg-linear-to-r from-black/60 via-transparent to-transparent" />
 
         <motion.div className="relative z-10 w-full text-white">
           <div className="mx-auto max-w-7xl px-6 pt-28 pb-16 lg:pb-20">
@@ -330,10 +315,10 @@ export default function HomePageClient() {
                 transition={{ duration: 0.8, delay: 0.3, ease }}
               >
                 <Link
-                  href="/register"
+                  href={getStartedHref}
                   className="group inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-4 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary-hover glow-md hover:glow-lg hover:scale-[1.03] active:scale-[0.98]"
                 >
-                  Get Started - $2.99/mo
+                  Get Started - $14.49/yr
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>
                 <Link
@@ -344,22 +329,6 @@ export default function HomePageClient() {
                 </Link>
               </motion.div>
 
-              <motion.div
-                className="mt-8 flex items-center flex-wrap gap-3"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 1, delay: 0.5 }}
-              >
-                {['No contracts', 'AU Data Residency', 'Cancel anytime', '100% anonymous'].map((chip) => (
-                  <span
-                    key={chip}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-white/8 border border-white/12 px-3 py-1 text-xs text-white/60"
-                  >
-                    <CheckCircle2 className="h-3 w-3 text-primary" />
-                    {chip}
-                  </span>
-                ))}
-              </motion.div>
             </div>
           </div>
         </motion.div>
@@ -369,61 +338,15 @@ export default function HomePageClient() {
           <motion.div
             animate={{ y: [0, 8, 0] }}
             transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
-            className="h-8 w-px bg-gradient-to-b from-white/50 to-transparent"
+            className="h-8 w-px bg-linear-to-b from-white/50 to-transparent"
           />
-        </div>
-      </section>
-
-      {/* ─── Stats Strip ─────────────────────────── */}
-      <section className="border-y border-border bg-surface">
-        <div className="mx-auto max-w-7xl px-8 lg:px-10 py-5 lg:py-4">
-          <div className="marquee md:hidden">
-            <div className="marquee-track">
-              {[...stats, ...stats].map((stat, i) => (
-                <div key={`${stat.label}-${i}`} className="inline-flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-muted border border-primary/20">
-                    <stat.icon className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-base font-bold text-text font-display leading-none">
-                      {stat.value}
-                    </span>
-                    <span className="text-xs text-text-muted">
-                      {stat.label}
-                    </span>
-                  </div>
-                  <span className="mx-2 h-1 w-1 rounded-full bg-border" />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="hidden md:grid md:grid-cols-4 gap-6 xl:gap-10">
-            {stats.map((stat, i) => (
-              <FadeIn key={stat.label} delay={i * 0.08}>
-                <div className="flex items-center gap-3 xl:gap-4">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-muted border border-primary/20">
-                    <stat.icon className="h-4.5 w-4.5 text-primary" />
-                  </div>
-                  <div className="min-w-0 whitespace-nowrap">
-                    <span className="text-lg lg:text-xl font-bold text-text font-display leading-none">
-                      {stat.value}
-                    </span>{' '}
-                    <span className="text-[11px] lg:text-xs text-text-muted">
-                      {stat.label}
-                    </span>
-                  </div>
-                </div>
-              </FadeIn>
-            ))}
-          </div>
         </div>
       </section>
 
       {/* ─── Product Showcase ─────────────────────── */}
       <section className="py-20 relative overflow-hidden">
         <div className="absolute inset-0 gradient-mesh-strong opacity-30" />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full bg-primary/3 blur-[120px] pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-200 h-200 rounded-full bg-primary/3 blur-[120px] pointer-events-none" />
 
         <div className="relative mx-auto max-w-7xl px-6">
           <FadeIn className="text-center mb-20">
@@ -478,7 +401,7 @@ export default function HomePageClient() {
           </FadeIn>
 
           <div className="relative">
-            <div className="hidden lg:block absolute top-14 left-[12.5%] right-[12.5%] h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+            <div className="hidden lg:block absolute top-14 left-[12.5%] right-[12.5%] h-px bg-linear-to-r from-transparent via-primary/30 to-transparent" />
 
             <StaggerContainer stagger={0.12} className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
               {steps.map((step) => (
@@ -521,7 +444,7 @@ export default function HomePageClient() {
 
       {/* ─── Privacy Promise ──────────────────────── */}
       <section className="py-28 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-accent/3 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-b from-transparent via-accent/3 to-transparent" />
 
         <div className="relative mx-auto max-w-7xl px-6">
           <div className="lg:grid lg:grid-cols-2 lg:gap-16 lg:items-center">
@@ -587,69 +510,12 @@ export default function HomePageClient() {
           <div className="marquee">
             <div className="marquee-track">
               {[...testimonials, ...testimonials].map((t, i) => (
-                <div key={`${t.name}-${i}`} className="w-[360px] sm:w-[420px]">
+                <div key={`${t.name}-${i}`} className="w-90 sm:w-105">
                   <TestimonialCard testimonial={t} />
                 </div>
               ))}
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* ─── Pricing CTA ──────────────────────────── */}
-      <section className="py-28 gradient-mesh-strong relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[1px] bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[1px] bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
-        </div>
-
-        <div className="relative mx-auto max-w-4xl px-6">
-          <FadeIn className="text-center">
-            <span className="inline-block text-xs font-semibold tracking-widest uppercase text-primary mb-6">
-              Simple Pricing
-            </span>
-            <h2 className="text-4xl sm:text-5xl font-bold tracking-tight">
-              Affordable pricing.{" "}
-              <span className="text-gradient">One subscription.</span>
-            </h2>
-            <p className="mt-4 text-text-muted text-lg max-w-2xl mx-auto">
-              Same plan, billed yearly - or save more with our 5-year discount. Includes unlimited tags, scans, and full relay access.
-            </p>
-          </FadeIn>
-
-          <FadeIn delay={0.1}>
-            <div className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto">
-              {pricingFeatures.map((feature) => (
-                <div
-                  key={feature}
-                  className="flex items-center gap-2 rounded-xl border border-border bg-surface/60 backdrop-blur-sm px-3 py-2.5"
-                >
-                  <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
-                  <span className="text-xs text-text-secondary">{feature}</span>
-                </div>
-              ))}
-            </div>
-          </FadeIn>
-
-          <FadeIn delay={0.2} className="mt-10 flex items-center justify-center gap-4 flex-wrap">
-            <Link
-              href="/register"
-              className="group inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-4 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary-hover glow-md hover:glow-lg hover:scale-[1.03] active:scale-[0.98]"
-            >
-              Start Protecting Today
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-            <Link
-              href="/pricing"
-              className="inline-flex items-center gap-2 rounded-xl border border-border px-8 py-4 text-sm font-semibold text-text-secondary hover:border-primary/30 hover:text-text transition-colors"
-            >
-              View Full Pricing
-            </Link>
-          </FadeIn>
-
-          <FadeIn delay={0.25} className="mt-6 text-center">
-            <p className="text-xs text-text-dim">No credit card required to browse. Cancel anytime.</p>
-          </FadeIn>
         </div>
       </section>
     </>
@@ -696,16 +562,16 @@ function ProductCard({ product }: { product: Product }) {
       tabIndex={0}
       aria-pressed={isFlipped}
     >
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-      <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10 blur-3xl bg-gradient-to-br from-primary/10 via-transparent to-primary/5" />
-      <div className="relative min-h-[360px] [perspective:1200px]">
+      <div className="absolute top-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-primary/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10 blur-3xl bg-linear-to-br from-primary/10 via-transparent to-primary/5" />
+      <div className="relative min-h-90 perspective-distant">
         <div
-          className={`relative min-h-[360px] transition-transform duration-900 ease-in-out will-change-transform [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)] ${
-            isFlipped ? '[transform:rotateY(180deg)]' : ''
+          className={`relative min-h-90 transition-transform duration-900 ease-in-out will-change-transform transform-3d group-hover:transform-[rotateY(180deg)] ${
+            isFlipped ? 'transform-[rotateY(180deg)]' : ''
           }`}
         >
-          <div className="absolute inset-0 flex flex-col [backface-visibility:hidden]">
-            <div className="relative h-52 bg-gradient-to-b from-surface-raised/50 to-surface/50 overflow-hidden">
+          <div className="absolute inset-0 flex flex-col backface-hidden">
+            <div className="relative h-52 bg-linear-to-b from-surface-raised/50 to-surface/50 overflow-hidden">
               <Image
                 src={product.image}
                 alt={product.name}
@@ -713,7 +579,7 @@ function ProductCard({ product }: { product: Product }) {
                 className="object-cover transition-transform duration-700 group-hover:scale-110"
                 sizes="(max-width: 768px) 100vw, 33vw"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent opacity-60" />
+              <div className="absolute inset-0 bg-linear-to-t from-surface via-transparent to-transparent opacity-60" />
 
               {product.badge && (
                 <span className="absolute top-3 left-3 text-[10px] font-bold text-primary bg-primary/15 border border-primary/25 rounded-full px-2.5 py-1 backdrop-blur-sm">
@@ -737,7 +603,7 @@ function ProductCard({ product }: { product: Product }) {
             </div>
           </div>
 
-          <div className="absolute inset-0 flex flex-col justify-between p-5 bg-surface/95 [transform:rotateY(180deg)] [backface-visibility:hidden]">
+          <div className="absolute inset-0 flex flex-col justify-between p-5 bg-surface/95 transform-[rotateY(180deg)] backface-hidden">
             <div>
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-text-dim">
                 Details
@@ -807,13 +673,13 @@ function RelayDiagram() {
           <motion.div
             animate={{ y: [0, 3, 0] }}
             transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
-            className="h-5 w-px bg-gradient-to-b from-border to-accent/40"
+            className="h-5 w-px bg-linear-to-b from-border to-accent/40"
           />
           <div className="text-[10px] text-text-dim">Routed through</div>
           <motion.div
             animate={{ y: [0, 3, 0] }}
             transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut', delay: 0.2 }}
-            className="h-5 w-px bg-gradient-to-b from-accent/40 to-border"
+            className="h-5 w-px bg-linear-to-b from-accent/40 to-border"
           />
         </div>
 
@@ -834,13 +700,13 @@ function RelayDiagram() {
           <motion.div
             animate={{ y: [0, 3, 0] }}
             transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut', delay: 0.4 }}
-            className="h-5 w-px bg-gradient-to-b from-border to-primary/40"
+            className="h-5 w-px bg-linear-to-b from-border to-primary/40"
           />
           <div className="text-[10px] text-text-dim">Delivered to</div>
           <motion.div
             animate={{ y: [0, 3, 0] }}
             transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut', delay: 0.6 }}
-            className="h-5 w-px bg-gradient-to-b from-primary/40 to-border"
+            className="h-5 w-px bg-linear-to-b from-primary/40 to-border"
           />
         </div>
 
@@ -883,7 +749,7 @@ function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
       transition={{ type: 'spring', stiffness: 300, damping: 22 }}
       className="group relative flex flex-col rounded-2xl border border-border bg-surface/80 backdrop-blur-sm p-6 h-full overflow-hidden cursor-default"
     >
-      <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <div className="absolute top-0 left-6 right-6 h-px bg-linear-to-r from-transparent via-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
       <div className="flex gap-1 mb-4">
         {Array.from({ length: testimonial.stars }).map((_, i) => (
