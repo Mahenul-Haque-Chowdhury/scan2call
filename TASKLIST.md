@@ -31,6 +31,19 @@ Recommended baseline tag name:
 
 Goal: establish a reversible starting point.
 
+Baseline run recorded on 2026-05-01:
+
+- `pnpm install --frozen-lockfile`: passed
+- `pnpm db:generate`: passed
+- `pnpm -w build`: failed locally on Windows during Next.js standalone trace copy with `EPERM` symlink errors in `apps/web/.next/standalone`
+- `pnpm -w lint`: passed
+- `pnpm -w test`: passed
+- Current baseline commit before further upgrade work: `22061a8`
+
+Known accepted baseline note:
+
+- The current local Windows build issue is environment-specific standalone tracing behavior, not a TypeScript/app-code build break. CI/Linux remains the authority for full web build validation.
+
 Tasks:
 
 - Confirm working tree is clean.
