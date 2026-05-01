@@ -75,7 +75,11 @@ function extractTagTokenFromScan(value: string): string | null {
     const parts = url.pathname.split('/').filter(Boolean);
     if (parts.length >= 2 && parts[parts.length - 2] === 'scan') {
       const token = parts[parts.length - 1];
-      return /^[A-Za-z0-9]{12}$/.test(token) ? token : null;
+        if (typeof token === 'string' && /^[A-Za-z0-9]{12}$/.test(token)) {
+          return token;
+        }
+
+        return null;
     }
   } catch {
     return null;
