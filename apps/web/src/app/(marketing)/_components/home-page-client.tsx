@@ -7,8 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Shield, Phone, MapPin, QrCode, User,
   PawPrint, Car, Luggage, KeyRound, HeartPulse, ArrowRight,
-  EyeOff, ShieldCheck, Lock, Globe, Star, CheckCircle2,
-  Zap, Users, ScanLine, Clock,
+  EyeOff, ShieldCheck, Lock, Globe, Star,
 } from 'lucide-react';
 import { FadeIn, StaggerContainer, StaggerItem } from '@/components/ui/motion';
 import { useAuth } from '@/providers/auth-provider';

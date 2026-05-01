@@ -350,26 +350,6 @@ export default function SubscriptionPage() {
         </div>
       </motion.div>
 
-      <div className="mt-6 rounded-2xl border border-border bg-surface p-6">
-        <h2 className="text-lg font-semibold text-text">Redeem a gift code</h2>
-        <p className="mt-1 text-sm text-text-muted">Apply a gift code to extend your access beyond your current plan.</p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <input
-            value={redeemCode}
-            onChange={(e) => setRedeemCode(e.target.value)}
-            className="flex-1 min-w-55 rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            placeholder="Scan2Call-Gift-XXXX"
-          />
-          <Button onClick={handleRedeem} loading={redeeming}>
-            {redeeming ? 'Applying...' : 'Redeem Code'}
-          </Button>
-        </div>
-        {redeemResult && (
-          <Alert variant={redeemResult.includes('successfully') ? 'success' : 'error'} className="mt-4">
-            {redeemResult}
-          </Alert>
-        )}
-      </div>
     </div>
   );
 }
