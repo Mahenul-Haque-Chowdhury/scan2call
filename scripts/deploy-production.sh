@@ -17,7 +17,7 @@ echo "==> Building and starting production services"
 docker compose "${COMPOSE_ARGS[@]}" up -d --build postgres api web caddy
 
 echo "==> Running production Prisma migrations"
-docker compose "${COMPOSE_ARGS[@]}" run --rm api sh -lc "npm install -g prisma@6.19.3 >/tmp/prisma-install.log && prisma migrate deploy --schema /app/prisma/schema.prisma"
+docker compose "${COMPOSE_ARGS[@]}" run --rm api sh -lc "prisma migrate deploy"
 
 echo "==> Restarting app services after migrations"
 docker compose "${COMPOSE_ARGS[@]}" up -d --build api web caddy

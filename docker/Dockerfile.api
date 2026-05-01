@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends wget && rm -rf 
 COPY --from=builder /prod/api ./
 COPY --from=builder /app/packages/shared/dist ./node_modules/.pnpm/@scan2call+shared@file+packages+shared/node_modules/@scan2call/shared/dist
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
 EXPOSE 3001
 

@@ -26,5 +26,16 @@
     "prisma": "^7.8.0",
     "tsx": "^4.21.0",
     "turbo": "^2.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@prisma/engines",
+      "bcrypt",
+      "esbuild",
+      "prisma",
+      "sharp",
+      "unrs-resolver"
+    ]
   }
 }
