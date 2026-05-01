@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/providers/auth-provider';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, ApiError } from '@/lib/api-client';
 import { Tag, ShoppingCart, Crown } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatCard } from '@/components/ui/stat-card';
@@ -64,6 +64,9 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
+  const [redeemCode, setRedeemCode] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
+  const [redeemResult, setRedeemResult] = useState<string | null>(null);
 
   async function handleResendVerification() {
     if (!user?.email) return;
@@ -96,6 +99,24 @@ export default function DashboardPage() {
     fetchData();
     return () => { cancelled = true; };
   }, []);
+
+  const handleRedeem = useCallback(async () => {
+    if (!redeemCode.trim()) {
+      setRedeemResult('Please enter a redeem code.');
+      return;
+    }
+    setRedeeming(true);
+    setRedeemResult(null);
+    try {
+      await apiClient.post('/subscriptions/redeem', { code: redeemCode.trim() });
+      setRedeemResult('Gift code applied successfully.');
+      setRedeemCode('');
+    } catch (err) {
+      setRedeemResult(err instanceof ApiError ? err.message : 'Failed to redeem code.');
+    } finally {
+      setRedeeming(false);
+    }
+  }, [redeemCode]);
 
   if (loading) return <DashboardSkeleton />;
 
@@ -204,6 +225,29 @@ export default function DashboardPage() {
             </motion.div>
           ))}
         </div>
+      </div>
+
+      <div className="mt-8">
+        <h2 className="text-lg font-semibold text-text">Redeem Gifts</h2>
+        <Card className="mt-4 p-6">
+          <p className="text-sm text-text-muted">Have a gift code? Apply it here to unlock access.</p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <input
+              value={redeemCode}
+              onChange={(e) => setRedeemCode(e.target.value)}
+              className="flex-1 min-w-55 rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              placeholder="Scan2Call-Gift-XXXX"
+            />
+            <Button onClick={handleRedeem} loading={redeeming}>
+              {redeeming ? 'Applying...' : 'Redeem Code'}
+            </Button>
+          </div>
+          {redeemResult && (
+            <Alert variant={redeemResult.includes('successfully') ? 'success' : 'error'} className="mt-4">
+              {redeemResult}
+            </Alert>
+          )}
+        </Card>
       </div>
     </div>
   );

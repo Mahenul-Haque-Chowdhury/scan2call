@@ -48,6 +48,33 @@ const FEATURES = [
   'Priority email support',
 ];
 
+const PLANS = [
+  {
+    name: 'Monthly',
+    price: '$2.99',
+    cadence: '/mo AUD',
+    note: 'Cancel anytime. Perfect for getting started fast.',
+    highlight: false,
+    cta: 'Start Monthly',
+  },
+  {
+    name: 'Yearly',
+    price: '$14.49',
+    cadence: '/yr AUD',
+    note: 'One payment, full access for the year.',
+    highlight: true,
+    cta: 'Get Yearly Access',
+  },
+  {
+    name: '5 Years',
+    price: '$79.49',
+    cadence: '/5 yrs AUD',
+    note: 'The best long-term savings.',
+    highlight: false,
+    cta: 'Lock in 5 Years',
+  },
+];
+
 export default function SubscriptionPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,9 +85,6 @@ export default function SubscriptionPage() {
   const [portalLoading, setPortalLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [redeemCode, setRedeemCode] = useState('');
-  const [redeeming, setRedeeming] = useState(false);
-  const [redeemResult, setRedeemResult] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,26 +148,6 @@ export default function SubscriptionPage() {
     }
   }, []);
 
-  const handleRedeem = useCallback(async () => {
-    if (!redeemCode.trim()) {
-      setRedeemResult('Please enter a redeem code.');
-      return;
-    }
-    setRedeeming(true);
-    setRedeemResult(null);
-    try {
-      await apiClient.post('/subscriptions/redeem', { code: redeemCode.trim() });
-      setRedeemResult('Gift code applied successfully.');
-      setRedeemCode('');
-      const result = await apiClient.get<{ data: Subscription | null }>('/subscriptions/me');
-      setSubscription(result.data);
-    } catch (err) {
-      setRedeemResult(err instanceof ApiError ? err.message : 'Failed to redeem code.');
-    } finally {
-      setRedeeming(false);
-    }
-  }, [redeemCode]);
-
   if (loading) {
     return (
       <div>
@@ -171,7 +175,7 @@ export default function SubscriptionPage() {
           initial={{ opacity: 0, y: 20, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] as const }}
-          className="glow-primary mt-8 rounded-2xl border border-border bg-surface p-8 text-center"
+          className="glow-primary mt-8 rounded-2xl border border-border bg-surface p-8"
         >
           <motion.div
             initial={{ scale: 0 }}
@@ -186,7 +190,7 @@ export default function SubscriptionPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25 }}
-            className="mt-4 text-xl font-bold text-text"
+            className="mt-4 text-xl font-bold text-text text-center"
           >
             Unlock the full Scan2Call experience
           </motion.h2>
@@ -194,21 +198,52 @@ export default function SubscriptionPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="mx-auto mt-2 max-w-sm text-sm text-text-muted"
+            className="mx-auto mt-2 max-w-sm text-sm text-text-muted text-center"
           >
             Get unlimited tags, unlimited scans, WhatsApp messaging, location sharing, and access to the Scan2Call store.
           </motion.p>
 
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.35, type: 'spring', stiffness: 300, damping: 20 }}
-            className="mt-6"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            className="mt-8 grid gap-4 lg:grid-cols-3"
           >
-            <p className="text-3xl font-bold text-primary">$9.99<span className="text-base font-normal text-text-dim">/mo AUD</span></p>
+            {PLANS.map((plan) => (
+              <div
+                key={plan.name}
+                className={`rounded-2xl border p-5 text-left transition-all duration-200 ${
+                  plan.highlight
+                    ? 'border-primary/60 bg-primary/5 shadow-lg shadow-primary/10'
+                    : 'border-border bg-surface-raised/60'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-text">{plan.name}</p>
+                  {plan.highlight && (
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-primary bg-primary/10 border border-primary/30 rounded-full px-2 py-0.5">
+                      Best value
+                    </span>
+                  )}
+                </div>
+                <div className="mt-4 flex items-baseline gap-1">
+                  <span className="text-3xl font-bold text-primary">{plan.price}</span>
+                  <span className="text-xs text-text-dim">{plan.cadence}</span>
+                </div>
+                <p className="mt-2 text-xs text-text-muted">{plan.note}</p>
+                <Button
+                  onClick={handleSubscribe}
+                  loading={subscribing}
+                  size="sm"
+                  className="mt-4 w-full"
+                >
+                  {subscribing ? 'Redirecting...' : plan.cta}
+                </Button>
+              </div>
+            ))}
           </motion.div>
 
-          <motion.ul variants={stagger} initial="hidden" animate="visible" className="mx-auto mt-6 max-w-xs space-y-2 text-left text-sm text-text-muted">
+          <motion.ul variants={stagger} initial="hidden" animate="visible" className="mx-auto mt-8 max-w-md space-y-2 text-left text-sm text-text-muted">
             {FEATURES.map((feature, i) => (
               <motion.li key={feature} variants={fadeUp} custom={i} className="flex items-start gap-2">
                 <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
@@ -217,35 +252,8 @@ export default function SubscriptionPage() {
             ))}
           </motion.ul>
 
-          {actionError && <p className="mt-4 text-sm text-error">{actionError}</p>}
-
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-            <Button onClick={handleSubscribe} loading={subscribing} size="lg" className="mt-6 w-full max-w-xs">
-              {subscribing ? 'Redirecting to checkout...' : 'Subscribe for $9.99/mo'}
-            </Button>
-          </motion.div>
+          {actionError && <p className="mt-4 text-sm text-error text-center">{actionError}</p>}
         </motion.div>
-
-        <div className="mt-8 rounded-2xl border border-border bg-surface p-6">
-          <h2 className="text-lg font-semibold text-text">Redeem a gift code</h2>
-          <p className="mt-1 text-sm text-text-muted">Have a gift code? Apply it here to unlock access.</p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <input
-              value={redeemCode}
-              onChange={(e) => setRedeemCode(e.target.value)}
-              className="flex-1 min-w-55 rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="Scan2Call-Gift-XXXX"
-            />
-            <Button onClick={handleRedeem} loading={redeeming}>
-              {redeeming ? 'Applying...' : 'Redeem Code'}
-            </Button>
-          </div>
-          {redeemResult && (
-            <Alert variant={redeemResult.includes('successfully') ? 'success' : 'error'} className="mt-4">
-              {redeemResult}
-            </Alert>
-          )}
-        </div>
       </div>
     );
   }
