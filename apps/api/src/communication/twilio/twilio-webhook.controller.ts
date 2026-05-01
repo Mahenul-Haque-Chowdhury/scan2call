@@ -10,7 +10,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { CommunicationStatus } from '@prisma/client';
 import { Public } from '../../common/decorators/public.decorator';
 import { TwilioService } from './twilio.service';

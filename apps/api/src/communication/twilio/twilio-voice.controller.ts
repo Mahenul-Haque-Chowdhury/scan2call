@@ -1,6 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Logger, Post, Res } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
-import { Response } from 'express';
+import type { Response } from 'express';
 import Twilio from 'twilio';
 import { PrismaService } from '../../database/prisma.service';
 import { Public } from '../../common/decorators/public.decorator';

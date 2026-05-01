@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { Public } from '../common/decorators/public.decorator';
 import { PrismaService } from '../database/prisma.service';
 import { PaymentsService } from './payments.service';

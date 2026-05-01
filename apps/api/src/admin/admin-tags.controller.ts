@@ -12,7 +12,7 @@ import {
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import type { TagStatus as PrismaTagStatus, TagType as PrismaTagType } from '@prisma/client';

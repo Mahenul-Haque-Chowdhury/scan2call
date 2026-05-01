@@ -8,10 +8,10 @@
     "build": "pnpm db:generate && turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "db:migrate": "prisma migrate dev --schema prisma/schema.prisma",
-    "db:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev",
+    "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio --schema prisma/schema.prisma",
+    "db:studio": "prisma studio",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\""
   },
   "engines": {
@@ -20,10 +20,10 @@
   },
   "packageManager": "pnpm@10.33.2",
   "devDependencies": {
-    "@prisma/client": "^6.3.0",
+    "@prisma/client": "^7.8.0",
     "@types/bcrypt": "^5.0.2",
     "bcrypt": "^5.1.1",
-    "prisma": "^6.3.0",
+    "prisma": "^7.8.0",
     "tsx": "^4.21.0",
     "turbo": "^2.9.3"
   }
