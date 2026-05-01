@@ -300,7 +300,7 @@ export default function ScanPageClient({ token }: { token: string }) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error((data as { message?: string })?.message || 'Failed to initiate call.');
+        throw new Error(getApiErrorMessage(data, 'Failed to initiate call.'));
       }
       const json = await res.json();
       const { token: clientToken, identity } = json.data;
