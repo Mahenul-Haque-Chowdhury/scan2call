@@ -275,7 +275,14 @@ Exit criteria:
 
 Goal: verify the product still works as a product, not just as a build.
 
-Manual regression checklist:
+Automated checks completed 2026-05-02:
+
+- `pnpm build`: all 3 packages (shared, api, web) build clean
+- `pnpm lint`: all 4 lint tasks pass with zero errors
+- `pnpm test`: all tests pass
+- `pnpm db:generate`: Prisma 7 client generates without DATABASE_URL
+
+Manual regression checklist (requires running environment):
 
 - homepage and marketing pages load
 - login/register/reset flows work
