@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/providers/auth-provider';
 import { apiClient, ApiError } from '@/lib/api-client';
-import { CheckCircle, AlertCircle, Bell, CreditCard } from 'lucide-react';
+import { CheckCircle, AlertCircle, Bell, CreditCard, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
@@ -152,6 +152,20 @@ export default function SettingsPage() {
     <div>
       <PageHeader title="Settings" description="Manage your account and preferences." />
 
+      {user && !user.phoneVerified && (
+        <a
+          href="#phone-section"
+          className="mt-6 flex items-center gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 transition-colors hover:bg-amber-400/15"
+        >
+          <ShieldAlert className="h-5 w-5 shrink-0 text-amber-500" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Verify your phone number</p>
+            <p className="text-xs text-amber-600/80 dark:text-amber-500/80">Add and verify a phone number so finders can reach you via call, SMS, and WhatsApp.</p>
+          </div>
+          <span className="shrink-0 text-xs font-medium text-amber-600 dark:text-amber-400">Set up &rarr;</span>
+        </a>
+      )}
+
       <motion.div {...cardAnim(0)}>
         <Card className="mt-8">
           <CardContent className="py-6">
@@ -176,7 +190,7 @@ export default function SettingsPage() {
                     <input type="text" id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} className="mt-1 block w-full rounded-xl border border-border bg-surface-raised px-4 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
                   </div>
                 </div>
-                <div>
+                <div id="phone-section">
                   <label htmlFor="phoneNumber" className="block text-sm font-medium text-text-muted">Phone</label>
                   <div className="mt-1 flex items-center gap-2">
                     <select
