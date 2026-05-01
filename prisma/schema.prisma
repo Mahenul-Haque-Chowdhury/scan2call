@@ -172,6 +172,8 @@ model User {
   contactRepliesSent ContactReply[] @relation("contactReplySentBy")
   giftCodesCreated SubscriptionGiftCode[] @relation("giftCodeCreatedBy")
   giftRedemptions SubscriptionGiftRedemption[] @relation("giftRedemptions")
+  tagGiftCodesCreated TagGiftCode[] @relation("tagGiftCodeCreatedBy")
+  tagGiftRedemptions TagGiftRedemption[] @relation("tagGiftRedemptions")
 
   @@index([deletedAt])
   @@map("users")
@@ -615,6 +617,47 @@ model SubscriptionGiftRedemption {
   @@index([giftCodeId])
   @@index([userId])
   @@map("subscription_gift_redemptions")
+}
+
+model TagGiftCode {
+  id             String         @id @default(cuid())
+  code           String         @unique
+  status         GiftCodeStatus @default(ACTIVE)
+  tagType        TagType        @default(GENERIC)
+  expiresAt      DateTime?
+  maxRedemptions Int            @default(1)
+  redeemedCount  Int            @default(0)
+
+  createdById String
+  createdBy   User @relation("tagGiftCodeCreatedBy", fields: [createdById], references: [id])
+
+  redemptions TagGiftRedemption[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([expiresAt])
+  @@map("tag_gift_codes")
+}
+
+model TagGiftRedemption {
+  id         String   @id @default(cuid())
+  giftCodeId String
+  userId     String
+  tagId      String
+  redeemedAt DateTime @default(now())
+  note       String?
+
+  giftCode TagGiftCode @relation(fields: [giftCodeId], references: [id], onDelete: Cascade)
+  user     User        @relation("tagGiftRedemptions", fields: [userId], references: [id])
+  tag      Tag         @relation(fields: [tagId], references: [id])
+
+  @@unique([giftCodeId, userId])
+  @@index([giftCodeId])
+  @@index([userId])
+  @@index([tagId])
+  @@map("tag_gift_redemptions")
 }
 
 // ──────────────────────────────────────────────

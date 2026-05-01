@@ -67,6 +67,7 @@ export default function DashboardPage() {
   const [redeemCode, setRedeemCode] = useState('');
   const [redeeming, setRedeeming] = useState(false);
   const [redeemResult, setRedeemResult] = useState<string | null>(null);
+  const [redeemType, setRedeemType] = useState<'SUBSCRIPTION' | 'TAG' | null>(null);
 
   async function handleResendVerification() {
     if (!user?.email) return;
@@ -103,16 +104,24 @@ export default function DashboardPage() {
   const handleRedeem = useCallback(async () => {
     if (!redeemCode.trim()) {
       setRedeemResult('Please enter a redeem code.');
+      setRedeemType(null);
       return;
     }
     setRedeeming(true);
     setRedeemResult(null);
+    setRedeemType(null);
     try {
-      await apiClient.post('/subscriptions/redeem', { code: redeemCode.trim() });
-      setRedeemResult('Gift code applied successfully.');
+      const result = await apiClient.post<{ data: { type: 'SUBSCRIPTION' | 'TAG' } }>('/gifts/redeem', { code: redeemCode.trim() });
+      if (result.data.type === 'TAG') {
+        setRedeemResult('Tag gift applied. Your new tag is ready in your Tags list.');
+      } else {
+        setRedeemResult('Subscription gift applied successfully.');
+      }
+      setRedeemType(result.data.type);
       setRedeemCode('');
     } catch (err) {
       setRedeemResult(err instanceof ApiError ? err.message : 'Failed to redeem code.');
+      setRedeemType(null);
     } finally {
       setRedeeming(false);
     }
@@ -227,7 +236,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="mt-8">
+      <div id="redeem-gifts" className="mt-8 scroll-mt-28">
         <h2 className="text-lg font-semibold text-text">Redeem Gifts</h2>
         <Card className="mt-4 p-6">
           <p className="text-sm text-text-muted">Have a gift code? Apply it here to unlock access.</p>
@@ -243,8 +252,15 @@ export default function DashboardPage() {
             </Button>
           </div>
           {redeemResult && (
-            <Alert variant={redeemResult.includes('successfully') ? 'success' : 'error'} className="mt-4">
-              {redeemResult}
+            <Alert variant={redeemResult.includes('Failed') ? 'error' : 'success'} className="mt-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span>{redeemResult}</span>
+                {redeemType === 'TAG' && (
+                  <Link href="/tags" className="text-sm font-medium text-primary hover:text-primary-hover">
+                    View tags
+                  </Link>
+                )}
+              </div>
             </Alert>
           )}
         </Card>

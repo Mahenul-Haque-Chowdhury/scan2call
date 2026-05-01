@@ -20,6 +20,7 @@ import {
   LogOut,
   Menu,
   X,
+  Gift,
 } from 'lucide-react';
 
 const headerLinks = [
@@ -36,6 +37,7 @@ const sidebarLinks = [
   { href: '/orders', label: 'Orders', icon: Package },
   { href: '/subscription', label: 'Subscription', icon: Crown },
   { href: '/store/cart', label: 'Store', icon: ShoppingCart },
+  { href: '/dashboard#redeem-gifts', label: 'Redeem Gifts', icon: Gift },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -50,7 +52,9 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen flex-col">
       <header className="fixed top-4 left-1/2 -translate-x-1/2 z-30 w-[calc(100%-2rem)] max-w-7xl rounded-2xl border border-border/50 bg-bg/60 backdrop-blur-lg shadow-lg shadow-shadow">
         <nav className="flex items-center justify-between px-6 h-14">
-          <Logo />
+          <div className="-translate-y-1">
+            <Logo />
+          </div>
 
           <ul className="hidden md:flex items-center gap-1">
             {headerLinks.map((link) => (

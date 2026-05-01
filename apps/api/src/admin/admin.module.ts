@@ -8,13 +8,15 @@ import { AdminAuditLogController } from './admin-audit-log.controller';
 import { AdminSystemController } from './admin-system.controller';
 import { AdminContactMessagesController } from './admin-contact-messages.controller';
 import { AdminGiftCodesController } from './admin-gift-codes.controller';
+import { AdminTagGiftCodesController } from './admin-tag-gift-codes.controller';
 import { AdminService } from './admin.service';
 import { AdminSystemService } from './admin-system.service';
 import { QrCodeModule } from '../qr-code/qr-code.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
+import { GiftsModule } from '../gifts/gifts.module';
 
 @Module({
-  imports: [QrCodeModule, SubscriptionsModule],
+  imports: [QrCodeModule, SubscriptionsModule, GiftsModule],
   controllers: [
     AdminUsersController,
     AdminTagsController,
@@ -25,6 +27,7 @@ import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
     AdminSystemController,
     AdminContactMessagesController,
     AdminGiftCodesController,
+    AdminTagGiftCodesController,
   ],
   providers: [AdminService, AdminSystemService],
   exports: [AdminService],

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, MessageCircle, MapPin, Flag, ChevronDown, AlertTriangle, CheckCircle, X, ImageIcon, Paperclip, ShieldCheck, Trash2 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
@@ -122,6 +123,7 @@ export default function ScanPageClient({ token }: { token: string }) {
   const [tag, setTag] = useState<TagData | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [fetchStatus, setFetchStatus] = useState<'inactive' | 'deactivated' | 'not-found' | 'error' | null>(null);
 
   const [activeMethod, setActiveMethod] = useState<ContactMethod | null>(null);
   const [smsMessage, setSmsMessage] = useState('');
@@ -150,12 +152,26 @@ export default function ScanPageClient({ token }: { token: string }) {
         const res = await fetch(`${API}/scan/${token}`);
         if (!res.ok) {
           const body = await res.json().catch(() => null);
+          const message = (body as { message?: string })?.message;
           if (!cancelled) {
-            setFetchError(
-              res.status === 404
-                ? 'This tag was not found. It may have been removed or the link is incorrect.'
-                : (body as { message?: string })?.message || 'Something went wrong. Please try again.',
-            );
+            if (res.status === 404) {
+              setFetchStatus('not-found');
+              setFetchError('This tag was not found. It may have been removed or the link is incorrect.');
+            } else if (res.status === 400) {
+              if (typeof message === 'string' && message.toLowerCase().includes('not been activated')) {
+                setFetchStatus('inactive');
+                setFetchError(message);
+              } else if (typeof message === 'string' && message.toLowerCase().includes('deactivated')) {
+                setFetchStatus('deactivated');
+                setFetchError(message);
+              } else {
+                setFetchStatus('error');
+                setFetchError(message || 'Something went wrong. Please try again.');
+              }
+            } else {
+              setFetchStatus('error');
+              setFetchError(message || 'Something went wrong. Please try again.');
+            }
           }
           return;
         }
@@ -481,6 +497,17 @@ export default function ScanPageClient({ token }: { token: string }) {
   }
 
   if (fetchError || !tag) {
+    const errorTitle = fetchStatus === 'inactive'
+      ? 'Tag Not Active'
+      : fetchStatus === 'deactivated'
+        ? 'Tag Deactivated'
+        : 'Tag Not Found';
+    const errorMessage = fetchStatus === 'inactive'
+      ? 'This tag is not active in our database. Please log in to activate it if you purchased the tag online or in store.'
+      : fetchStatus === 'deactivated'
+        ? 'This tag has been deactivated by its owner.'
+        : fetchError || 'This tag could not be loaded. Please try again later.';
+
     return (
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -497,10 +524,16 @@ export default function ScanPageClient({ token }: { token: string }) {
           >
             <AlertTriangle className="h-7 w-7 text-red-600" />
           </motion.div>
-          <h2 className="mt-4 text-lg font-semibold text-red-900">Tag Not Found</h2>
-          <p className="mt-2 text-sm text-red-700">
-            {fetchError || 'This tag could not be loaded. Please try again later.'}
-          </p>
+          <h2 className="mt-4 text-lg font-semibold text-red-900">{errorTitle}</h2>
+          <p className="mt-2 text-sm text-red-700">{errorMessage}</p>
+          {fetchStatus === 'inactive' && (
+            <Link
+              href="/login"
+              className="mt-5 inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover"
+            >
+              Log in to activate
+            </Link>
+          )}
         </div>
       </motion.div>
     );

@@ -14,6 +14,7 @@ import { CommunicationModule } from './communication/communication.module';
 import { StoreModule } from './store/store.module';
 import { OrdersModule } from './orders/orders.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { GiftsModule } from './gifts/gifts.module';
 import { PaymentsModule } from './payments/payments.module';
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -38,6 +39,7 @@ import { MediaModule } from './media/media.module';
     StoreModule,
     OrdersModule,
     SubscriptionsModule,
+    GiftsModule,
     PaymentsModule,
     AdminModule,
     NotificationsModule,
