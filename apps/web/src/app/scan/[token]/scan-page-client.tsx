@@ -541,7 +541,7 @@ export default function ScanPageClient({ token }: { token: string }) {
 
   const tagTypeLabel = TAG_TYPE_LABELS[tag.tagType] || 'Item';
   const displayName = tag.label || tagTypeLabel;
-  const hasContactOptions = tag.contactOptions?.call || tag.contactOptions?.sms || tag.contactOptions?.whatsapp || tag.contactOptions?.sendLocation;
+  const hasContactOptions = tag.contactOptions?.call || tag.contactOptions?.browserCall || tag.contactOptions?.sms || tag.contactOptions?.whatsapp || tag.contactOptions?.sendLocation;
 
   return (
     <motion.div
@@ -664,7 +664,7 @@ export default function ScanPageClient({ token }: { token: string }) {
             Found this item? Contact the owner anonymously.
           </p>
 
-          {tag.contactOptions?.call && (
+          {(tag.contactOptions?.call || tag.contactOptions?.browserCall) && (
             <ContactButton
               method="call"
               activeMethod={activeMethod}
