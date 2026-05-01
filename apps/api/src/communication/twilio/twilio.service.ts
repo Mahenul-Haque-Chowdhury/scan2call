@@ -37,8 +37,20 @@ export class TwilioService implements OnModuleInit {
   }
 
   private get twilioClient(): Twilio.Twilio {
-    if (!this.client) throw new Error('Twilio is not configured');
+    if (!this.client) throw new BadRequestException('Twilio is not configured. Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN.');
     return this.client;
+  }
+
+  private parseTwilioError(err: unknown): string {
+    if (err && typeof err === 'object') {
+      const e = err as Record<string, unknown>;
+      if (typeof e.message === 'string') {
+        // Twilio errors have a numeric `code` and human-readable `message`
+        const code = typeof e.code === 'number' ? ` (code ${e.code})` : '';
+        return `${e.message}${code}`;
+      }
+    }
+    return 'Twilio request failed. Please try again.';
   }
 
   /**
@@ -108,36 +120,42 @@ export class TwilioService implements OnModuleInit {
    * Uses API Key (not Account SID) as recommended by Twilio.
    */
   generateClientToken(identity: string): string {
+    if (!this.accountSid) {
+      throw new BadRequestException('Twilio is not configured. Set TWILIO_ACCOUNT_SID.');
+    }
     if (!this.apiKeySid || !this.apiKeySecret) {
       throw new BadRequestException(
         'Twilio voice is not configured. Set TWILIO_API_KEY_SID and TWILIO_API_KEY_SECRET.',
       );
     }
-
     if (!this.twimlAppSid) {
       throw new BadRequestException(
         'Twilio voice is not configured. Set TWILIO_TWIML_APP_SID.',
       );
     }
 
-    const AccessToken = Twilio.jwt.AccessToken;
-    const VoiceGrant = AccessToken.VoiceGrant;
+    try {
+      const AccessToken = Twilio.jwt.AccessToken;
+      const VoiceGrant = AccessToken.VoiceGrant;
 
-    const voiceGrant = new VoiceGrant({
-      outgoingApplicationSid: this.twimlAppSid,
-      incomingAllow: false, // Finder only makes outbound calls
-    });
+      const voiceGrant = new VoiceGrant({
+        outgoingApplicationSid: this.twimlAppSid,
+        incomingAllow: false,
+      });
 
-    const token = new AccessToken(
-      this.accountSid,
-      this.apiKeySid,
-      this.apiKeySecret,
-      { identity, ttl: 3600 }, // 1 hour token
-    );
+      const token = new AccessToken(
+        this.accountSid,
+        this.apiKeySid,
+        this.apiKeySecret,
+        { identity, ttl: 3600 },
+      );
 
-    token.addGrant(voiceGrant);
-
-    return token.toJwt();
+      token.addGrant(voiceGrant);
+      return token.toJwt();
+    } catch (err) {
+      this.logger.error('Failed to generate Twilio client token', err);
+      throw new BadRequestException(`Failed to generate call token: ${this.parseTwilioError(err)}`);
+    }
   }
 
   /**
@@ -148,44 +166,45 @@ export class TwilioService implements OnModuleInit {
       this.logger.warn(`[DEV SMS] To: ${to}, Body: ${body}`);
       return 'dev-message-sid';
     }
-    const message = await this.client.messages.create({
-      to,
-      from: this.phoneNumber,
-      body,
-    });
-    return message.sid;
+    if (!this.phoneNumber) {
+      throw new BadRequestException('Twilio SMS is not configured. Set TWILIO_PHONE_NUMBER.');
+    }
+    try {
+      const message = await this.client.messages.create({ to, from: this.phoneNumber, body });
+      return message.sid;
+    } catch (err) {
+      this.logger.error(`Twilio SMS failed to ${to}`, err);
+      throw new BadRequestException(`Failed to send SMS: ${this.parseTwilioError(err)}`);
+    }
   }
 
   /**
    * Send a WhatsApp message via Twilio.
    */
-  async sendWhatsAppMessage(
-    to: string,
-    body: string,
-  ): Promise<string> {
+  async sendWhatsAppMessage(to: string, body: string): Promise<string> {
     const whatsappFrom = this.config.get<string>(
       'TWILIO_WHATSAPP_NUMBER',
-      'whatsapp:+14155238886', // Twilio sandbox default
+      'whatsapp:+14155238886',
     );
 
-    const message = await this.twilioClient.messages.create({
-      body,
-      from: `whatsapp:${whatsappFrom.replace('whatsapp:', '')}`,
-      to: `whatsapp:${to.replace('whatsapp:', '')}`,
-    });
-
-    this.logger.log(`WhatsApp message sent: ${message.sid}`);
-    return message.sid;
+    try {
+      const message = await this.twilioClient.messages.create({
+        body,
+        from: `whatsapp:${whatsappFrom.replace('whatsapp:', '')}`,
+        to: `whatsapp:${to.replace('whatsapp:', '')}`,
+      });
+      this.logger.log(`WhatsApp message sent: ${message.sid}`);
+      return message.sid;
+    } catch (err) {
+      this.logger.error(`Twilio WhatsApp failed to ${to}`, err);
+      throw new BadRequestException(`Failed to send WhatsApp message: ${this.parseTwilioError(err)}`);
+    }
   }
 
   /**
    * Validate a Twilio webhook request signature.
    */
-  validateWebhook(
-    signature: string,
-    url: string,
-    params: Record<string, string>,
-  ): boolean {
+  validateWebhook(signature: string, url: string, params: Record<string, string>): boolean {
     return validateRequest(this.authToken, signature, url, params);
   }
 
@@ -203,3 +222,4 @@ export class TwilioService implements OnModuleInit {
     return this.twilioClient.messages(messageSid).fetch();
   }
 }
+
