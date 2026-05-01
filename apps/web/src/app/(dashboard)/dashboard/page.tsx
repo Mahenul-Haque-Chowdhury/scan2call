@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/auth-provider';
-import { apiClient, ApiError } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
 import { Tag, ShoppingCart, Crown } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatCard } from '@/components/ui/stat-card';
@@ -57,6 +58,7 @@ const quickActionVariants = {
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const [stats, setStats] = useState<UserStats | null>(null);
   const [scans, setScans] = useState<ScanItem[]>([]);
@@ -64,10 +66,12 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
-  const [redeemCode, setRedeemCode] = useState('');
-  const [redeeming, setRedeeming] = useState(false);
-  const [redeemResult, setRedeemResult] = useState<string | null>(null);
-  const [redeemType, setRedeemType] = useState<'SUBSCRIPTION' | 'TAG' | null>(null);
+
+  useEffect(() => {
+    if (window.location.hash === '#redeem-gifts') {
+      router.replace('/redeem-gifts');
+    }
+  }, [router]);
 
   async function handleResendVerification() {
     if (!user?.email) return;
@@ -100,32 +104,6 @@ export default function DashboardPage() {
     fetchData();
     return () => { cancelled = true; };
   }, []);
-
-  const handleRedeem = useCallback(async () => {
-    if (!redeemCode.trim()) {
-      setRedeemResult('Please enter a redeem code.');
-      setRedeemType(null);
-      return;
-    }
-    setRedeeming(true);
-    setRedeemResult(null);
-    setRedeemType(null);
-    try {
-      const result = await apiClient.post<{ data: { type: 'SUBSCRIPTION' | 'TAG' } }>('/gifts/redeem', { code: redeemCode.trim() });
-      if (result.data.type === 'TAG') {
-        setRedeemResult('Tag gift applied. Your new tag is ready in your Tags list.');
-      } else {
-        setRedeemResult('Subscription gift applied successfully.');
-      }
-      setRedeemType(result.data.type);
-      setRedeemCode('');
-    } catch (err) {
-      setRedeemResult(err instanceof ApiError ? err.message : 'Failed to redeem code.');
-      setRedeemType(null);
-    } finally {
-      setRedeeming(false);
-    }
-  }, [redeemCode]);
 
   if (loading) return <DashboardSkeleton />;
 
@@ -236,35 +214,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div id="redeem-gifts" className="mt-8 scroll-mt-28">
-        <h2 className="text-lg font-semibold text-text">Redeem Gifts</h2>
-        <Card className="mt-4 p-6">
-          <p className="text-sm text-text-muted">Have a gift code? Apply it here to unlock access.</p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <input
-              value={redeemCode}
-              onChange={(e) => setRedeemCode(e.target.value)}
-              className="flex-1 min-w-55 rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="Scan2Call-Gift-XXXX"
-            />
-            <Button onClick={handleRedeem} loading={redeeming}>
-              {redeeming ? 'Applying...' : 'Redeem Code'}
-            </Button>
-          </div>
-          {redeemResult && (
-            <Alert variant={redeemResult.includes('Failed') ? 'error' : 'success'} className="mt-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <span>{redeemResult}</span>
-                {redeemType === 'TAG' && (
-                  <Link href="/tags" className="text-sm font-medium text-primary hover:text-primary-hover">
-                    View tags
-                  </Link>
-                )}
-              </div>
-            </Alert>
-          )}
-        </Card>
-      </div>
     </div>
   );
 }

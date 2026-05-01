@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { GiftCodeStatus, TagType } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../database/prisma.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 
 const GIFT_CODE_PREFIX = 'Scan2Call-Gift-';
 const GIFT_CODE_LENGTH = 8;
@@ -14,11 +15,27 @@ interface CreateTagGiftCodeInput {
   maxRedemptions?: number;
 }
 
+interface TagGiftCodeState {
+  id: string;
+  status: GiftCodeStatus;
+  expiresAt: Date | null;
+  redeemedCount: number;
+  maxRedemptions: number;
+}
+
 @Injectable()
 export class TagGiftService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly subscriptionsService: SubscriptionsService,
+  ) {}
 
   async createTagGiftCode(adminId: string, input: CreateTagGiftCodeInput) {
+    const expiresAt = input.expiresAt ?? null;
+    if (expiresAt && expiresAt.getTime() <= Date.now()) {
+      throw new BadRequestException('Expiry must be in the future');
+    }
+
     const maxRedemptions = Math.max(input.maxRedemptions ?? 1, 1);
     const code = await this.generateUniqueCode();
 
@@ -26,7 +43,7 @@ export class TagGiftService {
       data: {
         code,
         tagType: input.tagType ?? 'GENERIC',
-        expiresAt: input.expiresAt ?? null,
+        expiresAt,
         maxRedemptions,
         createdById: adminId,
       },
@@ -39,6 +56,8 @@ export class TagGiftService {
     const page = params.page || 1;
     const pageSize = Math.min(params.pageSize || 20, 100);
     const skip = (page - 1) * pageSize;
+
+    await this.expireStaleGiftCodes();
 
     const where: Record<string, unknown> = {};
     if (params.status) where.status = params.status;
@@ -66,6 +85,8 @@ export class TagGiftService {
     const giftCode = await this.prisma.tagGiftCode.findUnique({ where: { id: codeId } });
     if (!giftCode) throw new NotFoundException('Gift code not found');
 
+    await this.syncGiftCodeStatus(giftCode);
+
     return this.redeemTagGiftCode(userId, giftCode.code, adminId, note);
   }
 
@@ -73,8 +94,15 @@ export class TagGiftService {
     const code = rawCode.trim();
     if (!code) throw new BadRequestException('Redeem code is required');
 
-    const giftCode = await this.prisma.tagGiftCode.findUnique({ where: { code } });
+    const isSubscribed = await this.subscriptionsService.isUserSubscribed(userId);
+    if (!isSubscribed) {
+      throw new BadRequestException('An active subscription is required to redeem tag gifts.');
+    }
+
+    let giftCode = await this.prisma.tagGiftCode.findUnique({ where: { code } });
     if (!giftCode) throw new NotFoundException('Gift code not found');
+
+    giftCode = await this.syncGiftCodeStatus(giftCode);
 
     this.ensureGiftCodeIsRedeemable(giftCode);
 
@@ -144,7 +172,7 @@ export class TagGiftService {
     };
   }
 
-  private ensureGiftCodeIsRedeemable(giftCode: { status: GiftCodeStatus; expiresAt: Date | null; redeemedCount: number; maxRedemptions: number }) {
+  private ensureGiftCodeIsRedeemable(giftCode: TagGiftCodeState) {
     if (giftCode.status === 'REVOKED' || giftCode.status === 'EXPIRED') {
       throw new BadRequestException('This gift code is no longer active');
     }
@@ -154,6 +182,29 @@ export class TagGiftService {
     if (giftCode.redeemedCount >= giftCode.maxRedemptions) {
       throw new BadRequestException('This gift code has already been redeemed');
     }
+  }
+
+  private async expireStaleGiftCodes() {
+    await this.prisma.tagGiftCode.updateMany({
+      where: {
+        status: 'ACTIVE',
+        expiresAt: { lt: new Date() },
+      },
+      data: { status: 'EXPIRED' },
+    });
+  }
+
+  private async syncGiftCodeStatus<T extends TagGiftCodeState>(giftCode: T): Promise<T> {
+    if (giftCode.status === 'ACTIVE' && giftCode.expiresAt && giftCode.expiresAt.getTime() < Date.now()) {
+      await this.prisma.tagGiftCode.update({
+        where: { id: giftCode.id },
+        data: { status: 'EXPIRED' },
+      });
+
+      return { ...giftCode, status: 'EXPIRED' };
+    }
+
+    return giftCode;
   }
 
   private async generateUniqueCode(): Promise<string> {

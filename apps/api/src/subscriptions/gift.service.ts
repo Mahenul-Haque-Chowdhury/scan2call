@@ -13,6 +13,14 @@ interface CreateGiftCodeInput {
   maxRedemptions?: number;
 }
 
+interface GiftCodeState {
+  id: string;
+  status: GiftCodeStatus;
+  expiresAt: Date | null;
+  redeemedCount: number;
+  maxRedemptions: number;
+}
+
 @Injectable()
 export class GiftService {
   constructor(private readonly prisma: PrismaService) {}
@@ -20,6 +28,7 @@ export class GiftService {
   async createGiftCode(adminId: string, input: CreateGiftCodeInput) {
     const durationMonths = input.durationMonths ?? null;
     const lifetime = input.lifetime ?? false;
+    const expiresAt = input.expiresAt ?? null;
 
     if (!lifetime && !durationMonths) {
       throw new BadRequestException('Duration months is required unless lifetime is set');
@@ -27,6 +36,10 @@ export class GiftService {
 
     if (durationMonths && durationMonths < 1) {
       throw new BadRequestException('Duration months must be at least 1');
+    }
+
+    if (expiresAt && expiresAt.getTime() <= Date.now()) {
+      throw new BadRequestException('Expiry must be in the future');
     }
 
     const maxRedemptions = Math.max(input.maxRedemptions ?? 1, 1);
@@ -37,7 +50,7 @@ export class GiftService {
         code,
         durationMonths,
         lifetime,
-        expiresAt: input.expiresAt ?? null,
+        expiresAt,
         maxRedemptions,
         createdById: adminId,
       },
@@ -50,6 +63,8 @@ export class GiftService {
     const page = params.page || 1;
     const pageSize = Math.min(params.pageSize || 20, 100);
     const skip = (page - 1) * pageSize;
+
+    await this.expireStaleGiftCodes();
 
     const where: Record<string, unknown> = {};
     if (params.status) where.status = params.status;
@@ -79,6 +94,8 @@ export class GiftService {
     const giftCode = await this.prisma.subscriptionGiftCode.findUnique({ where: { id: codeId } });
     if (!giftCode) throw new NotFoundException('Gift code not found');
 
+    await this.syncGiftCodeStatus(giftCode);
+
     return this.redeemGiftCode(userId, giftCode.code, adminId, note);
   }
 
@@ -86,8 +103,10 @@ export class GiftService {
     const code = rawCode.trim();
     if (!code) throw new BadRequestException('Redeem code is required');
 
-    const giftCode = await this.prisma.subscriptionGiftCode.findUnique({ where: { code } });
+    let giftCode = await this.prisma.subscriptionGiftCode.findUnique({ where: { code } });
     if (!giftCode) throw new NotFoundException('Gift code not found');
+
+    giftCode = await this.syncGiftCodeStatus(giftCode);
 
     this.ensureGiftCodeIsRedeemable(giftCode);
 
@@ -185,7 +204,7 @@ export class GiftService {
     return new Date(Math.max(...candidates.map((d) => d.getTime())));
   }
 
-  private ensureGiftCodeIsRedeemable(giftCode: { status: GiftCodeStatus; expiresAt: Date | null; redeemedCount: number; maxRedemptions: number }) {
+  private ensureGiftCodeIsRedeemable(giftCode: GiftCodeState) {
     if (giftCode.status === 'REVOKED' || giftCode.status === 'EXPIRED') {
       throw new BadRequestException('This gift code is no longer active');
     }
@@ -195,6 +214,29 @@ export class GiftService {
     if (giftCode.redeemedCount >= giftCode.maxRedemptions) {
       throw new BadRequestException('This gift code has already been redeemed');
     }
+  }
+
+  private async expireStaleGiftCodes() {
+    await this.prisma.subscriptionGiftCode.updateMany({
+      where: {
+        status: 'ACTIVE',
+        expiresAt: { lt: new Date() },
+      },
+      data: { status: 'EXPIRED' },
+    });
+  }
+
+  private async syncGiftCodeStatus<T extends GiftCodeState>(giftCode: T): Promise<T> {
+    if (giftCode.status === 'ACTIVE' && giftCode.expiresAt && giftCode.expiresAt.getTime() < Date.now()) {
+      await this.prisma.subscriptionGiftCode.update({
+        where: { id: giftCode.id },
+        data: { status: 'EXPIRED' },
+      });
+
+      return { ...giftCode, status: 'EXPIRED' };
+    }
+
+    return giftCode;
   }
 
   private async generateUniqueCode(): Promise<string> {

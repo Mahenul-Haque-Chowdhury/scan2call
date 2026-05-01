@@ -37,7 +37,7 @@ const sidebarLinks = [
   { href: '/orders', label: 'Orders', icon: Package },
   { href: '/subscription', label: 'Subscription', icon: Crown },
   { href: '/store/cart', label: 'Store', icon: ShoppingCart },
-  { href: '/dashboard#redeem-gifts', label: 'Redeem Gifts', icon: Gift },
+  { href: '/redeem-gifts', label: 'Redeem Gifts', icon: Gift },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -197,7 +197,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           </aside>
 
           <div className="flex-1 flex flex-col min-w-0">
-            <div className="lg:hidden sticky top-[88px] z-20 h-12 flex items-center gap-3 px-4 border-b border-border bg-bg/80 backdrop-blur-lg">
+            <div className="lg:hidden sticky top-22 z-20 h-12 flex items-center gap-3 px-4 border-b border-border bg-bg/80 backdrop-blur-lg">
               <button
                 onClick={() => setSidebarOpen(true)}
                 className="h-9 w-9 flex items-center justify-center rounded-md hover:bg-surface-raised text-text-muted"
