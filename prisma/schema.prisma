@@ -298,6 +298,7 @@ model Tag {
   // Relations
   scans             Scan[]
   communicationLogs CommunicationLog[]
+  tagGiftRedemptions TagGiftRedemption[]
 
   @@index([ownerId])
   @@index([status])
