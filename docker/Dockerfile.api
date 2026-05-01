@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim AS builder
+FROM node:24-bookworm-slim AS builder
 
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
@@ -19,7 +19,7 @@ RUN pnpm deploy --filter @scan2call/api --prod /prod/api
 
 RUN node -e "const fs=require('fs'); const path=require('path'); const copy=(src,dst)=>fs.cpSync(src,dst,{recursive:true,force:true}); const srcPkg=path.dirname(require.resolve('@prisma/client/package.json',{paths:['/app']})); const dstPkg=path.dirname(require.resolve('@prisma/client/package.json',{paths:['/prod/api']})); copy(srcPkg,dstPkg); copy(path.join(srcPkg,'../../.prisma'), path.join(dstPkg,'../../.prisma'));"
 
-FROM node:20-bookworm-slim AS runner
+FROM node:24-bookworm-slim AS runner
 
 ENV NODE_ENV=production
 
