@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     if (type === 'path') {
       revalidatePath(value);
     } else if (type === 'tag') {
-      revalidateTag(value, 'max');
+      revalidateTag(value);
     } else {
       return NextResponse.json(
         { message: 'Invalid type. Must be "path" or "tag".' },
