@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, QrCode, Power, PowerOff } from 'lucide-react';
+import { ArrowLeft, Camera, QrCode, Power, PowerOff } from 'lucide-react';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { getAccessToken } from '@/lib/auth';
 import { Spinner } from '@/components/ui/spinner';
@@ -13,6 +13,54 @@ import { Button } from '@/components/ui/button';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const API_PREFIX = `${API_BASE}/api/v1`;
+
+type BarcodeDetectorLike = {
+  detect: (source: ImageBitmapSource) => Promise<Array<{ rawValue?: string }>>;
+};
+
+type BarcodeDetectorCtor = new (options?: { formats?: string[] }) => BarcodeDetectorLike;
+
+function extractTagTokenFromScan(value: string): string | null {
+  const trimmedValue = value.trim();
+  if (/^[A-Za-z0-9]{12}$/.test(trimmedValue)) {
+    return trimmedValue;
+  }
+
+  try {
+    const url = new URL(trimmedValue);
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (parts.length >= 2 && parts[parts.length - 2] === 'scan') {
+      const token = parts[parts.length - 1];
+      if (typeof token === 'string' && /^[A-Za-z0-9]{12}$/.test(token)) {
+        return token;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function getCameraErrorMessage(error: unknown): string {
+  if (error instanceof DOMException) {
+    switch (error.name) {
+      case 'NotAllowedError':
+      case 'SecurityError':
+        return 'Camera permission denied. On iOS: Settings > Safari > Camera > Allow, then reload.';
+      case 'NotFoundError':
+        return 'No camera was found on this device.';
+      case 'NotReadableError':
+        return 'The camera is already in use by another app. Close it and try again.';
+      case 'OverconstrainedError':
+        return 'Unable to access the rear camera. Try switching cameras or using a different device.';
+      default:
+        return 'Could not open the camera. Check browser permissions and try again.';
+    }
+  }
+
+  return 'Could not open the camera. Check browser permissions and try again.';
+}
 
 interface OrderItemTag {
   id: string;
@@ -87,6 +135,11 @@ export default function AdminOrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const assignVideoRef = useRef<HTMLVideoElement | null>(null);
+  const assignStreamRef = useRef<MediaStream | null>(null);
+  const assignCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const assignJsQrRef = useRef<((data: Uint8ClampedArray, width: number, height: number) => { data: string } | null) | null>(null);
+
   // Editable fields
   const [status, setStatus] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
@@ -98,6 +151,12 @@ export default function AdminOrderDetailPage() {
   const [generatingItem, setGeneratingItem] = useState<string | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
   const [togglingTagId, setTogglingTagId] = useState<string | null>(null);
+  const [assignToken, setAssignToken] = useState('');
+  const [assignError, setAssignError] = useState<string | null>(null);
+  const [assignStatus, setAssignStatus] = useState('');
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignScannerActive, setAssignScannerActive] = useState(false);
+  const [assignScannerOpening, setAssignScannerOpening] = useState(false);
 
   useEffect(() => {
     async function fetchOrder() {
@@ -119,6 +178,185 @@ export default function AdminOrderDetailPage() {
     }
     if (params.orderId) fetchOrder();
   }, [params.orderId]);
+
+  useEffect(() => {
+    return () => {
+      assignStreamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
+  const stopAssignScanner = useCallback(() => {
+    assignStreamRef.current?.getTracks().forEach((track) => track.stop());
+    assignStreamRef.current = null;
+    if (assignVideoRef.current) {
+      assignVideoRef.current.pause();
+      assignVideoRef.current.srcObject = null;
+      assignVideoRef.current.load();
+    }
+    setAssignScannerActive(false);
+  }, []);
+
+  useEffect(() => {
+    if (!assignScannerActive || !assignVideoRef.current) {
+      return;
+    }
+
+    const Detector = (window as Window & { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector;
+    const detector = Detector ? new Detector({ formats: ['qr_code'] }) : null;
+    let cancelled = false;
+
+    const intervalId = window.setInterval(async () => {
+      const video = assignVideoRef.current;
+      if (!video || video.readyState < HTMLMediaElement.HAVE_ENOUGH_DATA) {
+        return;
+      }
+
+      try {
+        let rawValue: string | undefined;
+
+        if (detector) {
+          const barcodes = await detector.detect(video);
+          rawValue = barcodes[0]?.rawValue;
+        } else {
+          if (!assignJsQrRef.current) {
+            const jsQrModule = await import('jsqr');
+            assignJsQrRef.current = jsQrModule.default;
+          }
+
+          const jsQr = assignJsQrRef.current;
+          if (!jsQr) {
+            throw new Error('QR fallback unavailable');
+          }
+
+          const canvas = assignCanvasRef.current || document.createElement('canvas');
+          assignCanvasRef.current = canvas;
+          const width = video.videoWidth;
+          const height = video.videoHeight;
+          if (!width || !height) {
+            return;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext('2d', { willReadFrequently: true });
+          if (!context) {
+            return;
+          }
+
+          context.drawImage(video, 0, 0, width, height);
+          const imageData = context.getImageData(0, 0, width, height);
+          const code = jsQr(imageData.data, imageData.width, imageData.height);
+          rawValue = code?.data;
+        }
+
+        if (!rawValue) {
+          return;
+        }
+
+        const token = extractTagTokenFromScan(rawValue);
+        if (!token) {
+          setAssignError('The QR code does not contain a valid Scan2Call tag link.');
+          return;
+        }
+
+        if (!cancelled) {
+          setAssignToken(token);
+          setAssignStatus('QR code captured. Ready to assign.');
+          setAssignError(null);
+          stopAssignScanner();
+        }
+      } catch {
+        if (!cancelled) {
+          setAssignError('Unable to read the QR code. Try moving closer or improving the lighting.');
+        }
+      }
+    }, 650);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [assignScannerActive, stopAssignScanner]);
+
+  const handleStartAssignScanner = useCallback(async () => {
+    setAssignScannerOpening(true);
+    setAssignError(null);
+    setAssignStatus('Opening camera...');
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setAssignError('Camera access is not supported in this browser.');
+      setAssignStatus('');
+      setAssignScannerOpening(false);
+      return;
+    }
+
+    stopAssignScanner();
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false,
+      });
+
+      assignStreamRef.current = stream;
+      setAssignScannerActive(true);
+
+      if (assignVideoRef.current) {
+        const video = assignVideoRef.current;
+        video.muted = true;
+        video.playsInline = true;
+        video.setAttribute('playsinline', 'true');
+        video.autoplay = true;
+        video.srcObject = stream;
+        try {
+          await video.play();
+        } catch {
+          // Autoplay may be blocked on iOS; scanning can still proceed.
+        }
+      }
+
+      const hasBarcodeDetector = 'BarcodeDetector' in window;
+      setAssignStatus(
+        hasBarcodeDetector
+          ? 'Point your camera at the QR code on the tag.'
+          : 'Camera ready. Using a fallback QR reader for this device.',
+      );
+    } catch (err) {
+      setAssignError(getCameraErrorMessage(err));
+      setAssignStatus('');
+      stopAssignScanner();
+    } finally {
+      setAssignScannerOpening(false);
+    }
+  }, [stopAssignScanner]);
+
+  const handleAssignTag = async () => {
+    if (!order) return;
+    const token = assignToken.trim();
+    if (!token) {
+      setAssignError('Scan a QR code or paste a tag token first.');
+      return;
+    }
+
+    setAssignLoading(true);
+    setAssignError(null);
+    try {
+      await apiClient.post('/admin/tags/assign', {
+        userId: order.user.id,
+        token,
+      });
+      setAssignStatus('Tag assigned and activated for this user.');
+      setAssignToken('');
+      const result = await apiClient.get<{ data: OrderDetail }>(
+        `/admin/orders/${params.orderId}`,
+      );
+      setOrder(result.data);
+    } catch (err) {
+      setAssignError(err instanceof ApiError ? err.message : 'Failed to assign tag.');
+    } finally {
+      setAssignLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!order) return;
@@ -512,6 +750,63 @@ export default function AdminOrderDetailPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Assign Tag */}
+      <div className="mt-6 rounded-lg border border-border bg-surface p-6">
+        <h2 className="font-semibold text-text">Assign Tag to Customer</h2>
+        <p className="mt-2 text-sm text-text-dim">
+          Scan a pre-generated tag or paste its token to assign and activate it for this user.
+        </p>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-xl border border-border bg-black/95">
+              <div className="relative aspect-4/3 w-full">
+                <video ref={assignVideoRef} muted playsInline autoPlay className="h-full w-full object-cover" />
+                {!assignScannerActive && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 px-6 text-center text-white">
+                    <Camera className="h-8 w-8" />
+                    <p className="text-sm text-white/80">Open the camera and point it at the tag QR code.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={handleStartAssignScanner} loading={assignScannerOpening} icon={<Camera className="h-4 w-4" />}>
+                {assignScannerOpening ? 'Opening Camera...' : assignScannerActive ? 'Scanning...' : 'Open Camera'}
+              </Button>
+              {assignScannerActive && (
+                <Button variant="ghost" onClick={stopAssignScanner}>
+                  Stop Camera
+                </Button>
+              )}
+            </div>
+
+            {assignStatus && <Alert variant="info">{assignStatus}</Alert>}
+            {assignError && <Alert variant="error">{assignError}</Alert>}
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="assignToken" className="block text-xs font-semibold uppercase tracking-widest text-text-dim">
+                Tag token
+              </label>
+              <input
+                id="assignToken"
+                value={assignToken}
+                onChange={(e) => setAssignToken(e.target.value)}
+                placeholder="Paste or scan the 12-character token"
+                className="mt-2 block w-full rounded-md border border-border bg-surface px-4 py-2 text-sm text-text placeholder:text-text-dim focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+
+            <Button onClick={handleAssignTag} loading={assignLoading}>
+              {assignLoading ? 'Assigning...' : 'Assign & Activate'}
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Update Order */}

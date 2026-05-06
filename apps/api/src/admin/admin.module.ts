@@ -9,14 +9,16 @@ import { AdminSystemController } from './admin-system.controller';
 import { AdminContactMessagesController } from './admin-contact-messages.controller';
 import { AdminGiftCodesController } from './admin-gift-codes.controller';
 import { AdminTagGiftCodesController } from './admin-tag-gift-codes.controller';
+import { AdminQrTemplatesController } from './admin-qr-templates.controller';
 import { AdminService } from './admin.service';
 import { AdminSystemService } from './admin-system.service';
 import { QrCodeModule } from '../qr-code/qr-code.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { GiftsModule } from '../gifts/gifts.module';
+import { MediaModule } from '../media/media.module';
 
 @Module({
-  imports: [QrCodeModule, SubscriptionsModule, GiftsModule],
+  imports: [QrCodeModule, SubscriptionsModule, GiftsModule, MediaModule],
   controllers: [
     AdminUsersController,
     AdminTagsController,
@@ -28,6 +30,7 @@ import { GiftsModule } from '../gifts/gifts.module';
     AdminContactMessagesController,
     AdminGiftCodesController,
     AdminTagGiftCodesController,
+    AdminQrTemplatesController,
   ],
   providers: [AdminService, AdminSystemService],
   exports: [AdminService],

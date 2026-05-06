@@ -56,6 +56,7 @@ export default function AdminTagsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
   const fetchTags = useCallback(async (page: number, status: string, type: string) => {
     setLoading(true);
@@ -93,6 +94,18 @@ export default function AdminTagsPage() {
       setError(err instanceof Error ? err.message : 'Failed to update tag status');
     } finally {
       setTogglingId(null);
+    }
+  };
+  
+  const handleRegenerateQr = async (tag: AdminTag) => {
+    setRegeneratingId(tag.id);
+    setError(null);
+    try {
+      await apiClient.post(`/admin/tags/${tag.id}/qr-assets/regenerate`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to regenerate QR assets');
+    } finally {
+      setRegeneratingId(null);
     }
   };
 
@@ -202,7 +215,7 @@ export default function AdminTagsPage() {
                   <span className="text-text-muted">
                     {new Date(tag.createdAt).toLocaleDateString()}
                   </span>
-                  <span className="text-right">
+                  <span className="flex justify-end gap-2">
                     {(tag.status === 'DEACTIVATED' || tag.status === 'INACTIVE') ? (
                       <Button
                         variant="outline"
@@ -224,6 +237,14 @@ export default function AdminTagsPage() {
                         Deactivate
                       </Button>
                     ) : null}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRegenerateQr(tag)}
+                      loading={regeneratingId === tag.id}
+                    >
+                      Regenerate QR
+                    </Button>
                   </span>
                 </div>
               ))}

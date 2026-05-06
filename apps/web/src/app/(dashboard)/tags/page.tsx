@@ -88,10 +88,32 @@ function extractTagTokenFromScan(value: string): string | null {
   return null;
 }
 
+function getCameraErrorMessage(error: unknown): string {
+  if (error instanceof DOMException) {
+    switch (error.name) {
+      case 'NotAllowedError':
+      case 'SecurityError':
+        return 'Camera permission denied. On iOS: Settings > Safari > Camera > Allow, then reload.';
+      case 'NotFoundError':
+        return 'No camera was found on this device.';
+      case 'NotReadableError':
+        return 'The camera is already in use by another app. Close it and try again.';
+      case 'OverconstrainedError':
+        return 'Unable to access the rear camera. Try switching cameras or using a different device.';
+      default:
+        return 'Could not open the camera. Check browser permissions and try again.';
+    }
+  }
+
+  return 'Could not open the camera. Check browser permissions and try again.';
+}
+
 export default function TagsPage() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const jsQrRef = useRef<((data: Uint8ClampedArray, width: number, height: number) => { data: string } | null) | null>(null);
   const [tags, setTags] = useState<TagItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -131,7 +153,9 @@ export default function TagsPage() {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     if (videoRef.current) {
+      videoRef.current.pause();
       videoRef.current.srcObject = null;
+      videoRef.current.load();
     }
     setScannerActive(false);
   }, []);
@@ -142,13 +166,7 @@ export default function TagsPage() {
     }
 
     const Detector = (window as Window & { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector;
-    if (!Detector) {
-      setScannerError('Camera scanning is not supported on this device.');
-      stopScanner();
-      return;
-    }
-
-    const detector = new Detector({ formats: ['qr_code'] });
+    const detector = Detector ? new Detector({ formats: ['qr_code'] }) : null;
     let cancelled = false;
 
     const intervalId = window.setInterval(async () => {
@@ -158,8 +176,43 @@ export default function TagsPage() {
       }
 
       try {
-        const barcodes = await detector.detect(video);
-        const rawValue = barcodes[0]?.rawValue;
+        let rawValue: string | undefined;
+
+        if (detector) {
+          const barcodes = await detector.detect(video);
+          rawValue = barcodes[0]?.rawValue;
+        } else {
+          if (!jsQrRef.current) {
+            const jsQrModule = await import('jsqr');
+            jsQrRef.current = jsQrModule.default;
+          }
+
+          const jsQr = jsQrRef.current;
+          if (!jsQr) {
+            throw new Error('QR fallback unavailable');
+          }
+
+          const canvas = canvasRef.current || document.createElement('canvas');
+          canvasRef.current = canvas;
+          const width = video.videoWidth;
+          const height = video.videoHeight;
+          if (!width || !height) {
+            return;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext('2d', { willReadFrequently: true });
+          if (!context) {
+            return;
+          }
+
+          context.drawImage(video, 0, 0, width, height);
+          const imageData = context.getImageData(0, 0, width, height);
+          const code = jsQr(imageData.data, imageData.width, imageData.height);
+          rawValue = code?.data;
+        }
+
         if (!rawValue) {
           return;
         }
@@ -194,6 +247,16 @@ export default function TagsPage() {
     setScannerError(null);
     setScannerStatus('Opening camera...');
 
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setScannerError('Camera access is not supported in this browser.');
+      setScannerStatus('');
+      setScannerOpening(false);
+      return;
+    }
+
+    stopScanner();
+    setScannerReady(false);
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' } },
@@ -205,15 +268,30 @@ export default function TagsPage() {
       setScannerActive(true);
 
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        const video = videoRef.current;
+        video.muted = true;
+        video.playsInline = true;
+        video.setAttribute('playsinline', 'true');
+        video.autoplay = true;
+        video.srcObject = stream;
+        try {
+          await video.play();
+        } catch {
+          // iOS may block autoplay until the user interacts again; scanner can still run.
+        }
       }
 
-      setScannerStatus('Point your camera at the QR code on the tag.');
-    } catch {
-      setScannerError('Could not open the camera. Check browser permissions and try again.');
+      const hasBarcodeDetector = 'BarcodeDetector' in window;
+      setScannerStatus(
+        hasBarcodeDetector
+          ? 'Point your camera at the QR code on the tag.'
+          : 'Camera ready. Using a fallback QR reader for this device.',
+      );
+    } catch (err) {
+      setScannerError(getCameraErrorMessage(err));
       setScannerStatus('');
       stopScanner();
+      setScannerReady(false);
     } finally {
       setScannerOpening(false);
     }
@@ -293,7 +371,7 @@ export default function TagsPage() {
                 <div className="space-y-4">
                   <div className="overflow-hidden rounded-2xl border border-border bg-black/95">
                     <div className="relative aspect-4/3 w-full">
-                      <video ref={videoRef} muted playsInline className="h-full w-full object-cover" />
+                      <video ref={videoRef} muted playsInline autoPlay className="h-full w-full object-cover" />
                       {!scannerActive && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 px-6 text-center text-white">
                           <Camera className="h-8 w-8" />

@@ -73,6 +73,7 @@ export default function AdminDashboardPage() {
   const quickLinks = [
     { href: '/admin/users', label: 'Manage Users', description: 'View and manage registered users' },
     { href: '/admin/tags', label: 'Manage Tags', description: 'Browse and filter tag inventory' },
+    { href: '/admin/qr-templates', label: 'QR Templates', description: 'Design and manage QR styles' },
     { href: '/admin/orders', label: 'Manage Orders', description: 'Track and update customer orders' },
     { href: '/admin/tags/generate', label: 'Generate Tags', description: 'Create new batches of tag tokens' },
     { href: '/admin/products', label: 'Manage Products', description: 'View the store product catalog' },

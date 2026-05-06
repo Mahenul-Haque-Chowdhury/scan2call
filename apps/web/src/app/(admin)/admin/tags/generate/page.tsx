@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
+import { fetchWithAuth } from '@/lib/auth';
+import { getApiOrigin } from '@/lib/api-origin';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Copy, Check } from 'lucide-react';
@@ -18,7 +20,17 @@ const TAG_TYPES = [
 
 interface GenerateResult {
   batchId: string;
+  batchName: string;
+  quantity: number;
+  tagType: string;
   tokens: string[];
+}
+
+interface QrTemplate {
+  id: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
 }
 
 export default function AdminGenerateTagsPage() {
@@ -26,10 +38,80 @@ export default function AdminGenerateTagsPage() {
   const [tagType, setTagType] = useState('KEYCHAIN');
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
+  const [storeQrAssets, setStoreQrAssets] = useState(false);
+  const [templates, setTemplates] = useState<QrTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [templatePreviewUrl, setTemplatePreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerateResult | null>(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTemplates() {
+      setTemplatesLoading(true);
+      try {
+        const response = await apiClient.get<{ data: QrTemplate[] }>('/admin/qr-templates');
+        if (!cancelled) {
+          setTemplates(response.data.filter((template) => template.isActive));
+        }
+      } catch {
+        if (!cancelled) {
+          setTemplates([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setTemplatesLoading(false);
+        }
+      }
+    }
+
+    loadTemplates();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+
+    async function loadPreview() {
+      if (!selectedTemplateId) {
+        setTemplatePreviewUrl(null);
+        return;
+      }
+
+      try {
+        const apiOrigin = getApiOrigin();
+        const res = await fetchWithAuth(`${apiOrigin}/api/v1/admin/qr-templates/${selectedTemplateId}/preview?format=svg`, {
+          method: 'GET',
+        });
+        if (!res.ok) return;
+        const blob = await res.blob();
+        objectUrl = URL.createObjectURL(blob);
+        if (!cancelled) {
+          setTemplatePreviewUrl(objectUrl);
+        }
+      } catch {
+        if (!cancelled) {
+          setTemplatePreviewUrl(null);
+        }
+      }
+    }
+
+    loadPreview();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [selectedTemplateId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,9 +120,10 @@ export default function AdminGenerateTagsPage() {
     setResult(null);
 
     try {
-      const body: Record<string, unknown> = { quantity, tagType };
-      if (name.trim()) body.name = name.trim();
+      const body: Record<string, unknown> = { quantity, tagType, storeQrAssets };
+      if (name.trim()) body.batchName = name.trim();
       if (notes.trim()) body.notes = notes.trim();
+      if (selectedTemplateId) body.qrDesignTemplateId = selectedTemplateId;
 
       const response = await apiClient.post<{ data: GenerateResult }>('/admin/tags/generate', body);
       setResult(response.data);
@@ -134,6 +217,48 @@ export default function AdminGenerateTagsPage() {
             className="mt-1 block w-full rounded-md border border-border bg-surface px-4 py-2 text-sm text-text placeholder:text-text-dim focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
+
+        <div>
+          <label htmlFor="qrTemplate" className="block text-sm font-medium text-text-muted">
+            QR Design Template (optional)
+          </label>
+          <select
+            id="qrTemplate"
+            value={selectedTemplateId}
+            onChange={(e) => setSelectedTemplateId(e.target.value)}
+            disabled={templatesLoading}
+            className="mt-1 block w-full rounded-md border border-border bg-surface px-4 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="">Default (no template)</option>
+            {templates.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {templatePreviewUrl && (
+          <div className="rounded-lg border border-border bg-surface p-3">
+            <p className="text-xs font-semibold uppercase tracking-widest text-text-dim">Template Preview</p>
+            <img src={templatePreviewUrl} alt="QR template preview" className="mt-2 w-40 rounded bg-white p-2" />
+          </div>
+        )}
+
+        <label className="flex items-center gap-3 text-sm text-text-muted">
+          <input
+            type="checkbox"
+            checked={storeQrAssets}
+            onChange={(e) => setStoreQrAssets(e.target.checked)}
+            className="h-4 w-4 rounded border-border bg-surface text-primary focus:ring-primary"
+          />
+          Store PNG + SVG assets in R2
+        </label>
+        {storeQrAssets && (
+          <p className="text-xs text-text-dim">
+            QR asset generation is limited to 1,000 tags per request.
+          </p>
+        )}
 
         <div>
           <label htmlFor="notes" className="block text-sm font-medium text-text-muted">

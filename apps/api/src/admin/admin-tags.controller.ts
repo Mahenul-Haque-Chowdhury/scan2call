@@ -24,6 +24,7 @@ import { CurrentUser, JwtPayload } from '../common/decorators/current-user.decor
 import { AdminService } from './admin.service';
 import { BatchGenerateTagsDto } from './dto/batch-generate-tags.dto';
 import { CsvImportDto } from './dto/csv-import.dto';
+import { AssignTagDto } from './dto/assign-tag.dto';
 import { QrCodeService } from '../qr-code/qr-code.service';
 
 @ApiTags('admin/tags')
@@ -52,6 +53,16 @@ export class AdminTagsController {
     @Query('search') search?: string,
   ) {
     return this.adminService.listTags({ page, pageSize, status, type, search });
+  }
+
+  @Post('assign')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Assign a tag to a user (activates immediately)' })
+  async assignTag(
+    @CurrentUser() admin: JwtPayload,
+    @Body() dto: AssignTagDto,
+  ) {
+    return this.adminService.assignTagToUser(admin.id, dto);
   }
 
   @Post('generate')
@@ -113,6 +124,16 @@ export class AdminTagsController {
     return this.adminService.getBatchById(id);
   }
 
+  @Post('batches/:id/qr-assets/regenerate')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Regenerate QR assets for a batch' })
+  async regenerateBatchQrAssets(
+    @CurrentUser() admin: JwtPayload,
+    @Param('id') id: string,
+  ) {
+    return this.adminService.regenerateBatchQrAssets(admin.id, id);
+  }
+
   @Get(':tagId/qr-code')
   @ApiOperation({ summary: 'Download QR code for a tag' })
   @ApiQuery({ name: 'format', required: false, enum: ['png', 'svg'] })
@@ -140,12 +161,27 @@ export class AdminTagsController {
     }
   }
 
+  @Post(':tagId/qr-assets/regenerate')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Regenerate QR assets for a tag' })
+  async regenerateTagQrAssets(
+    @CurrentUser() admin: JwtPayload,
+    @Param('tagId') tagId: string,
+  ) {
+    return this.adminService.regenerateTagQrAssets(admin.id, tagId);
+  }
+
   @Patch(':id')
   @ApiOperation({ summary: 'Update a tag (status, label)' })
   async updateTag(
     @CurrentUser() admin: JwtPayload,
     @Param('id') id: string,
-    @Body() body: { status?: TagStatus; label?: string },
+    @Body() body: {
+      status?: TagStatus;
+      label?: string;
+      qrDesignTemplateId?: string | null;
+      qrDesignOverrides?: Record<string, unknown>;
+    },
   ) {
     return this.adminService.updateTag(admin.id, id, body);
   }

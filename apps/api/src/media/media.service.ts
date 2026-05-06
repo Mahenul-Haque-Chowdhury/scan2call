@@ -74,12 +74,35 @@ export class MediaService {
     });
 
     // Build public URL
-    const cdnUrl = this.configService.cdnUrl;
-    const publicUrl = cdnUrl ? `${cdnUrl}/${key}` : `${this.configService.s3Endpoint}/${this.bucket}/${key}`;
+    const publicUrl = this.buildPublicUrl(key);
 
     this.logger.log(`Generated upload URL for key: ${key}`);
 
     return { uploadUrl, key, publicUrl };
+  }
+
+  /**
+   * Upload a buffer directly from the API to S3/R2.
+   */
+  async uploadBuffer(params: {
+    key: string;
+    body: Buffer;
+    contentType: string;
+    cacheControl?: string;
+  }): Promise<{ key: string; publicUrl: string }> {
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: params.key,
+      Body: params.body,
+      ContentType: params.contentType,
+      CacheControl: params.cacheControl,
+    });
+
+    await this.s3Client.send(command);
+
+    const publicUrl = this.buildPublicUrl(params.key);
+    this.logger.log(`Uploaded object: ${params.key}`);
+    return { key: params.key, publicUrl };
   }
 
   /**
@@ -110,5 +133,10 @@ export class MediaService {
       'image/webp': '.webp',
     };
     return map[contentType] || '.bin';
+  }
+
+  private buildPublicUrl(key: string): string {
+    const cdnUrl = this.configService.cdnUrl;
+    return cdnUrl ? `${cdnUrl}/${key}` : `${this.configService.s3Endpoint}/${this.bucket}/${key}`;
   }
 }
