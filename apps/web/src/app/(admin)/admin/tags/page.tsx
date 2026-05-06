@@ -31,6 +31,15 @@ interface PaginationMeta {
   total: number;
 }
 
+interface TagBatch {
+  id: string;
+  name: string;
+  quantity: number;
+  tagType: string;
+  createdAt: string;
+  _count: { tags: number };
+}
+
 const TAG_STATUS_COLORS: Record<string, string> = {
   INACTIVE: 'bg-surface-raised text-text-dim',
   ACTIVE: 'bg-emerald-500/20 text-emerald-400',
@@ -65,6 +74,11 @@ export default function AdminTagsPage() {
   const [previewTag, setPreviewTag] = useState<AdminTag | null>(null);
   const [largePreviewUrl, setLargePreviewUrl] = useState<string | null>(null);
   const [largePreviewLoading, setLargePreviewLoading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AdminTag | null>(null);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [downloading, setDownloading] = useState(false);
+  const [batches, setBatches] = useState<TagBatch[]>([]);
+  const [batchesLoading, setBatchesLoading] = useState(false);
   const apiOrigin = useMemo(() => getApiOrigin(), []);
 
   const fetchTags = useCallback(async (page: number, status: string, type: string) => {
@@ -90,6 +104,39 @@ export default function AdminTagsPage() {
   useEffect(() => {
     fetchTags(1, statusFilter, typeFilter);
   }, [fetchTags, statusFilter, typeFilter]);
+
+  useEffect(() => {
+    setSelectedTagIds((current) => current.filter((id) => tags.some((tag) => tag.id === id)));
+  }, [tags]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadBatches() {
+      setBatchesLoading(true);
+      try {
+        const response = await apiClient.get<{ data: TagBatch[] }>(
+          '/admin/tags/batches?page=1&pageSize=10',
+        );
+        if (!cancelled) {
+          setBatches(response.data);
+        }
+      } catch {
+        if (!cancelled) {
+          setBatches([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setBatchesLoading(false);
+        }
+      }
+    }
+
+    loadBatches();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,16 +208,16 @@ export default function AdminTagsPage() {
     }
   };
 
-  const handleDeleteTag = async (tag: AdminTag) => {
-    if (!window.confirm(`Delete tag ${tag.token}? This cannot be undone.`)) {
-      return;
-    }
+  const handleDeleteTag = async () => {
+    if (!deleteTarget) return;
 
-    setDeletingId(tag.id);
+    setDeletingId(deleteTarget.id);
     setError(null);
     try {
-      await apiClient.delete(`/admin/tags/${tag.id}`);
+      await apiClient.delete(`/admin/tags/${deleteTarget.id}`);
+      setTags((current) => current.filter((tag) => tag.id !== deleteTarget.id));
       await fetchTags(meta.page, statusFilter, typeFilter);
+      setDeleteTarget(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete tag');
     } finally {
@@ -206,6 +253,56 @@ export default function AdminTagsPage() {
       URL.revokeObjectURL(largePreviewUrl);
     }
     setLargePreviewUrl(null);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTagIds.length === tags.length) {
+      setSelectedTagIds([]);
+      return;
+    }
+    setSelectedTagIds(tags.map((tag) => tag.id));
+  };
+
+  const toggleSelectTag = (tagId: string) => {
+    setSelectedTagIds((current) =>
+      current.includes(tagId) ? current.filter((id) => id !== tagId) : [...current, tagId],
+    );
+  };
+
+  const downloadZip = async (url: string, body?: Record<string, unknown>, filename?: string) => {
+    setDownloading(true);
+    try {
+      const res = await fetchWithAuth(`${apiOrigin}${url}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!res.ok) {
+        throw new Error('Download failed');
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = filename || `scan2call-qr-assets-${Date.now()}.zip`;
+      link.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to download QR assets');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDownloadSelected = async () => {
+    if (selectedTagIds.length === 0) return;
+    await downloadZip('/api/v1/admin/tags/qr-assets/download', { tagIds: selectedTagIds });
+  };
+
+  const handleDownloadBatch = async (batch: TagBatch) => {
+    await downloadZip(`/api/v1/admin/tags/batches/${batch.id}/qr-assets/download`, undefined,
+      `scan2call-${batch.name.replace(/[^a-zA-Z0-9-_]+/g, '-').toLowerCase() || batch.id}.zip`,
+    );
   };
 
   return (
@@ -269,14 +366,37 @@ export default function AdminTagsPage() {
       {/* Tags Table */}
       {!error && (
         <div className="mt-6 overflow-hidden rounded-lg border border-border bg-surface">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-3">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={selectedTagIds.length === 0 || downloading}
+                onClick={handleDownloadSelected}
+              >
+                {downloading ? 'Preparing ZIP...' : `Download Selected (${selectedTagIds.length})`}
+              </Button>
+              <span className="text-xs text-text-dim">Includes PNG + SVG per tag.</span>
+            </div>
+          </div>
+
           <div className="border-b border-border px-6 py-3">
-            <div className="grid grid-cols-7 text-sm font-medium text-text-dim">
+            <div className="grid grid-cols-[0.4fr_1.1fr_0.9fr_0.8fr_1.1fr_0.9fr_0.7fr_1.6fr] text-sm font-medium text-text-dim">
+              <span>
+                <input
+                  type="checkbox"
+                  checked={tags.length > 0 && selectedTagIds.length === tags.length}
+                  onChange={toggleSelectAll}
+                  className="h-4 w-4 rounded border-border bg-surface text-primary focus:ring-primary"
+                  aria-label="Select all tags"
+                />
+              </span>
               <span>Token</span>
               <span>Type</span>
               <span>Status</span>
               <span>Owner</span>
               <span>Created</span>
-              <span>QR</span>
+              <span className="text-center">QR</span>
               <span className="text-right">Actions</span>
             </div>
           </div>
@@ -292,8 +412,17 @@ export default function AdminTagsPage() {
               {tags.map((tag) => (
                 <div
                   key={tag.id}
-                  className="grid grid-cols-7 border-b border-border px-6 py-3 text-sm last:border-b-0 hover:bg-surface-raised items-center"
+                  className="grid grid-cols-[0.4fr_1.1fr_0.9fr_0.8fr_1.1fr_0.9fr_0.7fr_1.6fr] border-b border-border px-6 py-3 text-sm last:border-b-0 hover:bg-surface-raised items-center"
                 >
+                  <span>
+                    <input
+                      type="checkbox"
+                      checked={selectedTagIds.includes(tag.id)}
+                      onChange={() => toggleSelectTag(tag.id)}
+                      className="h-4 w-4 rounded border-border bg-surface text-primary focus:ring-primary"
+                      aria-label={`Select tag ${tag.token}`}
+                    />
+                  </span>
                   <span className="font-mono font-medium text-primary">{tag.token}</span>
                   <span className="text-text-muted">
                     {TAG_TYPE_LABELS[tag.type] || tag.type}
@@ -315,7 +444,7 @@ export default function AdminTagsPage() {
                   <span className="text-text-muted">
                     {new Date(tag.createdAt).toLocaleDateString()}
                   </span>
-                  <span>
+                  <span className="flex justify-center">
                     {(() => {
                       const previewUrl = previewUrls[tag.id];
                       if (!previewUrl) {
@@ -375,7 +504,7 @@ export default function AdminTagsPage() {
                     <Button
                       variant="danger"
                       size="sm"
-                      onClick={() => handleDeleteTag(tag)}
+                      onClick={() => setDeleteTarget(tag)}
                       loading={deletingId === tag.id}
                       icon={<Trash2 className="h-3.5 w-3.5" />}
                     >
@@ -443,6 +572,95 @@ export default function AdminTagsPage() {
               ) : (
                 <span className="text-sm text-text-dim">Preview unavailable.</span>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-10 rounded-lg border border-border bg-surface">
+        <div className="border-b border-border px-6 py-4">
+          <h2 className="text-lg font-semibold text-text">Generated Tag Batches</h2>
+          <p className="mt-1 text-sm text-text-dim">Download full QR sets for production runs.</p>
+        </div>
+        {batchesLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Spinner size="md" />
+          </div>
+        ) : batches.length === 0 ? (
+          <div className="p-6 text-sm text-text-dim">No batches yet.</div>
+        ) : (
+          <div>
+            <div className="grid grid-cols-[1.4fr_0.9fr_0.7fr_0.9fr_1fr] px-6 py-3 text-sm font-medium text-text-dim">
+              <span>Batch</span>
+              <span>Type</span>
+              <span>Qty</span>
+              <span>Created</span>
+              <span className="text-right">Actions</span>
+            </div>
+            {batches.map((batch) => (
+              <div
+                key={batch.id}
+                className="grid grid-cols-[1.4fr_0.9fr_0.7fr_0.9fr_1fr] items-center border-t border-border px-6 py-3 text-sm"
+              >
+                <div>
+                  <p className="font-medium text-text">{batch.name}</p>
+                  <p className="text-xs text-text-dim">{batch._count.tags} tags</p>
+                </div>
+                <span className="text-text-muted">{TAG_TYPE_LABELS[batch.tagType] || batch.tagType}</span>
+                <span className="text-text-muted">{batch.quantity}</span>
+                <span className="text-text-muted">{new Date(batch.createdAt).toLocaleDateString()}</span>
+                <div className="flex justify-end">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleDownloadBatch(batch)}
+                    disabled={downloading}
+                  >
+                    Download All QR
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-text">Delete Tag</h3>
+                <p className="mt-1 text-sm text-text-dim">
+                  This will permanently delete tag <span className="font-mono text-text">{deleteTarget.token}</span>.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="text-xs text-text-dim hover:text-text"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-lg border border-border bg-surface-raised p-4 text-sm text-text-dim">
+              This action cannot be undone.
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="secondary" size="sm" onClick={() => setDeleteTarget(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                loading={deletingId === deleteTarget.id}
+                onClick={handleDeleteTag}
+                icon={<Trash2 className="h-3.5 w-3.5" />}
+              >
+                Delete Tag
+              </Button>
             </div>
           </div>
         </div>

@@ -682,6 +682,40 @@ export class AdminService {
     };
   }
 
+  private async buildQrAssetsForTags(
+    tags: Array<{ token: string; qrDesignTemplateId: string | null; qrDesignOverrides: unknown }>,
+    batchTemplateId?: string | null,
+  ): Promise<Array<{ token: string; renderOptions: QrRenderOptions }>> {
+    const templateCache = new Map<string, unknown>();
+    const defaultTemplateId = await this.getDefaultQrDesignTemplateId();
+
+    const resolveTemplateConfig = async (templateId: string | null) => {
+      if (!templateId) return null;
+      if (!templateCache.has(templateId)) {
+        const template = await this.prisma.qrDesignTemplate.findFirst({
+          where: { id: templateId, isActive: true },
+          select: { config: true },
+        });
+        templateCache.set(templateId, template?.config ?? null);
+      }
+      return templateCache.get(templateId) ?? null;
+    };
+
+    const resolvedBatchTemplateId = batchTemplateId ?? null;
+
+    const results: Array<{ token: string; renderOptions: QrRenderOptions }> = [];
+    for (const tag of tags) {
+      const templateId = tag.qrDesignTemplateId ?? resolvedBatchTemplateId ?? defaultTemplateId;
+      const templateConfig = await resolveTemplateConfig(templateId);
+      results.push({
+        token: tag.token,
+        renderOptions: this.resolveQrOptions(templateConfig, tag.qrDesignOverrides),
+      });
+    }
+
+    return results;
+  }
+
   private async generateAndStoreQrAssets(
     batchId: string,
     tags: Array<{ id: string; token: string; qrDesignTemplateId: string | null; qrDesignOverrides: unknown }>,
@@ -933,6 +967,74 @@ export class AdminService {
     });
 
     return { regenerated: true };
+  }
+
+  async getQrAssetsForTagIds(tagIds: string[]) {
+    const tags = await this.prisma.tag.findMany({
+      where: { id: { in: tagIds } },
+      select: { id: true, token: true, batchId: true, qrDesignTemplateId: true, qrDesignOverrides: true },
+    });
+
+    if (tags.length === 0) {
+      return { data: [] };
+    }
+
+    const batchIds = Array.from(new Set(tags.map((tag) => tag.batchId).filter(Boolean))) as string[];
+    const batches = batchIds.length > 0
+      ? await this.prisma.tagBatch.findMany({
+          where: { id: { in: batchIds } },
+          select: { id: true, qrDesignTemplateId: true },
+        })
+      : [];
+    const batchTemplateMap = new Map(batches.map((batch) => [batch.id, batch.qrDesignTemplateId ?? null]));
+
+    const defaultTemplateId = await this.getDefaultQrDesignTemplateId();
+    const templateCache = new Map<string, unknown>();
+
+    const resolveTemplateConfig = async (templateId: string | null) => {
+      if (!templateId) return null;
+      if (!templateCache.has(templateId)) {
+        const template = await this.prisma.qrDesignTemplate.findFirst({
+          where: { id: templateId, isActive: true },
+          select: { config: true },
+        });
+        templateCache.set(templateId, template?.config ?? null);
+      }
+      return templateCache.get(templateId) ?? null;
+    };
+
+    const items: Array<{ token: string; renderOptions: QrRenderOptions }> = [];
+    for (const tag of tags) {
+      const batchTemplateId = tag.batchId ? batchTemplateMap.get(tag.batchId) ?? null : null;
+      const templateId = tag.qrDesignTemplateId ?? batchTemplateId ?? defaultTemplateId;
+      const templateConfig = await resolveTemplateConfig(templateId);
+      items.push({
+        token: tag.token,
+        renderOptions: this.resolveQrOptions(templateConfig, tag.qrDesignOverrides),
+      });
+    }
+
+    return { data: items };
+  }
+
+  async getQrAssetsForBatch(batchId: string) {
+    const batch = await this.prisma.tagBatch.findUnique({
+      where: { id: batchId },
+      select: { id: true, name: true, qrDesignTemplateId: true },
+    });
+
+    if (!batch) {
+      throw new NotFoundException('Tag batch not found');
+    }
+
+    const tags = await this.prisma.tag.findMany({
+      where: { batchId: batch.id },
+      select: { token: true, qrDesignTemplateId: true, qrDesignOverrides: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const assets = await this.buildQrAssetsForTags(tags, batch.qrDesignTemplateId ?? null);
+    return { data: assets, batchName: batch.name };
   }
 
   /**

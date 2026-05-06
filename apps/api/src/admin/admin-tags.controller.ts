@@ -27,6 +27,8 @@ import { BatchGenerateTagsDto } from './dto/batch-generate-tags.dto';
 import { CsvImportDto } from './dto/csv-import.dto';
 import { AssignTagDto } from './dto/assign-tag.dto';
 import { QrCodeService } from '../qr-code/qr-code.service';
+import { DownloadQrAssetsDto } from './dto/download-qr-assets.dto';
+import archiver from 'archiver';
 
 @ApiTags('admin/tags')
 @ApiBearerAuth()
@@ -125,6 +127,38 @@ export class AdminTagsController {
     return this.adminService.getBatchById(id);
   }
 
+  @Post('qr-assets/download')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Download QR assets for selected tags' })
+  async downloadQrAssets(
+    @Body() dto: DownloadQrAssetsDto,
+    @Res() res: Response,
+  ) {
+    const result = await this.adminService.getQrAssetsForTagIds(dto.tagIds);
+    const zipName = `scan2call-qr-assets-${Date.now()}.zip`;
+
+    res.set('Content-Type', 'application/zip');
+    res.set('Content-Disposition', `attachment; filename="${zipName}"`);
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    archive.on('error', (err: Error) => {
+      res.status(500).send({ message: err.message });
+    });
+    archive.pipe(res);
+
+    for (const item of result.data) {
+      const scanUrl = this.qrCodeService.buildScanUrl(item.token);
+      const [png, svg] = await Promise.all([
+        this.qrCodeService.generatePngWithOptions(scanUrl, item.renderOptions),
+        this.qrCodeService.generateSvgWithOptions(scanUrl, item.renderOptions),
+      ]);
+      archive.append(png, { name: `${item.token}.png` });
+      archive.append(Buffer.from(svg, 'utf-8'), { name: `${item.token}.svg` });
+    }
+
+    await archive.finalize();
+  }
+
   @Post('batches/:id/qr-assets/regenerate')
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Regenerate QR assets for a batch' })
@@ -133,6 +167,39 @@ export class AdminTagsController {
     @Param('id') id: string,
   ) {
     return this.adminService.regenerateBatchQrAssets(admin.id, id);
+  }
+
+  @Post('batches/:id/qr-assets/download')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Download QR assets for a batch' })
+  async downloadBatchQrAssets(
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    const result = await this.adminService.getQrAssetsForBatch(id);
+    const safeName = result.batchName.replace(/[^a-zA-Z0-9-_]+/g, '-').toLowerCase();
+    const zipName = `scan2call-batch-${safeName || id}.zip`;
+
+    res.set('Content-Type', 'application/zip');
+    res.set('Content-Disposition', `attachment; filename="${zipName}"`);
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    archive.on('error', (err: Error) => {
+      res.status(500).send({ message: err.message });
+    });
+    archive.pipe(res);
+
+    for (const item of result.data) {
+      const scanUrl = this.qrCodeService.buildScanUrl(item.token);
+      const [png, svg] = await Promise.all([
+        this.qrCodeService.generatePngWithOptions(scanUrl, item.renderOptions),
+        this.qrCodeService.generateSvgWithOptions(scanUrl, item.renderOptions),
+      ]);
+      archive.append(png, { name: `${item.token}.png` });
+      archive.append(Buffer.from(svg, 'utf-8'), { name: `${item.token}.svg` });
+    }
+
+    await archive.finalize();
   }
 
   @Get(':tagId/qr-code')
