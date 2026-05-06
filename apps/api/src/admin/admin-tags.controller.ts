@@ -248,12 +248,18 @@ export class AdminTagsController {
     const sizeNum = parseInt(size, 10) || 300;
 
     if (format === 'svg') {
-      const svg = await this.qrCodeService.generateSvg(url);
+      const svg = await this.qrCodeService.generateSvgWithOptions(url, {
+        size: sizeNum,
+        frameStyle: tag.frameStyle,
+      });
       res.set('Content-Type', 'image/svg+xml');
       res.set('Content-Disposition', `attachment; filename="scan2call-${tag.token}.svg"`);
       res.send(svg);
     } else {
-      const png = await this.qrCodeService.generatePng(url, sizeNum);
+      const png = await this.qrCodeService.generatePngWithOptions(url, {
+        size: sizeNum,
+        frameStyle: tag.frameStyle,
+      });
       res.set('Content-Type', 'image/png');
       res.set('Content-Disposition', `attachment; filename="scan2call-${tag.token}.png"`);
       res.send(png);

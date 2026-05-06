@@ -20,6 +20,11 @@ const TAG_TYPES = [
 
 const FRAME_STYLES = [
   {
+    value: 'NONE',
+    label: 'No frame',
+    description: 'Generate a plain QR code with no frame text',
+  },
+  {
     value: 'SCAN2CALL_TOP',
     label: 'Scan2Call on top',
     description: 'Scan2Call at top, contact text at bottom',

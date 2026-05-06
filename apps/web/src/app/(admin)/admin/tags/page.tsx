@@ -77,6 +77,8 @@ export default function AdminTagsPage() {
   const [largePreviewLoading, setLargePreviewLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AdminTag | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false);
+  const [deletingSelected, setDeletingSelected] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [batches, setBatches] = useState<TagBatch[]>([]);
   const [batchesLoading, setBatchesLoading] = useState(false);
@@ -225,6 +227,28 @@ export default function AdminTagsPage() {
       setError(err instanceof Error ? err.message : 'Failed to delete tag');
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedTagIds.length === 0) return;
+
+    setDeletingSelected(true);
+    setError(null);
+
+    try {
+      const results = await Promise.allSettled(
+        selectedTagIds.map((id) => apiClient.delete(`/admin/tags/${id}`)),
+      );
+      const failures = results.filter((result) => result.status === 'rejected');
+      if (failures.length > 0) {
+        setError(`Failed to delete ${failures.length} tag(s).`);
+      }
+      setSelectedTagIds([]);
+      await fetchTags(meta.page, statusFilter, typeFilter);
+      setDeleteSelectedOpen(false);
+    } finally {
+      setDeletingSelected(false);
     }
   };
 
@@ -378,6 +402,15 @@ export default function AdminTagsPage() {
                 onClick={handleDownloadSelected}
               >
                 {downloading ? 'Preparing ZIP...' : `Download Selected (${selectedTagIds.length})`}
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={selectedTagIds.length === 0 || deletingSelected}
+                onClick={() => setDeleteSelectedOpen(true)}
+                icon={<Trash2 className="h-3.5 w-3.5" />}
+              >
+                Delete Selected ({selectedTagIds.length})
               </Button>
               <span className="text-xs text-text-dim">Includes PNG + SVG per tag.</span>
             </div>
@@ -627,6 +660,47 @@ export default function AdminTagsPage() {
           </div>
         )}
       </div>
+
+      {deleteSelectedOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-text">Delete Selected Tags</h3>
+                <p className="mt-1 text-sm text-text-dim">
+                  This will permanently delete {selectedTagIds.length} tag(s).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteSelectedOpen(false)}
+                className="text-xs text-text-dim hover:text-text"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-lg border border-border bg-surface-raised p-4 text-sm text-text-dim">
+              This action cannot be undone.
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="secondary" size="sm" onClick={() => setDeleteSelectedOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                loading={deletingSelected}
+                onClick={handleDeleteSelected}
+                icon={<Trash2 className="h-3.5 w-3.5" />}
+              >
+                Delete Selected
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">

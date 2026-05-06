@@ -1725,10 +1725,20 @@ export class AdminService {
   async getTagForQr(tagId: string) {
     const tag = await this.prisma.tag.findUnique({
       where: { id: tagId },
-      select: { id: true, token: true },
+      select: { id: true, token: true, batchId: true, qrFrameStyle: true },
     });
     if (!tag) throw new NotFoundException('Tag not found');
-    return tag;
+
+    const batchStyle = tag.batchId
+      ? (await this.prisma.tagBatch.findUnique({
+          where: { id: tag.batchId },
+          select: { qrFrameStyle: true },
+        }))?.qrFrameStyle ?? null
+      : null;
+
+    const frameStyle = this.resolveFrameStyle(tag.qrFrameStyle ?? batchStyle ?? null);
+
+    return { id: tag.id, token: tag.token, frameStyle };
   }
 
   // ──────────────────────────────────────────────
