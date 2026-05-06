@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
+import { fetchWithAuth } from '@/lib/auth';
+import { getApiOrigin } from '@/lib/api-origin';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Power, PowerOff } from 'lucide-react';
+import { Power, PowerOff, Trash2, Maximize2 } from 'lucide-react';
 
 interface AdminTag {
   id: string;
@@ -57,6 +60,12 @@ export default function AdminTagsPage() {
   const [error, setError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
+  const [previewTag, setPreviewTag] = useState<AdminTag | null>(null);
+  const [largePreviewUrl, setLargePreviewUrl] = useState<string | null>(null);
+  const [largePreviewLoading, setLargePreviewLoading] = useState(false);
+  const apiOrigin = useMemo(() => getApiOrigin(), []);
 
   const fetchTags = useCallback(async (page: number, status: string, type: string) => {
     setLoading(true);
@@ -81,6 +90,49 @@ export default function AdminTagsPage() {
   useEffect(() => {
     fetchTags(1, statusFilter, typeFilter);
   }, [fetchTags, statusFilter, typeFilter]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPreviews() {
+      const nextUrls: Record<string, string> = {};
+      await Promise.all(
+        tags.map(async (tag) => {
+          try {
+            const res = await fetchWithAuth(
+              `${apiOrigin}/api/v1/admin/tags/${tag.id}/qr-code?format=png&size=140`,
+              { method: 'GET' },
+            );
+            if (!res.ok) return;
+            const blob = await res.blob();
+            nextUrls[tag.id] = URL.createObjectURL(blob);
+          } catch {
+            // ignore preview load errors
+          }
+        }),
+      );
+
+      if (cancelled) {
+        Object.values(nextUrls).forEach((url) => URL.revokeObjectURL(url));
+        return;
+      }
+
+      Object.values(previewUrls).forEach((url) => URL.revokeObjectURL(url));
+      setPreviewUrls(nextUrls);
+    }
+
+    if (tags.length > 0) {
+      loadPreviews();
+    } else {
+      Object.values(previewUrls).forEach((url) => URL.revokeObjectURL(url));
+      setPreviewUrls({});
+    }
+
+    return () => {
+      cancelled = true;
+      Object.values(previewUrls).forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [apiOrigin, tags]);
 
   const totalPages = Math.ceil(meta.total / meta.pageSize);
 
@@ -107,6 +159,53 @@ export default function AdminTagsPage() {
     } finally {
       setRegeneratingId(null);
     }
+  };
+
+  const handleDeleteTag = async (tag: AdminTag) => {
+    if (!window.confirm(`Delete tag ${tag.token}? This cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingId(tag.id);
+    setError(null);
+    try {
+      await apiClient.delete(`/admin/tags/${tag.id}`);
+      await fetchTags(meta.page, statusFilter, typeFilter);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete tag');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const openPreview = async (tag: AdminTag) => {
+    setPreviewTag(tag);
+    setLargePreviewLoading(true);
+    if (largePreviewUrl) {
+      URL.revokeObjectURL(largePreviewUrl);
+    }
+    setLargePreviewUrl(null);
+    try {
+      const res = await fetchWithAuth(
+        `${apiOrigin}/api/v1/admin/tags/${tag.id}/qr-code?format=png&size=600`,
+        { method: 'GET' },
+      );
+      if (!res.ok) return;
+      const blob = await res.blob();
+      setLargePreviewUrl(URL.createObjectURL(blob));
+    } catch {
+      // ignore preview load errors
+    } finally {
+      setLargePreviewLoading(false);
+    }
+  };
+
+  const closePreview = () => {
+    setPreviewTag(null);
+    if (largePreviewUrl) {
+      URL.revokeObjectURL(largePreviewUrl);
+    }
+    setLargePreviewUrl(null);
   };
 
   return (
@@ -171,12 +270,13 @@ export default function AdminTagsPage() {
       {!error && (
         <div className="mt-6 overflow-hidden rounded-lg border border-border bg-surface">
           <div className="border-b border-border px-6 py-3">
-            <div className="grid grid-cols-6 text-sm font-medium text-text-dim">
+            <div className="grid grid-cols-7 text-sm font-medium text-text-dim">
               <span>Token</span>
               <span>Type</span>
               <span>Status</span>
               <span>Owner</span>
               <span>Created</span>
+              <span>QR</span>
               <span className="text-right">Actions</span>
             </div>
           </div>
@@ -192,7 +292,7 @@ export default function AdminTagsPage() {
               {tags.map((tag) => (
                 <div
                   key={tag.id}
-                  className="grid grid-cols-6 border-b border-border px-6 py-3 text-sm last:border-b-0 hover:bg-surface-raised items-center"
+                  className="grid grid-cols-7 border-b border-border px-6 py-3 text-sm last:border-b-0 hover:bg-surface-raised items-center"
                 >
                   <span className="font-mono font-medium text-primary">{tag.token}</span>
                   <span className="text-text-muted">
@@ -214,6 +314,29 @@ export default function AdminTagsPage() {
                   </span>
                   <span className="text-text-muted">
                     {new Date(tag.createdAt).toLocaleDateString()}
+                  </span>
+                  <span>
+                    {previewUrls[tag.id] ? (
+                      <button
+                        type="button"
+                        onClick={() => void openPreview(tag)}
+                        className="group relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-border bg-bg"
+                      >
+                        <Image
+                          src={previewUrls[tag.id]}
+                          alt={`QR preview for ${tag.token}`}
+                          width={48}
+                          height={48}
+                          className="h-10 w-10 object-cover"
+                          unoptimized
+                        />
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                          <Maximize2 className="h-4 w-4 text-white" />
+                        </span>
+                      </button>
+                    ) : (
+                      <span className="text-xs text-text-dim">Loading...</span>
+                    )}
                   </span>
                   <span className="flex justify-end gap-2">
                     {(tag.status === 'DEACTIVATED' || tag.status === 'INACTIVE') ? (
@@ -244,6 +367,15 @@ export default function AdminTagsPage() {
                       loading={regeneratingId === tag.id}
                     >
                       Regenerate QR
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => handleDeleteTag(tag)}
+                      loading={deletingId === tag.id}
+                      icon={<Trash2 className="h-3.5 w-3.5" />}
+                    >
+                      Delete
                     </Button>
                   </span>
                 </div>
@@ -277,6 +409,38 @@ export default function AdminTagsPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {previewTag && previewUrls[previewTag.id] && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-surface p-6 shadow-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-text">QR Preview</h3>
+                <p className="text-xs text-text-dim">{previewTag.token}</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={closePreview}>
+                Close
+              </Button>
+            </div>
+            <div className="mt-5 flex items-center justify-center rounded-xl border border-border bg-white p-6">
+              {largePreviewLoading ? (
+                <span className="text-sm text-text-dim">Loading QR...</span>
+              ) : largePreviewUrl ? (
+                <Image
+                  src={largePreviewUrl}
+                  alt={`QR preview for ${previewTag.token}`}
+                  width={420}
+                  height={420}
+                  className="h-auto w-full max-w-sm"
+                  unoptimized
+                />
+              ) : (
+                <span className="text-sm text-text-dim">Preview unavailable.</span>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

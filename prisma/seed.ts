@@ -142,11 +142,79 @@ async function main() {
     });
   }
 
+  const qrTemplates = [
+    {
+      name: 'Yellow Badge',
+      description: 'Gold badge with high-contrast QR.',
+      config: {
+        size: 320,
+        margin: 2,
+        foregroundColor: '#111111',
+        backgroundColor: '#F9C63A',
+      },
+    },
+    {
+      name: 'Midnight Slate',
+      description: 'Dark slate background with bright QR.',
+      config: {
+        size: 320,
+        margin: 2,
+        foregroundColor: '#F8FAFC',
+        backgroundColor: '#0B1220',
+      },
+    },
+    {
+      name: 'Ocean Mist',
+      description: 'Soft aqua backdrop with deep ink QR.',
+      config: {
+        size: 320,
+        margin: 2,
+        foregroundColor: '#0F172A',
+        backgroundColor: '#DFF4F1',
+      },
+    },
+  ];
+
+  const templateByName = new Map<string, { id: string }>();
+  for (const template of qrTemplates) {
+    const existing = await prisma.qrDesignTemplate.findFirst({ where: { name: template.name } });
+    if (existing) {
+      templateByName.set(template.name, existing);
+      continue;
+    }
+
+    const created = await prisma.qrDesignTemplate.create({
+      data: {
+        name: template.name,
+        description: template.description,
+        config: template.config,
+        isActive: true,
+        createdBy: admin.id,
+      },
+    });
+
+    templateByName.set(template.name, created);
+  }
+
+  const defaultTemplate = templateByName.get('Yellow Badge');
+  if (defaultTemplate) {
+    await prisma.systemSetting.upsert({
+      where: { key: 'defaultQrDesignTemplateId' },
+      update: { value: { templateId: defaultTemplate.id } },
+      create: {
+        key: 'defaultQrDesignTemplateId',
+        value: { templateId: defaultTemplate.id },
+        description: 'Default QR design template for new tag batches.',
+      },
+    });
+  }
+
   // Log what was created
   const userCount = await prisma.user.count();
   const productCount = await prisma.product.count();
   const tagBatchCount = await prisma.tagBatch.count();
   const tagCount = await prisma.tag.count();
+  const qrTemplateCount = await prisma.qrDesignTemplate.count();
 
   console.log('--- Seed Summary ---');
   console.log(`Admin user: ${admin.email} (role: ${admin.role})`);
@@ -154,6 +222,7 @@ async function main() {
   console.log(`Products: ${productCount}`);
   console.log(`Tag Batches: ${tagBatchCount}`);
   console.log(`Tags: ${tagCount}`);
+  console.log(`QR Templates: ${qrTemplateCount}`);
   console.log('Seed complete.');
 }
 

@@ -31,6 +31,7 @@ interface QrTemplate {
   name: string;
   description?: string | null;
   isActive: boolean;
+  isDefault?: boolean;
 }
 
 export default function AdminGenerateTagsPage() {
@@ -42,6 +43,7 @@ export default function AdminGenerateTagsPage() {
   const [templates, setTemplates] = useState<QrTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [defaultTemplateId, setDefaultTemplateId] = useState<string | null>(null);
   const [templatePreviewUrl, setTemplatePreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,11 +58,16 @@ export default function AdminGenerateTagsPage() {
       try {
         const response = await apiClient.get<{ data: QrTemplate[] }>('/admin/qr-templates');
         if (!cancelled) {
-          setTemplates(response.data.filter((template) => template.isActive));
+          const activeTemplates = response.data.filter((template) => template.isActive);
+          const defaultId = response.data.find((template) => template.isDefault)?.id ?? null;
+          setTemplates(activeTemplates);
+          setDefaultTemplateId(defaultId);
+          setSelectedTemplateId((current) => current || (defaultId && activeTemplates.some((t) => t.id === defaultId) ? defaultId : ''));
         }
       } catch {
         if (!cancelled) {
           setTemplates([]);
+          setDefaultTemplateId(null);
         }
       } finally {
         if (!cancelled) {
@@ -220,7 +227,7 @@ export default function AdminGenerateTagsPage() {
 
         <div>
           <label htmlFor="qrTemplate" className="block text-sm font-medium text-text-muted">
-            QR Design Template (optional)
+            QR Design
           </label>
           <select
             id="qrTemplate"
@@ -229,19 +236,19 @@ export default function AdminGenerateTagsPage() {
             disabled={templatesLoading}
             className="mt-1 block w-full rounded-md border border-border bg-surface px-4 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           >
-            <option value="">Default (no template)</option>
             {templates.map((template) => (
               <option key={template.id} value={template.id}>
-                {template.name}
+                {template.name}{template.id === defaultTemplateId ? ' (Default)' : ''}
               </option>
             ))}
           </select>
+          <p className="mt-1 text-xs text-text-dim">Defaults to the current QR design if unchanged.</p>
         </div>
 
         {templatePreviewUrl && (
           <div className="rounded-lg border border-border bg-surface p-3">
-            <p className="text-xs font-semibold uppercase tracking-widest text-text-dim">Template Preview</p>
-            <img src={templatePreviewUrl} alt="QR template preview" className="mt-2 w-40 rounded bg-white p-2" />
+            <p className="text-xs font-semibold uppercase tracking-widest text-text-dim">Design Preview</p>
+            <img src={templatePreviewUrl} alt="QR design preview" className="mt-2 w-40 rounded bg-white p-2" />
           </div>
         )}
 

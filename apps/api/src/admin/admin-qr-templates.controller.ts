@@ -19,7 +19,7 @@ import { CurrentUser, JwtPayload } from '../common/decorators/current-user.decor
 import { AdminService } from './admin.service';
 import { QrCodeService, QrRenderOptions } from '../qr-code/qr-code.service';
 import type { Prisma } from '@/generated/prisma/client';
-import { CreateQrTemplateDto, UpdateQrTemplateDto } from './dto/qr-template.dto';
+import { CreateQrTemplateDto, UpdateQrTemplateDto, SetDefaultQrDesignTemplateDto } from './dto/qr-template.dto';
 
 @ApiTags('admin/qr-templates')
 @ApiBearerAuth()
@@ -36,6 +36,22 @@ export class AdminQrTemplatesController {
   @ApiOperation({ summary: 'List QR design templates' })
   async listTemplates() {
     return this.adminService.listQrTemplates();
+  }
+
+  @Get('default')
+  @ApiOperation({ summary: 'Get default QR design template' })
+  async getDefaultTemplate() {
+    return this.adminService.getDefaultQrDesignTemplate();
+  }
+
+  @Patch('default')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Set default QR design template' })
+  async setDefaultTemplate(
+    @CurrentUser() admin: JwtPayload,
+    @Body() dto: SetDefaultQrDesignTemplateDto,
+  ) {
+    return this.adminService.setDefaultQrDesignTemplate(admin.id, dto.templateId ?? null);
   }
 
   @Post()

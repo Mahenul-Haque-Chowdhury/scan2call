@@ -29,7 +29,7 @@ const adminLinks = [
   { href: '/admin', label: 'Overview', icon: LayoutGrid },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/tags', label: 'Tags', icon: Tag },
-  { href: '/admin/qr-templates', label: 'QR Templates', icon: QrCode },
+  { href: '/admin/qr-templates', label: 'QR Designs', icon: QrCode },
   { href: '/admin/orders', label: 'Orders', icon: Package },
   { href: '/admin/products', label: 'Products', icon: Store },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },

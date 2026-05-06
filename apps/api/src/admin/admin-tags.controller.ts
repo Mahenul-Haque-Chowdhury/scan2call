@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Query,
   Body,
@@ -184,5 +185,15 @@ export class AdminTagsController {
     },
   ) {
     return this.adminService.updateTag(admin.id, id, body);
+  }
+
+  @Delete(':id')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Delete (soft-delete) a tag' })
+  async deleteTag(
+    @CurrentUser() admin: JwtPayload,
+    @Param('id') id: string,
+  ) {
+    return this.adminService.deleteTag(admin.id, id);
   }
 }

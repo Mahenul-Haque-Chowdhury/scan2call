@@ -42,3 +42,10 @@ export class UpdateQrTemplateDto {
   @IsBoolean()
   isActive?: boolean;
 }
+
+export class SetDefaultQrDesignTemplateDto {
+  @ApiPropertyOptional({ description: 'Default template id (empty to clear)' })
+  @IsOptional()
+  @IsString()
+  templateId?: string;
+}

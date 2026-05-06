@@ -20,6 +20,7 @@ import Stripe from 'stripe';
 
 /** Base62 alphabet for tag token generation */
 const BASE62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+const DEFAULT_QR_DESIGN_SETTING_KEY = 'defaultQrDesignTemplateId';
 
 type QrTemplateConfig = {
   size?: number;
@@ -500,6 +501,35 @@ export class AdminService {
     return updated;
   }
 
+  async deleteTag(adminId: string, tagId: string) {
+    const tag = await this.prisma.tag.findFirst({ where: { id: tagId } });
+    if (!tag) {
+      throw new NotFoundException('Tag not found');
+    }
+
+    const updated = await this.prisma.tag.update({
+      where: { id: tagId },
+      data: {
+        status: 'DEACTIVATED',
+        deletedAt: new Date(),
+        deactivatedAt: new Date(),
+      },
+    });
+
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'TAG_DEACTIVATED',
+        targetType: 'Tag',
+        targetId: tagId,
+        metadata: { reason: 'Admin delete' },
+      },
+    });
+
+    this.logger.log(`Admin ${adminId} deleted tag ${tagId}`);
+    return updated;
+  }
+
   /**
    * Assign a pre-generated tag to a user and activate it immediately.
    */
@@ -570,6 +600,14 @@ export class AdminService {
       );
     }
 
+    const resolvedTemplateId = dto.qrDesignTemplateId
+      ?? await this.getDefaultQrDesignTemplateId();
+    const resolvedTemplate = resolvedTemplateId
+      ? await this.prisma.qrDesignTemplate.findFirst({
+          where: { id: resolvedTemplateId, isActive: true },
+        })
+      : null;
+
     // Create the batch record
     const batch = await this.prisma.tagBatch.create({
       data: {
@@ -578,7 +616,7 @@ export class AdminService {
         tagType: dto.tagType,
         generatedBy: adminId,
         notes: dto.notes,
-        qrDesignTemplateId: dto.qrDesignTemplateId ?? null,
+        qrDesignTemplateId: resolvedTemplate?.id ?? null,
       },
     });
 
@@ -589,7 +627,7 @@ export class AdminService {
         type: dto.tagType,
         status: 'INACTIVE' as const,
         batchId: batch.id,
-        qrDesignTemplateId: dto.qrDesignTemplateId ?? null,
+        qrDesignTemplateId: resolvedTemplate?.id ?? null,
       })),
     });
 
@@ -599,13 +637,7 @@ export class AdminService {
         select: { id: true, token: true, qrDesignTemplateId: true, qrDesignOverrides: true },
       });
 
-      const defaultTemplate = dto.qrDesignTemplateId
-        ? await this.prisma.qrDesignTemplate.findFirst({
-            where: { id: dto.qrDesignTemplateId, isActive: true },
-          })
-        : null;
-
-      await this.generateAndStoreQrAssets(batch.id, tags, defaultTemplate?.config ?? null);
+      await this.generateAndStoreQrAssets(batch.id, tags, resolvedTemplate?.config ?? null);
     }
 
     // Audit log
@@ -726,11 +758,62 @@ export class AdminService {
   }
 
   async listQrTemplates() {
-    const templates = await this.prisma.qrDesignTemplate.findMany({
-      orderBy: { createdAt: 'desc' },
+    const [templates, defaultTemplateId] = await Promise.all([
+      this.prisma.qrDesignTemplate.findMany({
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.getDefaultQrDesignTemplateId(),
+    ]);
+
+    return {
+      data: templates.map((template) => ({
+        ...template,
+        isDefault: template.id === defaultTemplateId,
+      })),
+    };
+  }
+
+  async getDefaultQrDesignTemplate() {
+    const templateId = await this.getDefaultQrDesignTemplateId();
+    return { data: { templateId } };
+  }
+
+  async setDefaultQrDesignTemplate(adminId: string, templateId?: string | null) {
+    const trimmedId = templateId?.trim();
+    let resolvedId: string | null = trimmedId && trimmedId.length > 0 ? trimmedId : null;
+
+    if (resolvedId) {
+      const template = await this.prisma.qrDesignTemplate.findFirst({
+        where: { id: resolvedId, isActive: true },
+        select: { id: true },
+      });
+      if (!template) {
+        throw new NotFoundException('QR template not found');
+      }
+      resolvedId = template.id;
+    }
+
+    await this.prisma.systemSetting.upsert({
+      where: { key: DEFAULT_QR_DESIGN_SETTING_KEY },
+      update: { value: { templateId: resolvedId } },
+      create: {
+        key: DEFAULT_QR_DESIGN_SETTING_KEY,
+        value: { templateId: resolvedId },
+        description: 'Default QR design template for new tag batches.',
+      },
     });
 
-    return { data: templates };
+    this.logger.log(`Admin ${adminId} set default QR design template to ${resolvedId ?? 'none'}`);
+
+    return { data: { templateId: resolvedId } };
+  }
+
+  private async getDefaultQrDesignTemplateId(): Promise<string | null> {
+    const setting = await this.prisma.systemSetting.findUnique({
+      where: { key: DEFAULT_QR_DESIGN_SETTING_KEY },
+    });
+    const value = setting?.value as { templateId?: string | null } | null;
+    return value?.templateId ?? null;
   }
 
   async createQrTemplate(
