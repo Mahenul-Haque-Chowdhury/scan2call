@@ -209,8 +209,8 @@ export class AdminTagsController {
   @ApiQuery({ name: 'frameStyle', required: false, enum: Object.values(QrFrameStyle) })
   async previewQrFrame(
     @Query('format') format: string = 'svg',
-    @Query('frameStyle') frameStyle?: QrFrameStyle,
     @Res() res: Response,
+    @Query('frameStyle') frameStyle?: QrFrameStyle,
   ) {
     if (frameStyle && !Object.values(QrFrameStyle).includes(frameStyle)) {
       throw new BadRequestException('Invalid QR frame style');
