@@ -103,7 +103,7 @@ export class QrCodeService {
     layout: ReturnType<QrCodeService['getFrameLayout']>,
     frameStyle: QrFrameStyle,
   ) {
-    const fontFamily = '"Space Grotesk", "Space Grotesk Fallback", system-ui, sans-serif';
+    const fontFamily = 'Space Grotesk, Space Grotesk Fallback, system-ui, sans-serif';
     const textColor = '#111111';
     const accent = '#FACC15';
     const borderColor = '#E2E8F0';
