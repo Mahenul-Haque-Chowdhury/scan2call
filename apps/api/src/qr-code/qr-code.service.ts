@@ -103,19 +103,35 @@ export class QrCodeService {
     layout: ReturnType<QrCodeService['getFrameLayout']>,
     frameStyle: QrFrameStyle,
   ) {
-    const fontFamily = 'Space Grotesk, Space Grotesk Fallback, system-ui, sans-serif';
+    const fontFamily = "Space Grotesk, 'Space Grotesk Fallback', system-ui, sans-serif";
     const textColor = '#111111';
     const accent = '#FACC15';
     const borderColor = '#E2E8F0';
     const background = '#FFFFFF';
 
+    const escapeSvg = (value: string) =>
+      value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+
+    const safeFontFamily = escapeSvg(fontFamily);
+    const brandParts = {
+      left: escapeSvg('Scan'),
+      mid: escapeSvg('2'),
+      right: escapeSvg('Call'),
+    };
+    const detailLine = escapeSvg('Scan The QR Code To Contact The Owner');
+
     const brandText = (y: number) => `
-  <text x="50%" y="${y}" text-anchor="middle" dominant-baseline="middle" font-family="${fontFamily}" font-size="${layout.brandFontSize}" font-weight="700" fill="${textColor}">
-    <tspan fill="${textColor}">Scan</tspan><tspan fill="${accent}">2</tspan><tspan fill="${textColor}">Call</tspan>
+  <text x="50%" y="${y}" text-anchor="middle" dominant-baseline="middle" font-family="${safeFontFamily}" font-size="${layout.brandFontSize}" font-weight="700" fill="${textColor}">
+    <tspan fill="${textColor}">${brandParts.left}</tspan><tspan fill="${accent}">${brandParts.mid}</tspan><tspan fill="${textColor}">${brandParts.right}</tspan>
   </text>`;
     const detailText = (y: number) => `
-  <text x="50%" y="${y}" text-anchor="middle" dominant-baseline="middle" font-family="${fontFamily}" font-size="${layout.detailFontSize}" font-weight="600" fill="${textColor}">
-    Scan The QR Code To Contact The Owner
+  <text x="50%" y="${y}" text-anchor="middle" dominant-baseline="middle" font-family="${safeFontFamily}" font-size="${layout.detailFontSize}" font-weight="600" fill="${textColor}">
+    ${detailLine}
   </text>`;
 
     const topIsBrand = frameStyle === QrFrameStyle.SCAN2CALL_TOP;
@@ -163,7 +179,7 @@ export class QrCodeService {
 
     return base
       .composite([
-        { input: Buffer.from(overlaySvg) },
+        { input: Buffer.from(overlaySvg, 'utf-8') },
         { input: qrBuffer, top: layout.qrY, left: layout.qrX },
       ])
       .png()
