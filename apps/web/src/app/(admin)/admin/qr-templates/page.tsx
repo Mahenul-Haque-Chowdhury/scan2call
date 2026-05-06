@@ -16,6 +16,8 @@ interface QrTemplate {
     margin?: number;
     foregroundColor?: string;
     backgroundColor?: string;
+    layout?: 'STANDARD' | 'BRANDED_4X6';
+    layoutWidth?: number;
   };
   isActive: boolean;
   isDefault?: boolean;
@@ -37,6 +39,8 @@ export default function AdminQrTemplatesPage() {
   const [margin, setMargin] = useState(2);
   const [foregroundColor, setForegroundColor] = useState('#0f172a');
   const [backgroundColor, setBackgroundColor] = useState('#ffffff');
+  const [layout, setLayout] = useState<'STANDARD' | 'BRANDED_4X6'>('STANDARD');
+  const [layoutWidth, setLayoutWidth] = useState(1200);
   const [saving, setSaving] = useState(false);
 
   const loadTemplates = async () => {
@@ -122,6 +126,8 @@ export default function AdminQrTemplatesPage() {
           margin,
           foregroundColor,
           backgroundColor,
+          layout,
+          layoutWidth: layout === 'BRANDED_4X6' ? layoutWidth : undefined,
         },
         isActive: true,
       });
@@ -179,6 +185,20 @@ export default function AdminQrTemplatesPage() {
   ) => {
     const background = template.config.backgroundColor ?? '#ffffff';
     const qrUrl = previewUrls[template.id];
+    
+    if (template.config.layout === 'BRANDED_4X6') {
+      const imgClass = variant === 'large' ? 'h-64 object-contain' : 'h-32 object-contain';
+      return (
+        <div className="flex items-center justify-center">
+          {qrUrl ? (
+            <img src={qrUrl} alt={`${template.name} QR preview`} className={imgClass} />
+          ) : (
+            <div className={`${imgClass} w-24 rounded-xl bg-surface`} />
+          )}
+        </div>
+      );
+    }
+
     const sizes = variant === 'large'
       ? { wrap: 'rounded-3xl p-6', qrWrap: 'p-4', qrSize: 'h-44 w-44', text: 'text-lg', label: 'text-xs' }
       : { wrap: 'rounded-2xl p-4', qrWrap: 'p-2.5', qrSize: 'h-20 w-20', text: 'text-sm', label: 'text-[10px]' };
@@ -301,6 +321,32 @@ export default function AdminQrTemplatesPage() {
                 onChange={(e) => setDescription(e.target.value)}
                 className="mt-1 block w-full rounded-md border border-border bg-surface px-4 py-2 text-sm text-text"
               />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-text-muted">Layout</label>
+                <select
+                  value={layout}
+                  onChange={(e) => setLayout(e.target.value as 'STANDARD' | 'BRANDED_4X6')}
+                  className="mt-1 block w-full rounded-md border border-border bg-surface px-4 py-2 text-sm text-text"
+                >
+                  <option value="STANDARD">Standard</option>
+                  <option value="BRANDED_4X6">4x6 Branded</option>
+                </select>
+              </div>
+              {layout === 'BRANDED_4X6' && (
+                <div>
+                  <label className="block text-sm font-medium text-text-muted">Layout Width (px)</label>
+                  <input
+                    type="number"
+                    min={400}
+                    max={2400}
+                    value={layoutWidth}
+                    onChange={(e) => setLayoutWidth(Number(e.target.value))}
+                    className="mt-1 block w-full rounded-md border border-border bg-surface px-4 py-2 text-sm text-text"
+                  />
+                </div>
+              )}
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>

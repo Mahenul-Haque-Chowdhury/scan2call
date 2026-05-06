@@ -27,6 +27,8 @@ type QrTemplateConfig = {
   margin?: number;
   foregroundColor?: string;
   backgroundColor?: string;
+  layout?: 'STANDARD' | 'BRANDED_4X6';
+  layoutWidth?: number;
 };
 
 @Injectable()
@@ -693,6 +695,8 @@ export class AdminService {
       margin: override.margin ?? base.margin,
       foregroundColor: override.foregroundColor ?? base.foregroundColor,
       backgroundColor: override.backgroundColor ?? base.backgroundColor,
+      layout: override.layout ?? base.layout,
+      layoutWidth: override.layoutWidth ?? base.layoutWidth,
     };
   }
 
