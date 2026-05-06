@@ -109,26 +109,28 @@ export class QrCodeService {
     const borderColor = '#E2E8F0';
     const background = '#FFFFFF';
 
-    const brandText = `<text x="50%" y="${layout.topTextY}" text-anchor="middle" dominant-baseline="middle" font-family=${fontFamily} font-size="${layout.brandFontSize}" font-weight="700" fill="${textColor}">
+    const brandText = (y: number) => `<?xml version="1.0" encoding="UTF-8"?>
+<text x="50%" y="${y}" text-anchor="middle" dominant-baseline="middle" font-family="${fontFamily}" font-size="${layout.brandFontSize}" font-weight="700" fill="${textColor}">
   <tspan fill="${textColor}">Scan</tspan><tspan fill="${accent}">2</tspan><tspan fill="${textColor}">Call</tspan>
 </text>`;
-    const detailText = `<text x="50%" y="${layout.bottomTextY}" text-anchor="middle" dominant-baseline="middle" font-family=${fontFamily} font-size="${layout.detailFontSize}" font-weight="600" fill="${textColor}">
+    const detailText = (y: number) => `<?xml version="1.0" encoding="UTF-8"?>
+<text x="50%" y="${y}" text-anchor="middle" dominant-baseline="middle" font-family="${fontFamily}" font-size="${layout.detailFontSize}" font-weight="600" fill="${textColor}">
   Scan The QR Code To Contact The Owner
 </text>`;
 
     const topIsBrand = frameStyle === QrFrameStyle.SCAN2CALL_TOP;
     const topText = topIsBrand
-      ? brandText
-      : detailText.replace(`y="${layout.bottomTextY}"`, `y="${layout.topTextY}"`);
+      ? brandText(layout.topTextY)
+      : detailText(layout.topTextY);
     const bottomText = topIsBrand
-      ? detailText
-      : brandText.replace(`y="${layout.topTextY}"`, `y="${layout.bottomTextY}"`);
+      ? detailText(layout.bottomTextY)
+      : brandText(layout.bottomTextY);
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${layout.frameWidth}" height="${layout.frameHeight}" viewBox="0 0 ${layout.frameWidth} ${layout.frameHeight}" xmlns="http://www.w3.org/2000/svg">
   <rect x="0" y="0" width="${layout.frameWidth}" height="${layout.frameHeight}" rx="${layout.radius}" fill="${background}" stroke="${borderColor}" stroke-width="2" />
-  ${topText}
-  ${bottomText}
+  ${topText.replace(/<\?xml[^>]*>\n?/, '')}
+  ${bottomText.replace(/<\?xml[^>]*>\n?/, '')}
 </svg>`;
   }
 
