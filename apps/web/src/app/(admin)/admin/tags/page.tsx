@@ -316,14 +316,19 @@ export default function AdminTagsPage() {
                     {new Date(tag.createdAt).toLocaleDateString()}
                   </span>
                   <span>
-                    {previewUrls[tag.id] ? (
+                    {(() => {
+                      const previewUrl = previewUrls[tag.id];
+                      if (!previewUrl) {
+                        return <span className="text-xs text-text-dim">Loading...</span>;
+                      }
+                      return (
                       <button
                         type="button"
                         onClick={() => void openPreview(tag)}
                         className="group relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-border bg-bg"
                       >
                         <Image
-                          src={previewUrls[tag.id]}
+                          src={previewUrl}
                           alt={`QR preview for ${tag.token}`}
                           width={48}
                           height={48}
@@ -334,9 +339,8 @@ export default function AdminTagsPage() {
                           <Maximize2 className="h-4 w-4 text-white" />
                         </span>
                       </button>
-                    ) : (
-                      <span className="text-xs text-text-dim">Loading...</span>
-                    )}
+                      );
+                    })()}
                   </span>
                   <span className="flex justify-end gap-2">
                     {(tag.status === 'DEACTIVATED' || tag.status === 'INACTIVE') ? (
