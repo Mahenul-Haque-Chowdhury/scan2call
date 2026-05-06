@@ -15,21 +15,13 @@ import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MediaService } from '../media/media.service';
 import { QrCodeService, QrRenderOptions } from '../qr-code/qr-code.service';
+import { DEFAULT_QR_FRAME_STYLE, QrFrameStyle } from '../qr-code/qr-frame-style';
 import * as crypto from 'crypto';
 import Stripe from 'stripe';
 
 /** Base62 alphabet for tag token generation */
 const BASE62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-const DEFAULT_QR_DESIGN_SETTING_KEY = 'defaultQrDesignTemplateId';
-
-type QrTemplateConfig = {
-  size?: number;
-  margin?: number;
-  foregroundColor?: string;
-  backgroundColor?: string;
-  layout?: 'STANDARD' | 'BRANDED_4X6';
-  layoutWidth?: number;
-};
+const DEFAULT_QR_SIZE = 320;
 
 @Injectable()
 export class AdminService {
@@ -442,8 +434,6 @@ export class AdminService {
     data: {
       status?: TagStatus;
       label?: string;
-      qrDesignTemplateId?: string | null;
-      qrDesignOverrides?: Record<string, unknown>;
     },
   ) {
     const tag = await this.prisma.tag.findFirst({
@@ -469,14 +459,6 @@ export class AdminService {
     const updateData: Prisma.TagUpdateInput = {
       ...(statusData as Prisma.TagUpdateInput),
       ...(data.label !== undefined ? { label: data.label } : {}),
-      ...(data.qrDesignOverrides !== undefined
-        ? { qrDesignOverrides: data.qrDesignOverrides as Prisma.InputJsonValue }
-        : {}),
-      ...(data.qrDesignTemplateId !== undefined
-        ? data.qrDesignTemplateId
-          ? { qrDesignTemplate: { connect: { id: data.qrDesignTemplateId } } }
-          : { qrDesignTemplate: { disconnect: true } }
-        : {}),
     };
 
     const updated = await this.prisma.tag.update({
@@ -609,20 +591,13 @@ export class AdminService {
   async batchGenerateTags(adminId: string, dto: BatchGenerateTagsDto) {
     const tokens = this.generateUniqueTokens(dto.quantity);
     const batchName = dto.batchName?.trim() || `Batch ${new Date().toISOString()}`;
+    const frameStyle = dto.qrFrameStyle ?? DEFAULT_QR_FRAME_STYLE;
 
     if (dto.storeQrAssets && dto.quantity > 1000) {
       throw new BadRequestException(
         'QR asset generation is limited to 1000 tags per request. Reduce quantity or run multiple batches.',
       );
     }
-
-    const resolvedTemplateId = dto.qrDesignTemplateId
-      ?? await this.getDefaultQrDesignTemplateId();
-    const resolvedTemplate = resolvedTemplateId
-      ? await this.prisma.qrDesignTemplate.findFirst({
-          where: { id: resolvedTemplateId, isActive: true },
-        })
-      : null;
 
     // Create the batch record
     const batch = await this.prisma.tagBatch.create({
@@ -632,7 +607,7 @@ export class AdminService {
         tagType: dto.tagType,
         generatedBy: adminId,
         notes: dto.notes,
-        qrDesignTemplateId: resolvedTemplate?.id ?? null,
+        qrFrameStyle: frameStyle,
       },
     });
 
@@ -643,17 +618,17 @@ export class AdminService {
         type: dto.tagType,
         status: 'INACTIVE' as const,
         batchId: batch.id,
-        qrDesignTemplateId: resolvedTemplate?.id ?? null,
+        qrFrameStyle: frameStyle,
       })),
     });
 
     if (dto.storeQrAssets) {
       const tags = await this.prisma.tag.findMany({
         where: { batchId: batch.id },
-        select: { id: true, token: true, qrDesignTemplateId: true, qrDesignOverrides: true },
+        select: { id: true, token: true, qrFrameStyle: true },
       });
 
-      await this.generateAndStoreQrAssets(batch.id, tags, resolvedTemplate?.config ?? null);
+      await this.generateAndStoreQrAssets(batch.id, tags, frameStyle);
     }
 
     // Audit log
@@ -684,77 +659,39 @@ export class AdminService {
     };
   }
 
-  private resolveQrOptions(
-    baseConfig: unknown,
-    overrides: unknown,
-  ): QrRenderOptions {
-    const base = (baseConfig && typeof baseConfig === 'object') ? (baseConfig as QrTemplateConfig) : {};
-    const override = (overrides && typeof overrides === 'object') ? (overrides as QrTemplateConfig) : {};
+  private resolveFrameStyle(frameStyle?: QrFrameStyle | null): QrFrameStyle {
+    return frameStyle ?? DEFAULT_QR_FRAME_STYLE;
+  }
+
+  private buildQrRenderOptions(frameStyle?: QrFrameStyle | null): QrRenderOptions {
     return {
-      size: override.size ?? base.size,
-      margin: override.margin ?? base.margin,
-      foregroundColor: override.foregroundColor ?? base.foregroundColor,
-      backgroundColor: override.backgroundColor ?? base.backgroundColor,
-      layout: override.layout ?? base.layout,
-      layoutWidth: override.layoutWidth ?? base.layoutWidth,
+      size: DEFAULT_QR_SIZE,
+      margin: 2,
+      frameStyle: this.resolveFrameStyle(frameStyle),
     };
   }
 
-  private async buildQrAssetsForTags(
-    tags: Array<{ token: string; qrDesignTemplateId: string | null; qrDesignOverrides: unknown }>,
-    batchTemplateId?: string | null,
-  ): Promise<Array<{ token: string; renderOptions: QrRenderOptions }>> {
-    const templateCache = new Map<string, unknown>();
-    const defaultTemplateId = await this.getDefaultQrDesignTemplateId();
-
-    const resolveTemplateConfig = async (templateId: string | null) => {
-      if (!templateId) return null;
-      if (!templateCache.has(templateId)) {
-        const template = await this.prisma.qrDesignTemplate.findFirst({
-          where: { id: templateId, isActive: true },
-          select: { config: true },
-        });
-        templateCache.set(templateId, template?.config ?? null);
-      }
-      return templateCache.get(templateId) ?? null;
-    };
-
-    const resolvedBatchTemplateId = batchTemplateId ?? null;
-
-    const results: Array<{ token: string; renderOptions: QrRenderOptions }> = [];
-    for (const tag of tags) {
-      const templateId = tag.qrDesignTemplateId ?? resolvedBatchTemplateId ?? defaultTemplateId;
-      const templateConfig = await resolveTemplateConfig(templateId);
-      results.push({
-        token: tag.token,
-        renderOptions: this.resolveQrOptions(templateConfig, tag.qrDesignOverrides),
-      });
-    }
-
-    return results;
+  private buildQrAssetsForTags(
+    tags: Array<{ token: string; qrFrameStyle: QrFrameStyle | null }>,
+    batchFrameStyle?: QrFrameStyle | null,
+  ): Array<{ token: string; renderOptions: QrRenderOptions }> {
+    const resolvedBatchStyle = this.resolveFrameStyle(batchFrameStyle ?? null);
+    return tags.map((tag) => ({
+      token: tag.token,
+      renderOptions: this.buildQrRenderOptions(tag.qrFrameStyle ?? resolvedBatchStyle),
+    }));
   }
 
   private async generateAndStoreQrAssets(
     batchId: string,
-    tags: Array<{ id: string; token: string; qrDesignTemplateId: string | null; qrDesignOverrides: unknown }>,
-    defaultTemplateConfig: unknown,
+    tags: Array<{ id: string; token: string; qrFrameStyle: QrFrameStyle | null }>,
+    batchFrameStyle: QrFrameStyle,
   ): Promise<void> {
     const concurrency = 6;
-    const templateCache = new Map<string, unknown>();
+    const resolvedBatchStyle = this.resolveFrameStyle(batchFrameStyle);
 
     await this.mapWithConcurrency(tags, concurrency, async (tag) => {
-      let templateConfig: unknown = defaultTemplateConfig;
-      if (tag.qrDesignTemplateId) {
-        if (!templateCache.has(tag.qrDesignTemplateId)) {
-          const template = await this.prisma.qrDesignTemplate.findFirst({
-            where: { id: tag.qrDesignTemplateId, isActive: true },
-          });
-          templateCache.set(tag.qrDesignTemplateId, template?.config ?? null);
-        }
-        templateConfig = templateCache.get(tag.qrDesignTemplateId) ?? null;
-      }
-
-      const renderOptions = this.resolveQrOptions(templateConfig, tag.qrDesignOverrides);
+      const renderOptions = this.buildQrRenderOptions(tag.qrFrameStyle ?? resolvedBatchStyle);
 
       const scanUrl = this.qrCodeService.buildScanUrl(tag.token);
       const [png, svg] = await Promise.all([
@@ -809,116 +746,12 @@ export class AdminService {
     await Promise.all(workers);
   }
 
-  async listQrTemplates() {
-    const [templates, defaultTemplateId] = await Promise.all([
-      this.prisma.qrDesignTemplate.findMany({
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.getDefaultQrDesignTemplateId(),
-    ]);
 
-    return {
-      data: templates.map((template) => ({
-        ...template,
-        isDefault: template.id === defaultTemplateId,
-      })),
-    };
-  }
-
-  async getDefaultQrDesignTemplate() {
-    const templateId = await this.getDefaultQrDesignTemplateId();
-    return { data: { templateId } };
-  }
-
-  async setDefaultQrDesignTemplate(adminId: string, templateId?: string | null) {
-    const trimmedId = templateId?.trim();
-    let resolvedId: string | null = trimmedId && trimmedId.length > 0 ? trimmedId : null;
-
-    if (resolvedId) {
-      const template = await this.prisma.qrDesignTemplate.findFirst({
-        where: { id: resolvedId, isActive: true },
-        select: { id: true },
-      });
-      if (!template) {
-        throw new NotFoundException('QR template not found');
-      }
-      resolvedId = template.id;
-    }
-
-    await this.prisma.systemSetting.upsert({
-      where: { key: DEFAULT_QR_DESIGN_SETTING_KEY },
-      update: { value: { templateId: resolvedId } },
-      create: {
-        key: DEFAULT_QR_DESIGN_SETTING_KEY,
-        value: { templateId: resolvedId },
-        description: 'Default QR design template for new tag batches.',
-      },
-    });
-
-    this.logger.log(`Admin ${adminId} set default QR design template to ${resolvedId ?? 'none'}`);
-
-    return { data: { templateId: resolvedId } };
-  }
-
-  private async getDefaultQrDesignTemplateId(): Promise<string | null> {
-    const setting = await this.prisma.systemSetting.findUnique({
-      where: { key: DEFAULT_QR_DESIGN_SETTING_KEY },
-    });
-    const value = setting?.value as { templateId?: string | null } | null;
-    return value?.templateId ?? null;
-  }
-
-  async createQrTemplate(
-    adminId: string,
-    data: { name: string; description?: string | null; config: Prisma.InputJsonValue; isActive?: boolean },
-  ) {
-    const template = await this.prisma.qrDesignTemplate.create({
-      data: {
-        name: data.name.trim(),
-        description: data.description ?? null,
-        config: data.config,
-        isActive: data.isActive ?? true,
-        createdBy: adminId,
-      },
-    });
-
-    return { data: template };
-  }
-
-  async updateQrTemplate(
-    templateId: string,
-    data: { name?: string; description?: string | null; config?: Prisma.InputJsonValue; isActive?: boolean },
-  ) {
-    const template = await this.prisma.qrDesignTemplate.findUnique({ where: { id: templateId } });
-    if (!template) {
-      throw new NotFoundException('QR template not found');
-    }
-
-    const updated = await this.prisma.qrDesignTemplate.update({
-      where: { id: templateId },
-      data: {
-        name: data.name?.trim() ?? undefined,
-        description: data.description !== undefined ? data.description : undefined,
-        config: data.config !== undefined ? data.config : undefined,
-        isActive: data.isActive !== undefined ? data.isActive : undefined,
-      },
-    });
-
-    return { data: updated };
-  }
-
-  async getQrTemplateById(templateId: string) {
-    const template = await this.prisma.qrDesignTemplate.findUnique({ where: { id: templateId } });
-    if (!template) {
-      throw new NotFoundException('QR template not found');
-    }
-    return template;
-  }
 
   async regenerateTagQrAssets(adminId: string, tagId: string) {
     const tag = await this.prisma.tag.findUnique({
       where: { id: tagId },
-      select: { id: true, token: true, batchId: true, qrDesignTemplateId: true, qrDesignOverrides: true },
+      select: { id: true, token: true, batchId: true, qrFrameStyle: true },
     });
 
     if (!tag) {
@@ -931,16 +764,11 @@ export class AdminService {
 
     const batch = await this.prisma.tagBatch.findUnique({
       where: { id: tag.batchId },
-      select: { qrDesignTemplateId: true },
+      select: { qrFrameStyle: true },
     });
 
-    const template = tag.qrDesignTemplateId
-      ? await this.prisma.qrDesignTemplate.findFirst({ where: { id: tag.qrDesignTemplateId, isActive: true } })
-      : batch?.qrDesignTemplateId
-        ? await this.prisma.qrDesignTemplate.findFirst({ where: { id: batch.qrDesignTemplateId, isActive: true } })
-        : null;
-
-    await this.generateAndStoreQrAssets(tag.batchId, [tag], template?.config ?? null);
+    const frameStyle = this.resolveFrameStyle(tag.qrFrameStyle ?? batch?.qrFrameStyle ?? null);
+    await this.generateAndStoreQrAssets(tag.batchId, [tag], frameStyle);
 
     await this.prisma.adminAuditLog.create({
       data: {
@@ -957,7 +785,7 @@ export class AdminService {
   async regenerateBatchQrAssets(adminId: string, batchId: string) {
     const batch = await this.prisma.tagBatch.findUnique({
       where: { id: batchId },
-      select: { id: true, qrDesignTemplateId: true },
+      select: { id: true, qrFrameStyle: true },
     });
 
     if (!batch) {
@@ -966,14 +794,11 @@ export class AdminService {
 
     const tags = await this.prisma.tag.findMany({
       where: { batchId: batch.id },
-      select: { id: true, token: true, qrDesignTemplateId: true, qrDesignOverrides: true },
+      select: { id: true, token: true, qrFrameStyle: true },
     });
 
-    const template = batch.qrDesignTemplateId
-      ? await this.prisma.qrDesignTemplate.findFirst({ where: { id: batch.qrDesignTemplateId, isActive: true } })
-      : null;
-
-    await this.generateAndStoreQrAssets(batch.id, tags, template?.config ?? null);
+    const frameStyle = this.resolveFrameStyle(batch.qrFrameStyle ?? null);
+    await this.generateAndStoreQrAssets(batch.id, tags, frameStyle);
 
     await this.prisma.adminAuditLog.create({
       data: {
@@ -990,7 +815,7 @@ export class AdminService {
   async getQrAssetsForTagIds(tagIds: string[]) {
     const tags = await this.prisma.tag.findMany({
       where: { id: { in: tagIds } },
-      select: { id: true, token: true, batchId: true, qrDesignTemplateId: true, qrDesignOverrides: true },
+      select: { id: true, token: true, batchId: true, qrFrameStyle: true },
     });
 
     if (tags.length === 0) {
@@ -1001,36 +826,19 @@ export class AdminService {
     const batches = batchIds.length > 0
       ? await this.prisma.tagBatch.findMany({
           where: { id: { in: batchIds } },
-          select: { id: true, qrDesignTemplateId: true },
+          select: { id: true, qrFrameStyle: true },
         })
       : [];
-    const batchTemplateMap = new Map(batches.map((batch) => [batch.id, batch.qrDesignTemplateId ?? null]));
+    const batchStyleMap = new Map(batches.map((batch) => [batch.id, batch.qrFrameStyle ?? null]));
 
-    const defaultTemplateId = await this.getDefaultQrDesignTemplateId();
-    const templateCache = new Map<string, unknown>();
-
-    const resolveTemplateConfig = async (templateId: string | null) => {
-      if (!templateId) return null;
-      if (!templateCache.has(templateId)) {
-        const template = await this.prisma.qrDesignTemplate.findFirst({
-          where: { id: templateId, isActive: true },
-          select: { config: true },
-        });
-        templateCache.set(templateId, template?.config ?? null);
-      }
-      return templateCache.get(templateId) ?? null;
-    };
-
-    const items: Array<{ token: string; renderOptions: QrRenderOptions }> = [];
-    for (const tag of tags) {
-      const batchTemplateId = tag.batchId ? batchTemplateMap.get(tag.batchId) ?? null : null;
-      const templateId = tag.qrDesignTemplateId ?? batchTemplateId ?? defaultTemplateId;
-      const templateConfig = await resolveTemplateConfig(templateId);
-      items.push({
+    const items = tags.map((tag) => {
+      const batchStyle = tag.batchId ? batchStyleMap.get(tag.batchId) ?? null : null;
+      const frameStyle = this.resolveFrameStyle(tag.qrFrameStyle ?? batchStyle ?? null);
+      return {
         token: tag.token,
-        renderOptions: this.resolveQrOptions(templateConfig, tag.qrDesignOverrides),
-      });
-    }
+        renderOptions: this.buildQrRenderOptions(frameStyle),
+      };
+    });
 
     return { data: items };
   }
@@ -1038,7 +846,7 @@ export class AdminService {
   async getQrAssetsForBatch(batchId: string) {
     const batch = await this.prisma.tagBatch.findUnique({
       where: { id: batchId },
-      select: { id: true, name: true, qrDesignTemplateId: true },
+      select: { id: true, name: true, qrFrameStyle: true },
     });
 
     if (!batch) {
@@ -1047,11 +855,11 @@ export class AdminService {
 
     const tags = await this.prisma.tag.findMany({
       where: { batchId: batch.id },
-      select: { token: true, qrDesignTemplateId: true, qrDesignOverrides: true },
+      select: { token: true, qrFrameStyle: true },
       orderBy: { createdAt: 'asc' },
     });
 
-    const assets = await this.buildQrAssetsForTags(tags, batch.qrDesignTemplateId ?? null);
+    const assets = this.buildQrAssetsForTags(tags, batch.qrFrameStyle ?? null);
     return { data: assets, batchName: batch.name };
   }
 

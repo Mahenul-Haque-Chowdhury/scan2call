@@ -18,6 +18,21 @@ const TAG_TYPES = [
   { value: 'GENERIC', label: 'Generic Tag' },
 ];
 
+const FRAME_STYLES = [
+  {
+    value: 'SCAN2CALL_TOP',
+    label: 'Scan2Call on top',
+    description: 'Scan2Call at top, contact text at bottom',
+  },
+  {
+    value: 'SCAN2CALL_BOTTOM',
+    label: 'Scan2Call on bottom',
+    description: 'Contact text at top, Scan2Call at bottom',
+  },
+];
+
+type FrameStyle = (typeof FRAME_STYLES)[number]['value'];
+
 interface GenerateResult {
   batchId: string;
   batchName: string;
@@ -26,25 +41,14 @@ interface GenerateResult {
   tokens: string[];
 }
 
-interface QrTemplate {
-  id: string;
-  name: string;
-  description?: string | null;
-  isActive: boolean;
-  isDefault?: boolean;
-}
-
 export default function AdminGenerateTagsPage() {
   const [quantity, setQuantity] = useState(100);
   const [tagType, setTagType] = useState('KEYCHAIN');
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
   const [storeQrAssets, setStoreQrAssets] = useState(false);
-  const [templates, setTemplates] = useState<QrTemplate[]>([]);
-  const [templatesLoading, setTemplatesLoading] = useState(false);
-  const [selectedTemplateId, setSelectedTemplateId] = useState('');
-  const [defaultTemplateId, setDefaultTemplateId] = useState<string | null>(null);
-  const [templatePreviewUrl, setTemplatePreviewUrl] = useState<string | null>(null);
+  const [frameStyle, setFrameStyle] = useState<FrameStyle>('SCAN2CALL_TOP');
+  const [framePreviewUrl, setFramePreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerateResult | null>(null);
@@ -53,59 +57,24 @@ export default function AdminGenerateTagsPage() {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadTemplates() {
-      setTemplatesLoading(true);
-      try {
-        const response = await apiClient.get<{ data: QrTemplate[] }>('/admin/qr-templates');
-        if (!cancelled) {
-          const activeTemplates = response.data.filter((template) => template.isActive);
-          const defaultId = response.data.find((template) => template.isDefault)?.id ?? null;
-          setTemplates(activeTemplates);
-          setDefaultTemplateId(defaultId);
-          setSelectedTemplateId((current) => current || (defaultId && activeTemplates.some((t) => t.id === defaultId) ? defaultId : ''));
-        }
-      } catch {
-        if (!cancelled) {
-          setTemplates([]);
-          setDefaultTemplateId(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setTemplatesLoading(false);
-        }
-      }
-    }
-
-    loadTemplates();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
     let objectUrl: string | null = null;
 
     async function loadPreview() {
-      if (!selectedTemplateId) {
-        setTemplatePreviewUrl(null);
-        return;
-      }
-
       try {
         const apiOrigin = getApiOrigin();
-        const res = await fetchWithAuth(`${apiOrigin}/api/v1/admin/qr-templates/${selectedTemplateId}/preview?format=svg`, {
-          method: 'GET',
-        });
+        const res = await fetchWithAuth(
+          `${apiOrigin}/api/v1/admin/tags/qr-frame/preview?format=svg&frameStyle=${frameStyle}`,
+          { method: 'GET' },
+        );
         if (!res.ok) return;
         const blob = await res.blob();
         objectUrl = URL.createObjectURL(blob);
         if (!cancelled) {
-          setTemplatePreviewUrl(objectUrl);
+          setFramePreviewUrl(objectUrl);
         }
       } catch {
         if (!cancelled) {
-          setTemplatePreviewUrl(null);
+          setFramePreviewUrl(null);
         }
       }
     }
@@ -118,7 +87,7 @@ export default function AdminGenerateTagsPage() {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [selectedTemplateId]);
+  }, [frameStyle]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,10 +96,9 @@ export default function AdminGenerateTagsPage() {
     setResult(null);
 
     try {
-      const body: Record<string, unknown> = { quantity, tagType, storeQrAssets };
+      const body: Record<string, unknown> = { quantity, tagType, storeQrAssets, qrFrameStyle: frameStyle };
       if (name.trim()) body.batchName = name.trim();
       if (notes.trim()) body.notes = notes.trim();
-      if (selectedTemplateId) body.qrDesignTemplateId = selectedTemplateId;
 
       const response = await apiClient.post<{ data: GenerateResult }>('/admin/tags/generate', body);
       setResult(response.data);
@@ -226,29 +194,30 @@ export default function AdminGenerateTagsPage() {
         </div>
 
         <div>
-          <label htmlFor="qrTemplate" className="block text-sm font-medium text-text-muted">
-            QR Design
+          <label htmlFor="qrFrame" className="block text-sm font-medium text-text-muted">
+            Frames
           </label>
           <select
-            id="qrTemplate"
-            value={selectedTemplateId}
-            onChange={(e) => setSelectedTemplateId(e.target.value)}
-            disabled={templatesLoading}
+            id="qrFrame"
+            value={frameStyle}
+            onChange={(e) => setFrameStyle(e.target.value as FrameStyle)}
             className="mt-1 block w-full rounded-md border border-border bg-surface px-4 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           >
-            {templates.map((template) => (
-              <option key={template.id} value={template.id}>
-                {template.name}{template.id === defaultTemplateId ? ' (Default)' : ''}
+            {FRAME_STYLES.map((frame) => (
+              <option key={frame.value} value={frame.value}>
+                {frame.label}
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-text-dim">Defaults to the current QR design if unchanged.</p>
+          <p className="mt-1 text-xs text-text-dim">
+            {FRAME_STYLES.find((frame) => frame.value === frameStyle)?.description}
+          </p>
         </div>
 
-        {templatePreviewUrl && (
+        {framePreviewUrl && (
           <div className="rounded-lg border border-border bg-surface p-3">
-            <p className="text-xs font-semibold uppercase tracking-widest text-text-dim">Design Preview</p>
-            <img src={templatePreviewUrl} alt="QR design preview" className="mt-2 w-40 rounded bg-white p-2" />
+            <p className="text-xs font-semibold uppercase tracking-widest text-text-dim">Frame Preview</p>
+            <img src={framePreviewUrl} alt="QR frame preview" className="mt-2 w-44 rounded bg-white p-2" />
           </div>
         )}
 

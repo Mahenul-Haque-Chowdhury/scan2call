@@ -2,6 +2,7 @@ import { IsInt, IsEnum, IsString, IsOptional, Min, Max, IsBoolean } from 'class-
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { TagType } from '@scan2call/shared';
+import { QrFrameStyle } from '../../qr-code/qr-frame-style';
 
 export class BatchGenerateTagsDto {
   @ApiProperty({ example: 50, description: 'Number of tags to generate (1-10000)' })
@@ -30,8 +31,8 @@ export class BatchGenerateTagsDto {
   @IsBoolean()
   storeQrAssets?: boolean;
 
-  @ApiPropertyOptional({ description: 'Default QR design template ID for this batch' })
+  @ApiPropertyOptional({ description: 'QR frame style for this batch', enum: Object.values(QrFrameStyle) })
   @IsOptional()
-  @IsString()
-  qrDesignTemplateId?: string;
+  @IsEnum(QrFrameStyle)
+  qrFrameStyle?: QrFrameStyle;
 }

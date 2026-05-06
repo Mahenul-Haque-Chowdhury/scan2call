@@ -27,6 +27,7 @@ import { BatchGenerateTagsDto } from './dto/batch-generate-tags.dto';
 import { CsvImportDto } from './dto/csv-import.dto';
 import { AssignTagDto } from './dto/assign-tag.dto';
 import { QrCodeService } from '../qr-code/qr-code.service';
+import { DEFAULT_QR_FRAME_STYLE, QrFrameStyle } from '../qr-code/qr-frame-style';
 import { DownloadQrAssetsDto } from './dto/download-qr-assets.dto';
 import archiver from 'archiver';
 
@@ -202,6 +203,36 @@ export class AdminTagsController {
     await archive.finalize();
   }
 
+  @Get('qr-frame/preview')
+  @ApiOperation({ summary: 'Preview a QR frame style' })
+  @ApiQuery({ name: 'format', required: false, enum: ['png', 'svg'] })
+  @ApiQuery({ name: 'frameStyle', required: false, enum: Object.values(QrFrameStyle) })
+  async previewQrFrame(
+    @Query('format') format: string = 'svg',
+    @Query('frameStyle') frameStyle?: QrFrameStyle,
+    @Res() res: Response,
+  ) {
+    if (frameStyle && !Object.values(QrFrameStyle).includes(frameStyle)) {
+      throw new BadRequestException('Invalid QR frame style');
+    }
+    const resolvedFrameStyle = frameStyle ?? DEFAULT_QR_FRAME_STYLE;
+    const scanUrl = this.qrCodeService.buildScanUrl('SAMPLE123456');
+
+    if (format === 'png') {
+      const png = await this.qrCodeService.generatePngWithOptions(scanUrl, {
+        frameStyle: resolvedFrameStyle,
+      });
+      res.set('Content-Type', 'image/png');
+      res.send(png);
+    } else {
+      const svg = await this.qrCodeService.generateSvgWithOptions(scanUrl, {
+        frameStyle: resolvedFrameStyle,
+      });
+      res.set('Content-Type', 'image/svg+xml');
+      res.send(svg);
+    }
+  }
+
   @Get(':tagId/qr-code')
   @ApiOperation({ summary: 'Download QR code for a tag' })
   @ApiQuery({ name: 'format', required: false, enum: ['png', 'svg'] })
@@ -247,8 +278,6 @@ export class AdminTagsController {
     @Body() body: {
       status?: TagStatus;
       label?: string;
-      qrDesignTemplateId?: string | null;
-      qrDesignOverrides?: Record<string, unknown>;
     },
   ) {
     return this.adminService.updateTag(admin.id, id, body);

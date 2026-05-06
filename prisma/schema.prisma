@@ -39,6 +39,12 @@ enum TagStatus {
   DEACTIVATED
 }
 
+enum QrFrameStyle {
+  SCAN2CALL_TOP
+  SCAN2CALL_BOTTOM
+  NONE
+}
+
 enum CommunicationType {
   VOICE_CALL
   SMS
@@ -175,7 +181,6 @@ model User {
   giftRedemptions SubscriptionGiftRedemption[] @relation("giftRedemptions")
   tagGiftCodesCreated TagGiftCode[] @relation("tagGiftCodeCreatedBy")
   tagGiftRedemptions TagGiftRedemption[] @relation("tagGiftRedemptions")
-  qrDesignTemplatesCreated QrDesignTemplate[] @relation("qrTemplatesCreated")
 
   @@index([deletedAt])
   @@map("users")
@@ -287,11 +292,9 @@ model Tag {
   batch   TagBatch? @relation(fields: [batchId], references: [id])
 
   // QR asset storage
-  qrPngUrl String?
-  qrSvgUrl String?
-  qrDesignTemplateId String?
-  qrDesignTemplate   QrDesignTemplate? @relation(fields: [qrDesignTemplateId], references: [id])
-  qrDesignOverrides  Json?
+  qrPngUrl       String?
+  qrSvgUrl       String?
+  qrFrameStyle   QrFrameStyle @default(SCAN2CALL_TOP)
 
   // Order item link (tag created from order)
   orderItemId String?
@@ -315,28 +318,7 @@ model Tag {
   @@index([batchId])
   @@index([orderItemId])
   @@index([deletedAt])
-  @@index([qrDesignTemplateId])
   @@map("tags")
-}
-
-model QrDesignTemplate {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  config      Json
-  isActive    Boolean  @default(true)
-  createdBy   String
-  createdByUser User   @relation("qrTemplatesCreated", fields: [createdBy], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  tagBatches TagBatch[]
-  tags       Tag[]
-
-  @@index([createdBy])
-  @@index([isActive])
-  @@map("qr_design_templates")
 }
 
 model SystemSetting {
@@ -358,14 +340,12 @@ model TagBatch {
   generatedBy String
   generatedByUser User @relation("tagBatchesGenerated", fields: [generatedBy], references: [id])
   notes       String?
-  qrDesignTemplateId String?
-  qrDesignTemplate   QrDesignTemplate? @relation(fields: [qrDesignTemplateId], references: [id])
+  qrFrameStyle QrFrameStyle @default(SCAN2CALL_TOP)
   createdAt   DateTime @default(now())
 
   tags Tag[]
 
   @@index([generatedBy])
-  @@index([qrDesignTemplateId])
   @@map("tag_batches")
 }
 
