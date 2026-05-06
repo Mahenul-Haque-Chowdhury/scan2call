@@ -203,6 +203,16 @@ export class AdminTagsController {
     await archive.finalize();
   }
 
+  @Delete('batches/:id')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Permanently delete a tag batch' })
+  async deleteTagBatch(
+    @CurrentUser() admin: JwtPayload,
+    @Param('id') id: string,
+  ) {
+    return this.adminService.deleteTagBatch(admin.id, id);
+  }
+
   @Get('qr-frame/preview')
   @ApiOperation({ summary: 'Preview a QR frame style' })
   @ApiQuery({ name: 'format', required: false, enum: ['png', 'svg'] })

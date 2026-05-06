@@ -528,6 +528,57 @@ export class AdminService {
     return { deleted: true };
   }
 
+  async deleteTagBatch(adminId: string, batchId: string) {
+    const batch = await this.prisma.tagBatch.findUnique({
+      where: { id: batchId },
+      select: { id: true, name: true },
+    });
+
+    if (!batch) {
+      throw new NotFoundException('Tag batch not found');
+    }
+
+    const tags = await this.prisma.tag.findMany({
+      where: { batchId },
+      select: {
+        id: true,
+        photoUrl: true,
+        qrPngUrl: true,
+        qrSvgUrl: true,
+      },
+    });
+
+    const assetKeys = tags
+      .flatMap((tag) => [tag.photoUrl, tag.qrPngUrl, tag.qrSvgUrl])
+      .map((url) => this.mediaService.extractKeyFromUrl(url ?? ''))
+      .filter((key): key is string => !!key);
+
+    await Promise.all(assetKeys.map((key) => this.mediaService.deleteObject(key)));
+
+    const tagIds = tags.map((tag) => tag.id);
+
+    await this.prisma.$transaction([
+      this.prisma.communicationLog.deleteMany({ where: { tagId: { in: tagIds } } }),
+      this.prisma.scan.deleteMany({ where: { tagId: { in: tagIds } } }),
+      this.prisma.tagGiftRedemption.deleteMany({ where: { tagId: { in: tagIds } } }),
+      this.prisma.tag.deleteMany({ where: { id: { in: tagIds } } }),
+      this.prisma.tagBatch.delete({ where: { id: batchId } }),
+    ]);
+
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'TAG_BATCH_DELETED',
+        targetType: 'TagBatch',
+        targetId: batchId,
+        metadata: { batchName: batch.name, tagCount: tagIds.length },
+      },
+    });
+
+    this.logger.log(`Admin ${adminId} deleted tag batch ${batchId}`);
+    return { deleted: true };
+  }
+
   /**
    * Assign a pre-generated tag to a user and activate it immediately.
    */

@@ -82,6 +82,10 @@ export default function AdminTagsPage() {
   const [downloading, setDownloading] = useState(false);
   const [batches, setBatches] = useState<TagBatch[]>([]);
   const [batchesLoading, setBatchesLoading] = useState(false);
+  const [deleteBatchTarget, setDeleteBatchTarget] = useState<TagBatch | null>(null);
+  const [deleteBatchConfirmA, setDeleteBatchConfirmA] = useState(false);
+  const [deleteBatchConfirmB, setDeleteBatchConfirmB] = useState(false);
+  const [deletingBatch, setDeletingBatch] = useState(false);
   const apiOrigin = useMemo(() => getApiOrigin(), []);
 
   const fetchTags = useCallback(async (page: number, status: string, type: string) => {
@@ -330,6 +334,26 @@ export default function AdminTagsPage() {
     await downloadZip(`/api/v1/admin/tags/batches/${batch.id}/qr-assets/download`, undefined,
       `scan2call-${batch.name.replace(/[^a-zA-Z0-9-_]+/g, '-').toLowerCase() || batch.id}.zip`,
     );
+  };
+
+  const handleDeleteBatch = async () => {
+    if (!deleteBatchTarget) return;
+    if (!deleteBatchConfirmA || !deleteBatchConfirmB) return;
+
+    setDeletingBatch(true);
+    setError(null);
+
+    try {
+      await apiClient.delete(`/admin/tags/batches/${deleteBatchTarget.id}`);
+      setBatches((current) => current.filter((batch) => batch.id !== deleteBatchTarget.id));
+      setDeleteBatchTarget(null);
+      setDeleteBatchConfirmA(false);
+      setDeleteBatchConfirmB(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete batch');
+    } finally {
+      setDeletingBatch(false);
+    }
   };
 
   return (
@@ -646,20 +670,96 @@ export default function AdminTagsPage() {
                 <span className="text-text-muted">{batch.quantity}</span>
                 <span className="text-text-muted">{new Date(batch.createdAt).toLocaleDateString()}</span>
                 <div className="flex justify-end">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleDownloadBatch(batch)}
-                    disabled={downloading}
-                  >
-                    Download All QR
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleDownloadBatch(batch)}
+                      disabled={downloading}
+                    >
+                      Download All QR
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => {
+                        setDeleteBatchTarget(batch);
+                        setDeleteBatchConfirmA(false);
+                        setDeleteBatchConfirmB(false);
+                      }}
+                      icon={<Trash2 className="h-3.5 w-3.5" />}
+                    >
+                      Delete Batch
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {deleteBatchTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-text">Delete Tag Batch</h3>
+                <p className="mt-1 text-sm text-text-dim">
+                  Batch: <span className="font-medium text-text">{deleteBatchTarget.name}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteBatchTarget(null)}
+                className="text-xs text-text-dim hover:text-text"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-3 rounded-lg border border-border bg-surface-raised p-4 text-sm text-text-dim">
+              <p>This will permanently delete the batch and all tags created in it.</p>
+              <p>QR assets associated with those tags will also be removed.</p>
+            </div>
+
+            <label className="mt-4 flex items-start gap-3 text-sm text-text-muted">
+              <input
+                type="checkbox"
+                checked={deleteBatchConfirmA}
+                onChange={(e) => setDeleteBatchConfirmA(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-border bg-surface text-primary focus:ring-primary"
+              />
+              I understand this will delete all tags in the batch.
+            </label>
+            <label className="mt-3 flex items-start gap-3 text-sm text-text-muted">
+              <input
+                type="checkbox"
+                checked={deleteBatchConfirmB}
+                onChange={(e) => setDeleteBatchConfirmB(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-border bg-surface text-primary focus:ring-primary"
+              />
+              I understand this action cannot be undone.
+            </label>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="secondary" size="sm" onClick={() => setDeleteBatchTarget(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                loading={deletingBatch}
+                onClick={handleDeleteBatch}
+                disabled={!deleteBatchConfirmA || !deleteBatchConfirmB}
+                icon={<Trash2 className="h-3.5 w-3.5" />}
+              >
+                Delete Batch
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {deleteSelectedOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
