@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
@@ -71,6 +71,7 @@ export default function AdminTagsPage() {
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
+  const previewUrlsRef = useRef<Record<string, string>>({});
   const [previewTag, setPreviewTag] = useState<AdminTag | null>(null);
   const [largePreviewUrl, setLargePreviewUrl] = useState<string | null>(null);
   const [largePreviewLoading, setLargePreviewLoading] = useState(false);
@@ -164,20 +165,22 @@ export default function AdminTagsPage() {
         return;
       }
 
-      Object.values(previewUrls).forEach((url) => URL.revokeObjectURL(url));
+      Object.values(previewUrlsRef.current).forEach((url) => URL.revokeObjectURL(url));
+      previewUrlsRef.current = nextUrls;
       setPreviewUrls(nextUrls);
     }
 
     if (tags.length > 0) {
       loadPreviews();
     } else {
-      Object.values(previewUrls).forEach((url) => URL.revokeObjectURL(url));
+      Object.values(previewUrlsRef.current).forEach((url) => URL.revokeObjectURL(url));
+      previewUrlsRef.current = {};
       setPreviewUrls({});
     }
 
     return () => {
       cancelled = true;
-      Object.values(previewUrls).forEach((url) => URL.revokeObjectURL(url));
+      Object.values(previewUrlsRef.current).forEach((url) => URL.revokeObjectURL(url));
     };
   }, [apiOrigin, tags]);
 
@@ -284,7 +287,7 @@ export default function AdminTagsPage() {
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = objectUrl;
-      link.download = filename || `scan2call-qr-assets-${Date.now()}.zip`;
+      link.download = filename || 'scan2call-qr-assets.zip';
       link.click();
       URL.revokeObjectURL(objectUrl);
     } catch (err) {
