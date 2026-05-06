@@ -94,8 +94,8 @@ export class QrCodeService {
       radius: Math.round(frameWidth * 0.08),
       brandFontSize: Math.round(qrSize * 0.18),
       detailFontSize: Math.round(qrSize * 0.075),
-      topTextY: Math.round(padding * 0.7 + topTextHeight / 2),
-      bottomTextY: Math.round(topTextHeight + padding + qrSize + padding + bottomTextHeight / 2),
+      topTextY: Math.round(padding * 0.7 + topTextHeight / 2) + Math.round(qrSize * 0.02),
+      bottomTextY: Math.round(topTextHeight + padding + qrSize + padding + bottomTextHeight / 2) - Math.round(qrSize * 0.02),
     };
   }
 

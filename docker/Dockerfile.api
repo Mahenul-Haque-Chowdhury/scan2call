@@ -30,6 +30,17 @@ RUN apt-get update \
 		fonts-dejavu-core \
 	&& rm -rf /var/lib/apt/lists/*
 
+RUN mkdir -p /usr/share/fonts/truetype/space-grotesk \
+	&& wget -q -O /usr/share/fonts/truetype/space-grotesk/SpaceGrotesk-Regular.ttf \
+		https://github.com/google/fonts/raw/main/ofl/spacegrotesk/SpaceGrotesk-Regular.ttf \
+	&& wget -q -O /usr/share/fonts/truetype/space-grotesk/SpaceGrotesk-Medium.ttf \
+		https://github.com/google/fonts/raw/main/ofl/spacegrotesk/SpaceGrotesk-Medium.ttf \
+	&& wget -q -O /usr/share/fonts/truetype/space-grotesk/SpaceGrotesk-SemiBold.ttf \
+		https://github.com/google/fonts/raw/main/ofl/spacegrotesk/SpaceGrotesk-SemiBold.ttf \
+	&& wget -q -O /usr/share/fonts/truetype/space-grotesk/SpaceGrotesk-Bold.ttf \
+		https://github.com/google/fonts/raw/main/ofl/spacegrotesk/SpaceGrotesk-Bold.ttf \
+	&& fc-cache -f
+
 COPY --from=builder /prod/api ./
 COPY --from=builder /app/packages/shared/dist ./node_modules/.pnpm/@scan2call+shared@file+packages+shared/node_modules/@scan2call/shared/dist
 COPY --from=builder /app/prisma ./prisma
