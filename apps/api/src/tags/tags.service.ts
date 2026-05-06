@@ -120,25 +120,37 @@ export class TagsService {
   }
 
   /**
-   * Soft-delete a tag (deactivate it).
+   * Permanently delete a tag and related data.
    */
   async remove(userId: string, tagId: string): Promise<void> {
     const tag = await this.prisma.tag.findFirst({
       where: { id: tagId, ownerId: userId, deletedAt: null },
+      select: {
+        id: true,
+        photoUrl: true,
+        qrPngUrl: true,
+        qrSvgUrl: true,
+      },
     });
 
     if (!tag) {
       throw new NotFoundException('Tag not found');
     }
 
-    await this.prisma.tag.update({
-      where: { id: tagId },
-      data: {
-        status: 'DEACTIVATED',
-        deactivatedAt: new Date(),
-        deletedAt: new Date(),
-      },
-    });
+    const assetKeys = [tag.photoUrl, tag.qrPngUrl, tag.qrSvgUrl]
+      .map((url) => this.mediaService.extractKeyFromUrl(url ?? ''))
+      .filter((key): key is string => !!key);
+
+    await Promise.all(
+      assetKeys.map((key) => this.mediaService.deleteObject(key)),
+    );
+
+    await this.prisma.$transaction([
+      this.prisma.communicationLog.deleteMany({ where: { tagId } }),
+      this.prisma.scan.deleteMany({ where: { tagId } }),
+      this.prisma.tagGiftRedemption.deleteMany({ where: { tagId } }),
+      this.prisma.tag.delete({ where: { id: tagId } }),
+    ]);
   }
 
   /**

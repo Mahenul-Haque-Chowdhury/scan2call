@@ -57,7 +57,7 @@ export class TagsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Deactivate (soft-delete) a tag' })
+  @ApiOperation({ summary: 'Permanently delete a tag' })
   @ApiParam({ name: 'id', description: 'Tag ID' })
   async remove(
     @CurrentUser() user: JwtPayload,

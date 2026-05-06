@@ -256,7 +256,7 @@ export class AdminTagsController {
 
   @Delete(':id')
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Delete (soft-delete) a tag' })
+  @ApiOperation({ summary: 'Permanently delete a tag' })
   async deleteTag(
     @CurrentUser() admin: JwtPayload,
     @Param('id') id: string,

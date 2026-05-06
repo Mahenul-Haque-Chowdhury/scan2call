@@ -502,19 +502,33 @@ export class AdminService {
   }
 
   async deleteTag(adminId: string, tagId: string) {
-    const tag = await this.prisma.tag.findFirst({ where: { id: tagId } });
+    const tag = await this.prisma.tag.findFirst({
+      where: { id: tagId },
+      select: {
+        id: true,
+        photoUrl: true,
+        qrPngUrl: true,
+        qrSvgUrl: true,
+      },
+    });
     if (!tag) {
       throw new NotFoundException('Tag not found');
     }
 
-    const updated = await this.prisma.tag.update({
-      where: { id: tagId },
-      data: {
-        status: 'DEACTIVATED',
-        deletedAt: new Date(),
-        deactivatedAt: new Date(),
-      },
-    });
+    const assetKeys = [tag.photoUrl, tag.qrPngUrl, tag.qrSvgUrl]
+      .map((url) => this.mediaService.extractKeyFromUrl(url ?? ''))
+      .filter((key): key is string => !!key);
+
+    await Promise.all(
+      assetKeys.map((key) => this.mediaService.deleteObject(key)),
+    );
+
+    await this.prisma.$transaction([
+      this.prisma.communicationLog.deleteMany({ where: { tagId } }),
+      this.prisma.scan.deleteMany({ where: { tagId } }),
+      this.prisma.tagGiftRedemption.deleteMany({ where: { tagId } }),
+      this.prisma.tag.delete({ where: { id: tagId } }),
+    ]);
 
     await this.prisma.adminAuditLog.create({
       data: {
@@ -527,7 +541,7 @@ export class AdminService {
     });
 
     this.logger.log(`Admin ${adminId} deleted tag ${tagId}`);
-    return updated;
+    return { deleted: true };
   }
 
   /**
