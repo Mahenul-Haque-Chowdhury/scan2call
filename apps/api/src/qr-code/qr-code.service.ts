@@ -92,8 +92,8 @@ export class QrCodeService {
       qrX: padding,
       qrY: topTextHeight + padding,
       radius: Math.round(frameWidth * 0.08),
-      brandFontSize: Math.round(qrSize * 0.16),
-      detailFontSize: Math.round(qrSize * 0.085),
+      brandFontSize: Math.round(qrSize * 0.18),
+      detailFontSize: Math.round(qrSize * 0.075),
       topTextY: Math.round(padding * 0.7 + topTextHeight / 2),
       bottomTextY: Math.round(topTextHeight + padding + qrSize + padding + bottomTextHeight / 2),
     };
@@ -123,7 +123,8 @@ export class QrCodeService {
       mid: escapeSvg('2'),
       right: escapeSvg('Call'),
     };
-    const detailLine = escapeSvg('Scan The QR Code To Contact The Owner');
+    const detailLineOne = escapeSvg('Scan The QR Code');
+    const detailLineTwo = escapeSvg('To Contact The Owner');
 
     const brandText = (y: number) => `
   <text x="50%" y="${y}" text-anchor="middle" dominant-baseline="middle" font-family="${safeFontFamily}" font-size="${layout.brandFontSize}" font-weight="700" fill="${textColor}">
@@ -131,7 +132,8 @@ export class QrCodeService {
   </text>`;
     const detailText = (y: number) => `
   <text x="50%" y="${y}" text-anchor="middle" dominant-baseline="middle" font-family="${safeFontFamily}" font-size="${layout.detailFontSize}" font-weight="600" fill="${textColor}">
-    ${detailLine}
+    <tspan x="50%" dy="-${Math.round(layout.detailFontSize * 0.55)}">${detailLineOne}</tspan>
+    <tspan x="50%" dy="${Math.round(layout.detailFontSize * 1.2)}">${detailLineTwo}</tspan>
   </text>`;
 
     const topIsBrand = frameStyle === QrFrameStyle.SCAN2CALL_TOP;
