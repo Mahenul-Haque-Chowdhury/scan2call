@@ -18,6 +18,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, JwtPayload } from '../common/decorators/current-user.decorator';
 import { AdminService } from './admin.service';
 import { QrCodeService, QrRenderOptions } from '../qr-code/qr-code.service';
+import type { Prisma } from '@/generated/prisma/client';
 import { CreateQrTemplateDto, UpdateQrTemplateDto } from './dto/qr-template.dto';
 
 @ApiTags('admin/qr-templates')
@@ -44,7 +45,10 @@ export class AdminQrTemplatesController {
     @CurrentUser() admin: JwtPayload,
     @Body() dto: CreateQrTemplateDto,
   ) {
-    return this.adminService.createQrTemplate(admin.id, dto);
+    return this.adminService.createQrTemplate(admin.id, {
+      ...dto,
+      config: dto.config as Prisma.InputJsonValue,
+    });
   }
 
   @Patch(':id')
@@ -54,7 +58,10 @@ export class AdminQrTemplatesController {
     @Param('id') id: string,
     @Body() dto: UpdateQrTemplateDto,
   ) {
-    return this.adminService.updateQrTemplate(id, dto);
+    return this.adminService.updateQrTemplate(id, {
+      ...dto,
+      config: dto.config as Prisma.InputJsonValue,
+    });
   }
 
   @Get(':id/preview')

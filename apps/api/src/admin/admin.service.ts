@@ -5,6 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import type { Prisma } from '@/generated/prisma/client';
 import { AppConfigService } from '../config/config.service';
 import { Role, TagType, TagStatus, OrderStatus, ContactMessageStatus } from '@/generated/prisma/client';
 import { BatchGenerateTagsDto } from './dto/batch-generate-tags.dto';
@@ -462,14 +463,22 @@ export class AdminService {
       }
     }
 
+    const updateData: Prisma.TagUpdateInput = {
+      ...(statusData as Prisma.TagUpdateInput),
+      ...(data.label !== undefined ? { label: data.label } : {}),
+      ...(data.qrDesignOverrides !== undefined
+        ? { qrDesignOverrides: data.qrDesignOverrides as Prisma.InputJsonValue }
+        : {}),
+      ...(data.qrDesignTemplateId !== undefined
+        ? data.qrDesignTemplateId
+          ? { qrDesignTemplate: { connect: { id: data.qrDesignTemplateId } } }
+          : { qrDesignTemplate: { disconnect: true } }
+        : {}),
+    };
+
     const updated = await this.prisma.tag.update({
       where: { id: tagId },
-      data: {
-        ...statusData,
-        ...(data.label !== undefined && { label: data.label }),
-        ...(data.qrDesignTemplateId !== undefined && { qrDesignTemplateId: data.qrDesignTemplateId }),
-        ...(data.qrDesignOverrides !== undefined && { qrDesignOverrides: data.qrDesignOverrides }),
-      },
+      data: updateData,
     });
 
     const auditAction = data.status === 'DEACTIVATED' ? 'TAG_DEACTIVATED'
@@ -726,7 +735,7 @@ export class AdminService {
 
   async createQrTemplate(
     adminId: string,
-    data: { name: string; description?: string | null; config: unknown; isActive?: boolean },
+    data: { name: string; description?: string | null; config: Prisma.InputJsonValue; isActive?: boolean },
   ) {
     const template = await this.prisma.qrDesignTemplate.create({
       data: {
@@ -743,7 +752,7 @@ export class AdminService {
 
   async updateQrTemplate(
     templateId: string,
-    data: { name?: string; description?: string | null; config?: unknown; isActive?: boolean },
+    data: { name?: string; description?: string | null; config?: Prisma.InputJsonValue; isActive?: boolean },
   ) {
     const template = await this.prisma.qrDesignTemplate.findUnique({ where: { id: templateId } });
     if (!template) {
