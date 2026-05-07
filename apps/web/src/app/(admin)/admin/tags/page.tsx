@@ -116,34 +116,23 @@ export default function AdminTagsPage() {
     setSelectedTagIds((current) => current.filter((id) => tags.some((tag) => tag.id === id)));
   }, [tags]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadBatches() {
-      setBatchesLoading(true);
-      try {
-        const response = await apiClient.get<{ data: TagBatch[] }>(
-          '/admin/tags/batches?page=1&pageSize=10',
-        );
-        if (!cancelled) {
-          setBatches(response.data);
-        }
-      } catch {
-        if (!cancelled) {
-          setBatches([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setBatchesLoading(false);
-        }
-      }
+  const loadBatches = useCallback(async () => {
+    setBatchesLoading(true);
+    try {
+      const response = await apiClient.get<{ data: TagBatch[] }>(
+        '/admin/tags/batches?page=1&pageSize=10',
+      );
+      setBatches(response.data);
+    } catch {
+      setBatches([]);
+    } finally {
+      setBatchesLoading(false);
     }
-
-    loadBatches();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    void loadBatches();
+  }, [loadBatches]);
 
   useEffect(() => {
     let cancelled = false;
@@ -345,7 +334,7 @@ export default function AdminTagsPage() {
 
     try {
       await apiClient.delete(`/admin/tags/batches/${deleteBatchTarget.id}`);
-      setBatches((current) => current.filter((batch) => batch.id !== deleteBatchTarget.id));
+      await loadBatches();
       setDeleteBatchTarget(null);
       setDeleteBatchConfirmA(false);
       setDeleteBatchConfirmB(false);
