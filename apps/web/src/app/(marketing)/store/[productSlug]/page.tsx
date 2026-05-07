@@ -48,7 +48,6 @@ export async function generateMetadata({
     description,
     path: `/store/${product.slug}`,
     images: ogImages,
-    openGraphType: 'product',
     keywords: ['scan2call store', 'qr identity tag', product.name.toLowerCase()],
     noindex: !product.isActive,
   });

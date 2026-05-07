@@ -372,7 +372,7 @@ export default function ProductDetailClient({
                   href="/store/cart"
                   className="block text-center text-sm font-medium text-text-muted transition-colors hover:text-primary"
                 >
-                  View Cart ->
+                  View Cart -{'>'}
                 </Link>
               </motion.div>
             )}

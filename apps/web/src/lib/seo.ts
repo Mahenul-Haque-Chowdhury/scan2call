@@ -25,7 +25,7 @@ export function createMetadata(input: {
   description: string;
   path?: string;
   images?: OpenGraphImage[];
-  openGraphType?: 'website' | 'product';
+  openGraphType?: 'website';
   keywords?: string[];
   noindex?: boolean;
 }): Metadata {
@@ -51,7 +51,7 @@ export function createMetadata(input: {
       description: input.description,
       url,
       siteName: SITE_NAME,
-      type: input.openGraphType || 'website',
+      type: 'website',
       images: ogImages,
     },
     twitter: {
