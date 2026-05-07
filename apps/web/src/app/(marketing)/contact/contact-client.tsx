@@ -49,18 +49,35 @@ export default function ContactClient() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    const trimmedMessage = message.trim();
+
+    if (trimmedMessage.length < 10) {
+      setError('Message must be at least 10 characters.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const res = await fetch(`${API_BASE}/api/v1/contact`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), email: email.trim(), message: message.trim() }),
+        body: JSON.stringify({
+          name: trimmedName,
+          email: trimmedEmail,
+          message: trimmedMessage,
+        }),
       });
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error((body as { message?: string }).message || 'Failed to send message.');
+        const messageText = Array.isArray((body as { message?: unknown }).message)
+          ? (body as { message?: string[] }).message?.[0]
+          : (body as { message?: string }).message;
+        throw new Error(messageText || 'Failed to send message.');
       }
 
       setSuccess(true);
