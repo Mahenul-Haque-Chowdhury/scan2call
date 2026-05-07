@@ -102,7 +102,7 @@ export default function ContactClient() {
             </span>
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">Contact us</h1>
             <p className="mt-4 text-lg text-text-muted max-w-xl">
-              Have a question or need help? We're happy to assist.
+              Have a question or need help? We&apos;re happy to assist.
             </p>
           </FadeIn>
         </div>
@@ -142,7 +142,7 @@ export default function ContactClient() {
                     </div>
                     <h3 className="text-lg font-semibold">Message sent!</h3>
                     <p className="text-text-muted text-sm max-w-xs">
-                      Thank you for reaching out. We'll get back to you within 24 hours.
+                      Thank you for reaching out. We&apos;ll get back to you within 24 hours.
                     </p>
                     <button
                       onClick={() => setSuccess(false)}
