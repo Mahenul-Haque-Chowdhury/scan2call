@@ -80,8 +80,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }`}
       >
         <div className="flex items-center justify-between px-5 h-16 border-b border-border">
-          <div className="flex items-baseline gap-2">
-            <Logo size="sm" linkTo="/admin" />
+          <div className="flex items-center gap-2">
+            <Logo size="sm" align="center" linkTo="/admin" />
             <span className="text-xs font-medium text-text-dim bg-surface-raised px-1.5 py-0.5 rounded-sm">
               Admin
             </span>
@@ -131,7 +131,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           >
             <Menu className="h-5 w-5" />
           </button>
-          <Logo size="sm" linkTo="/admin" />
+          <Logo size="sm" align="center" linkTo="/admin" />
           <span className="text-xs font-medium text-text-dim bg-surface-raised px-1.5 py-0.5 rounded-sm">
             Admin
           </span>
