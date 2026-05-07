@@ -1,10 +1,12 @@
-import type { Metadata } from 'next';
 import { FadeIn, StaggerContainer, StaggerItem } from '@/components/ui/motion';
+import { createMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
+export const metadata = createMetadata({
   title: 'Privacy Policy',
   description: 'Scan2Call privacy policy - how we collect, use, and protect your personal information.',
-};
+  path: '/privacy',
+  keywords: ['scan2call privacy policy', 'data protection', 'qr tag privacy'],
+});
 
 const sections = [
   { title: '1. Information We Collect', content: 'We collect information you provide when creating an account (email, phone number) and data generated through the use of our service (scan events, relay sessions).' },

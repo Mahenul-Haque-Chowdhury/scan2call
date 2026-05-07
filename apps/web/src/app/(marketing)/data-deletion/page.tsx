@@ -1,10 +1,12 @@
-import type { Metadata } from 'next';
 import { FadeIn, StaggerContainer, StaggerItem } from '@/components/ui/motion';
+import { createMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
+export const metadata = createMetadata({
   title: 'Data Deletion Instructions',
   description: 'How to request deletion of your Scan2Call account and associated personal data.',
-};
+  path: '/data-deletion',
+  keywords: ['scan2call data deletion', 'account deletion', 'privacy request'],
+});
 
 const sections = [
   {

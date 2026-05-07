@@ -1,0 +1,31 @@
+# Scan2Call
+
+Scan2Call is a privacy-first QR identity tag system that helps reunite lost items with their owners. It is a product of ZTAC Group, Australia, and is developed by GrayVally Software Solutions.
+
+## Key Facts
+- Product: Scan2Call (QR identity tags and anonymous contact relay)
+- Owner: ZTAC Group (Australia)
+- Developer: GrayVally Software Solutions (https://grayvally.tech)
+- Primary site: https://scan2call.net
+
+## What Scan2Call Does
+- Lets finders contact owners without revealing personal details
+- Supports phone, SMS, and WhatsApp relay
+- Works without an app for the finder
+
+## Important Pages
+- Home: https://scan2call.net/
+- How it works: https://scan2call.net/how-it-works
+- Pricing: https://scan2call.net/pricing
+- Store: https://scan2call.net/store
+- FAQ: https://scan2call.net/faq
+- Privacy: https://scan2call.net/privacy
+- Terms: https://scan2call.net/terms
+- Contact: https://scan2call.net/contact
+
+## Data & Privacy
+- Data residency: Australia (Sydney)
+- Privacy policy: https://scan2call.net/privacy
+
+## Contact
+- Support: support@scan2call.net

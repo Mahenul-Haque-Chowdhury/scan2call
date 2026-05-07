@@ -1,10 +1,12 @@
-import type { Metadata } from 'next';
 import { FadeIn, StaggerContainer, StaggerItem } from '@/components/ui/motion';
+import { createMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
+export const metadata = createMetadata({
   title: 'Terms of Service',
   description: 'Scan2Call terms of service - the rules and conditions for using our platform.',
-};
+  path: '/terms',
+  keywords: ['scan2call terms', 'terms of service', 'qr tag terms'],
+});
 
 const sections = [
   { title: '1. Acceptance of Terms', content: 'By accessing or using Scan2Call, you agree to be bound by these Terms of Service and our Privacy Policy.' },

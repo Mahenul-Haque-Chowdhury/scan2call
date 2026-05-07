@@ -1,13 +1,15 @@
-import type { Metadata } from 'next';
 import { Shield, Globe, Users, Zap } from 'lucide-react';
 import { FadeIn, StaggerContainer, StaggerItem } from '@/components/ui/motion';
 import Link from 'next/link';
+import { createMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
+export const metadata = createMetadata({
   title: 'About',
   description:
     'Learn about Scan2Call - the privacy-first QR identity tag system that helps reunite lost items with their owners.',
-};
+  path: '/about',
+  keywords: ['about scan2call', 'privacy-first qr tags', 'lost item recovery'],
+});
 
 const values = [
   {
