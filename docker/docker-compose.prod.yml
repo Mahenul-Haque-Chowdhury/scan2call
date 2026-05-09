@@ -69,6 +69,7 @@ services:
       dockerfile: docker/Dockerfile.web
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
         APP_URL: ${APP_URL}
         API_URL: ${API_URL}
     container_name: scan2call-web

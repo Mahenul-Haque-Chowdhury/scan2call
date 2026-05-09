@@ -65,4 +65,5 @@ coverage/
 # Docker / deployment
 docker/.env.production
 docker/.env.*
+!docker/.env.production.example
 Caddyfile.local
