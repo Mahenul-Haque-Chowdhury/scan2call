@@ -86,7 +86,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               ) : (
                 <Link
                   href="/login"
-                  className="hidden md:inline-flex items-center px-4 py-2 text-[15px] font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors"
+                  className="inline-flex h-9 items-center justify-center px-3 text-sm font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors md:px-4 md:py-2 md:text-[15px]"
                 >
                   Sign in
                 </Link>
@@ -101,7 +101,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         isOpen={menuOpen}
         onClose={() => setMenuOpen(false)}
         links={navLinks}
-        cta={!isLoading && !isAuthenticated ? { href: '/login', label: 'Sign in' } : undefined}
+        cta={!isLoading ? (
+          isAuthenticated ? { href: '/dashboard', label: 'Profile' } : { href: '/login', label: 'Sign in' }
+        ) : undefined}
       />
 
       {/* Main */}

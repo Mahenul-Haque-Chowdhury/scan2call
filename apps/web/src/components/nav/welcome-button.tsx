@@ -35,7 +35,8 @@ export function WelcomeButton({ firstName }: WelcomeButtonProps) {
   return (
     <Link
       href="/dashboard"
-      className="hidden md:inline-flex items-center gap-2 px-4 py-2 text-[15px] font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors"
+      className="inline-flex h-9 w-9 items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary-hover md:h-auto md:w-auto md:px-4 md:py-2 md:text-[15px] md:font-semibold"
+      aria-label={`Open ${firstName}'s dashboard`}
     >
       <User className="h-4 w-4 shrink-0" />
 
@@ -49,7 +50,7 @@ export function WelcomeButton({ firstName }: WelcomeButtonProps) {
 
       {/* Animated container */}
       <motion.span
-        className="relative overflow-hidden whitespace-nowrap h-5 inline-flex items-center"
+        className="relative hidden h-5 items-center overflow-hidden whitespace-nowrap md:inline-flex"
         animate={{ width: currentWidth }}
         transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] as const }}
       >

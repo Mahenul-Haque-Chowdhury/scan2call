@@ -6,19 +6,31 @@ import { getApiOrigin } from '@/lib/api-origin';
 
 const API_BASE = getApiOrigin();
 
-async function fetchProduct(productSlug: string): Promise<Product | null> {
+type ProductFetchResult =
+  | { status: 'found'; product: Product }
+  | { status: 'not-found' }
+  | { status: 'error'; message: string };
+
+export const dynamic = 'force-dynamic';
+
+async function fetchProduct(productSlug: string): Promise<ProductFetchResult> {
   try {
     const res = await fetch(`${API_BASE}/api/v1/products/${productSlug}`, {
       next: { revalidate: 300 },
     });
 
-    if (res.status === 404) return null;
+    if (res.status === 404) return { status: 'not-found' };
     if (!res.ok) throw new Error('Failed to fetch product');
 
     const json: { data: Product } = await res.json();
-    return json.data || null;
-  } catch {
-    return null;
+    return json.data
+      ? { status: 'found', product: json.data }
+      : { status: 'not-found' };
+  } catch (error) {
+    return {
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Failed to load product',
+    };
   }
 }
 
@@ -27,9 +39,9 @@ export async function generateMetadata({
 }: {
   params: { productSlug: string };
 }): Promise<Metadata> {
-  const product = await fetchProduct(params.productSlug);
+  const result = await fetchProduct(params.productSlug);
 
-  if (!product) {
+  if (result.status !== 'found') {
     return createMetadata({
       title: 'Product not found',
       description: 'This product could not be found.',
@@ -38,6 +50,7 @@ export async function generateMetadata({
     });
   }
 
+  const product = result.product;
   const description = product.shortDescription || product.description;
   const ogImages = product.images.length
     ? product.images.map((img) => ({ url: img.url, alt: img.altText || product.name }))
@@ -58,11 +71,17 @@ export default async function ProductDetailPage({
 }: {
   params: { productSlug: string };
 }) {
-  const product = await fetchProduct(params.productSlug);
+  const result = await fetchProduct(params.productSlug);
 
-  if (!product) {
+  if (result.status === 'not-found') {
     notFound();
   }
+
+  if (result.status === 'error') {
+    return <ProductDetailClient initialProduct={null} initialError={null} />;
+  }
+
+  const product = result.product;
 
   const productSchema = {
     '@context': 'https://schema.org',
