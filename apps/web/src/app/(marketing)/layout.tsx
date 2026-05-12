@@ -82,7 +82,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <CartDropdown />
             {!isLoading && (
               isAuthenticated && user ? (
-                <WelcomeButton firstName={user.firstName} />
+                <div className="hidden md:block">
+                  <WelcomeButton firstName={user.firstName} />
+                </div>
               ) : (
                 <Link
                   href="/login"
@@ -143,7 +145,16 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
 
           <div className="mt-10 pt-6 border-t border-accent/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <p className="text-xs text-text-dim">
-              &copy; {new Date().getFullYear()} Scan2Call is a product of ZTAC Group. All rights reserved.
+              &copy; 2026 Scan2Call is a product of{' '}
+              <a
+                href="https://ztecgroup.au"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                ZTEC Group Pty Ltd
+              </a>
+              . All rights reserved.
             </p>
             <p className="text-xs text-text-dim">
               Designed & Developed by{' '}
