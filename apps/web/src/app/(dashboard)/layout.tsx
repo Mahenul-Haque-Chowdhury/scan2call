@@ -194,6 +194,18 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                 </motion.div>
               ))}
             </nav>
+
+            {user ? (
+              <div className="border-t border-accent/10 p-3 lg:hidden">
+                <button
+                  onClick={() => logout()}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-error transition-colors hover:bg-error/10"
+                >
+                  <LogOut className="h-5 w-5" />
+                  Sign out
+                </button>
+              </div>
+            ) : null}
           </aside>
 
           <div className="flex-1 flex flex-col min-w-0">

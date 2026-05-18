@@ -80,11 +80,20 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <CartDropdown />
-            {!isLoading && isAuthenticated && user ? (
-              <div className="hidden md:block">
-                <WelcomeButton firstName={user.firstName} />
-              </div>
-            ) : null}
+            {!isLoading && (
+              isAuthenticated && user ? (
+                <div className="hidden md:block">
+                  <WelcomeButton firstName={user.firstName} />
+                </div>
+              ) : (
+                <Link
+                  href="/login"
+                  className="hidden md:inline-flex h-9 items-center justify-center px-3 text-sm font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors md:px-4 md:py-2 md:text-[15px]"
+                >
+                  Sign in
+                </Link>
+              )
+            )}
             <MenuButton onClick={() => setMenuOpen(true)} />
           </div>
         </nav>
