@@ -187,7 +187,7 @@ export default function ContactClient() {
                       />
                       <p className="text-xs text-text-dim">
                         By sending this message, you agree to our{' '}
-                        <Link href="/privacy" className="text-primary hover:underline underline-offset-4">
+                        <Link href="https://ztecgroup.au/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline underline-offset-4">
                           Privacy Policy
                         </Link>{' '}
                         and consent to be contacted about your request.

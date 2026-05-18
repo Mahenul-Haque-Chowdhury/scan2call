@@ -39,8 +39,8 @@ const footerColumns = [
   {
     title: 'Legal',
     links: [
-      { href: '/privacy', label: 'Privacy Policy' },
-      { href: '/terms', label: 'Terms of Service' },
+      { href: 'https://ztecgroup.au/privacy-policy', label: 'Privacy Policy', external: true },
+      { href: 'https://ztecgroup.au/terms-of-service', label: 'Terms of Service', external: true },
     ],
   },
 ];
@@ -80,20 +80,11 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <CartDropdown />
-            {!isLoading && (
-              isAuthenticated && user ? (
-                <div className="hidden md:block">
-                  <WelcomeButton firstName={user.firstName} />
-                </div>
-              ) : (
-                <Link
-                  href="/login"
-                  className="inline-flex h-9 items-center justify-center px-3 text-sm font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors md:px-4 md:py-2 md:text-[15px]"
-                >
-                  Sign in
-                </Link>
-              )
-            )}
+            {!isLoading && isAuthenticated && user ? (
+              <div className="hidden md:block">
+                <WelcomeButton firstName={user.firstName} />
+              </div>
+            ) : null}
             <MenuButton onClick={() => setMenuOpen(true)} />
           </div>
         </nav>
@@ -130,12 +121,23 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 <ul className="space-y-2">
                   {col.links.map((link) => (
                     <li key={link.href}>
-                      <Link
-                        href={link.href}
-                        className="text-sm text-text-muted hover:text-text transition-colors"
-                      >
-                        {link.label}
-                      </Link>
+                      {'external' in link && link.external ? (
+                        <a
+                          href={link.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-text-muted hover:text-text transition-colors"
+                        >
+                          {link.label}
+                        </a>
+                      ) : (
+                        <Link
+                          href={link.href}
+                          className="text-sm text-text-muted hover:text-text transition-colors"
+                        >
+                          {link.label}
+                        </Link>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -154,7 +156,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               >
                 ZTEC Group Pty Ltd
               </a>
-              . All rights reserved.
+              {' '}(ABN: 82 697 931 445). All rights reserved.
             </p>
             <p className="text-xs text-text-dim">
               Designed & Developed by{' '}

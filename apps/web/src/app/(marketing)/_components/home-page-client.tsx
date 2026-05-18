@@ -354,7 +354,7 @@ export default function HomePageClient() {
             </span>
             <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">
               Tags for every{' '}
-              <span className="text-gradient">situation</span>
+              <span className="text-gradient">lost & found Solutions</span>
             </h2>
             <p className="mt-5 text-text-muted max-w-xl mx-auto text-lg">
               From pets to parking, we have a tag designed for exactly what you need.
