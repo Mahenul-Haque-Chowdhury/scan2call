@@ -42,14 +42,20 @@ export class AuthService {
     private readonly notificationsService: NotificationsService,
   ) {}
 
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
+  }
+
   // ──────────────────────────────────────────────
   // REGISTRATION
   // ──────────────────────────────────────────────
 
   async register(dto: RegisterDto) {
+    const normalizedEmail = this.normalizeEmail(dto.email);
+
     // Check for existing user
     const existingUser = await this.prisma.user.findUnique({
-      where: { email: dto.email.toLowerCase() },
+      where: { email: normalizedEmail },
     });
 
     if (existingUser) {
@@ -76,7 +82,7 @@ export class AuthService {
       async (tx) => {
         const user = await tx.user.create({
           data: {
-            email: dto.email.toLowerCase(),
+            email: normalizedEmail,
             passwordHash,
             firstName: dto.firstName,
             lastName: dto.lastName,
@@ -124,8 +130,10 @@ export class AuthService {
     userAgent?: string,
     ipAddress?: string,
   ) {
+    const normalizedEmail = this.normalizeEmail(dto.email);
+
     const user = await this.prisma.user.findUnique({
-      where: { email: dto.email.toLowerCase() },
+      where: { email: normalizedEmail },
       include: { subscription: { select: { status: true } } },
     });
 
@@ -287,7 +295,7 @@ export class AuthService {
   // ──────────────────────────────────────────────
 
   async resendVerificationEmail(email: string) {
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = this.normalizeEmail(email);
     const user = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
       select: { email: true, firstName: true, emailVerified: true, deletedAt: true },
@@ -437,8 +445,10 @@ export class AuthService {
   // ──────────────────────────────────────────────
 
   async forgotPassword(email: string) {
+    const normalizedEmail = this.normalizeEmail(email);
+
     const user = await this.prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+      where: { email: normalizedEmail },
     });
 
     // Always return success to prevent user enumeration

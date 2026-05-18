@@ -12,6 +12,28 @@ import { getApiOrigin } from './api-origin';
 const API_BASE = getApiOrigin();
 const API_PREFIX = `${API_BASE}/api/v1`;
 
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function extractErrorMessage(body: unknown, fallback: string): string {
+  if (body && typeof body === 'object') {
+    const record = body as Record<string, unknown>;
+    if (typeof record.message === 'string' && record.message.trim()) {
+      return record.message;
+    }
+
+    if (record.error && typeof record.error === 'object') {
+      const nested = record.error as Record<string, unknown>;
+      if (typeof nested.message === 'string' && nested.message.trim()) {
+        return nested.message;
+      }
+    }
+  }
+
+  return fallback;
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -64,12 +86,12 @@ export async function login(email: string, password: string): Promise<AuthUser> 
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email: normalizeEmail(email), password }),
   });
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.message || 'Login failed');
+    throw new Error(extractErrorMessage(body, 'Sign in failed. Please check your email and password and try again.'));
   }
 
   const json = await res.json();
@@ -92,12 +114,15 @@ export async function register(payload: {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      ...payload,
+      email: normalizeEmail(payload.email),
+    }),
   });
 
   if (!regRes.ok) {
     const body = await regRes.json().catch(() => ({}));
-    throw new Error(body.message || 'Registration failed');
+    throw new Error(extractErrorMessage(body, 'Registration failed. Please check your details and try again.'));
   }
 
   const json = await regRes.json();

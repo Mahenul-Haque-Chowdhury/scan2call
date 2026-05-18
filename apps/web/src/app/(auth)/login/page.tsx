@@ -22,6 +22,58 @@ const fadeUp = {
   visible: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
+function isEmbeddedBrowser(): boolean {
+  if (typeof window === 'undefined') return false;
+  const userAgent = window.navigator.userAgent || '';
+  return /FBAN|FBAV|Instagram|Line|MicroMessenger|Messenger/i.test(userAgent);
+}
+
+function getOAuthErrorMessage(errorCode: string | null, embeddedBrowser: boolean): string {
+  if (errorCode === 'google_auth_failed') {
+    return embeddedBrowser
+      ? 'Google sign-in was blocked because this page is open inside an in-app browser like Messenger or Facebook. Open Scan2Call in Safari or Chrome and try again.'
+      : 'Google sign-in failed. Please try again. If it keeps failing, use Safari or Chrome instead of an in-app browser.';
+  }
+
+  if (errorCode === 'facebook_auth_failed') {
+    return embeddedBrowser
+      ? 'Facebook sign-in was blocked inside this in-app browser. Open Scan2Call in Safari or Chrome and try again.'
+      : 'Facebook sign-in failed. Please try again. If it keeps failing, use Safari or Chrome instead of an in-app browser.';
+  }
+
+  return '';
+}
+
+function getLoginErrorMessage(error: unknown): string {
+  const fallback = 'Sign in failed. Please try again.';
+
+  if (!(error instanceof Error)) {
+    return fallback;
+  }
+
+  if (error.message === 'Invalid email or password') {
+    return 'Incorrect email or password. Check for typing mistakes, extra spaces, or use Google/Facebook sign-in if that is how the account was created.';
+  }
+
+  if (error.message.includes('Google sign-in')) {
+    return 'This account was created with Google sign-in. Use the Google button instead of email and password.';
+  }
+
+  if (error.message.includes('Facebook')) {
+    return 'This account was created with Facebook sign-in. Use the Facebook button instead of email and password.';
+  }
+
+  if (error.message.includes('suspended')) {
+    return 'This account is suspended. Please contact support if you think this is a mistake.';
+  }
+
+  if (error.message.includes('deleted')) {
+    return 'This account is no longer available. Please contact support if you need help recovering access.';
+  }
+
+  return error.message || fallback;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -34,11 +86,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     const oauthError = searchParams.get('error');
-    if (oauthError === 'google_auth_failed') {
-      setError('Google sign-in failed. Please try again or use email and password.');
-    } else if (oauthError === 'facebook_auth_failed') {
-      setError('Facebook sign-in failed. Please try again or use email and password.');
-    }
+    setError(getOAuthErrorMessage(oauthError, isEmbeddedBrowser()));
   }, [searchParams]);
 
   useEffect(() => {
@@ -56,7 +104,7 @@ export default function LoginPage() {
       await login(email, password);
       router.push('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign in failed. Please try again.');
+      setError(getLoginErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -72,6 +120,14 @@ export default function LoginPage() {
       {error && (
         <motion.div variants={fadeUp} className="mt-4">
           <Alert variant="error">{error}</Alert>
+        </motion.div>
+      )}
+
+      {isEmbeddedBrowser() && !error && (
+        <motion.div variants={fadeUp} className="mt-4">
+          <Alert variant="error">
+            Social sign-in may be blocked inside Messenger, Facebook, or other in-app browsers. If Google or Facebook sign-in fails, open Scan2Call in Safari or Chrome.
+          </Alert>
         </motion.div>
       )}
 

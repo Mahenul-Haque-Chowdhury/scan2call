@@ -1,6 +1,8 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -22,8 +24,57 @@ const fadeUp = {
   visible: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
+function isEmbeddedBrowser(): boolean {
+  if (typeof window === 'undefined') return false;
+  const userAgent = window.navigator.userAgent || '';
+  return /FBAN|FBAV|Instagram|Line|MicroMessenger|Messenger/i.test(userAgent);
+}
+
+function getOAuthErrorMessage(errorCode: string | null, embeddedBrowser: boolean): string {
+  if (errorCode === 'google_auth_failed') {
+    return embeddedBrowser
+      ? 'Google sign-up was blocked because this page is open inside an in-app browser like Messenger or Facebook. Open Scan2Call in Safari or Chrome and try again.'
+      : 'Google sign-up failed. Please try again in Safari or Chrome, or continue with email registration.';
+  }
+
+  if (errorCode === 'facebook_auth_failed') {
+    return embeddedBrowser
+      ? 'Facebook sign-up was blocked inside this in-app browser. Open Scan2Call in Safari or Chrome and try again.'
+      : 'Facebook sign-up failed. Please try again in Safari or Chrome, or continue with email registration.';
+  }
+
+  return '';
+}
+
+function getRegistrationErrorMessage(error: unknown): string {
+  const fallback = 'Registration failed. Please try again.';
+
+  if (!(error instanceof Error)) {
+    return fallback;
+  }
+
+  if (error.message.includes('already exists')) {
+    return 'An account with this email already exists. Try signing in instead, or reset your password if needed.';
+  }
+
+  if (error.message.includes('phone number')) {
+    return 'That phone number is already linked to another account.';
+  }
+
+  if (error.message.includes('valid email')) {
+    return 'Please enter a valid email address.';
+  }
+
+  if (error.message.includes('Password must')) {
+    return error.message;
+  }
+
+  return error.message || fallback;
+}
+
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { register } = useAuth();
 
   const [firstName, setFirstName] = useState('');
@@ -33,6 +84,11 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const oauthError = searchParams.get('error');
+    setError(getOAuthErrorMessage(oauthError, isEmbeddedBrowser()));
+  }, [searchParams]);
 
   function validate(): string | null {
     if (!firstName.trim()) return 'First name is required.';
@@ -59,7 +115,7 @@ export default function RegisterPage() {
       });
       router.push(`/verify-email?email=${encodeURIComponent(email.trim().toLowerCase())}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
+      setError(getRegistrationErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -75,6 +131,14 @@ export default function RegisterPage() {
       {error && (
         <motion.div variants={fadeUp} className="mt-4">
           <Alert variant="error">{error}</Alert>
+        </motion.div>
+      )}
+
+      {isEmbeddedBrowser() && !error && (
+        <motion.div variants={fadeUp} className="mt-4">
+          <Alert variant="error">
+            Social sign-up may be blocked inside Messenger, Facebook, or other in-app browsers. If Google or Facebook fails, open Scan2Call in Safari or Chrome.
+          </Alert>
         </motion.div>
       )}
 
