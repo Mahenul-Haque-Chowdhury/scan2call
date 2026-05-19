@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Space_Grotesk, DM_Sans } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 import { AuthProvider } from '@/providers/auth-provider';
 import { CartProvider } from '@/providers/cart-provider';
@@ -97,6 +98,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${spaceGrotesk.variable} ${dmSans.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <Script
+          async
+          src="https://www.googletagmanager.com/gtag/js?id=G-DC31KTLS5P"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-DC31KTLS5P');
+          `}
+        </Script>
       </head>
       <body className="bg-bg text-text antialiased" suppressHydrationWarning>
         <ThemeProvider>
