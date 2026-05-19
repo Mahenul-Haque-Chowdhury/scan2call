@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 
-const BASE_URL = process.env.APP_URL || 'https://scan2call.net';
+const BASE_URL = process.env.APP_URL || 'https://scan2call.com.au';
 
 export default function robots(): MetadataRoute.Robots {
   return {

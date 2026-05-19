@@ -35,7 +35,7 @@ export default function HomePage() {
       url: 'https://grayvally.tech',
     },
     sameAs: [
-      'https://scan2call.net',
+      'https://scan2call.com.au',
     ],
   };
 

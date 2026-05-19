@@ -6,10 +6,6 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**.scan2call.net',
-      },
-      {
-        protocol: 'https',
         hostname: '**.scan2call.com.au',
       },
       {

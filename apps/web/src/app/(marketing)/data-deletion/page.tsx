@@ -12,7 +12,7 @@ const sections = [
   {
     title: '1. How To Request Deletion',
     content:
-      'To request deletion of your Scan2Call account and associated personal data, email support@scan2call.net from the email address registered to your account with the subject "Data Deletion Request".',
+      'To request deletion of your Scan2Call account and associated personal data, email support@scan2call.com.au from the email address registered to your account with the subject "Data Deletion Request".',
   },
   {
     title: '2. Verification Process',
@@ -32,7 +32,7 @@ const sections = [
   {
     title: '5. Contact',
     content:
-      'If you have questions about deletion or privacy, contact support@scan2call.net.',
+      'If you have questions about deletion or privacy, contact support@scan2call.com.au.',
   },
 ];
 

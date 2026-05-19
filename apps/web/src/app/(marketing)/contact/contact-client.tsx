@@ -15,7 +15,7 @@ const contactInfo = [
   {
     icon: Mail,
     label: 'Email',
-    value: 'support@scan2call.net',
+    value: 'support@scan2call.com.au',
     note: "We'll reply within 24 hours",
   },
   {

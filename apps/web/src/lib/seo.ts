@@ -13,7 +13,7 @@ export const SITE_DESCRIPTION =
 export const DEFAULT_OG_IMAGE = '/images/sca2callhero.png';
 
 export function getSiteUrl(): string {
-  return process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://scan2call.net';
+  return process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://scan2call.com.au';
 }
 
 export function absoluteUrl(path = '/'): string {
