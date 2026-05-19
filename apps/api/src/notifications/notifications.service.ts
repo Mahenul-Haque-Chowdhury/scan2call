@@ -142,44 +142,102 @@ export class NotificationsService {
 
   private renderEmailTemplate(options: EmailTemplateOptions): string {
     const eyebrowHtml = options.eyebrow
-      ? `<p style="margin: 0 0 12px; color: #facc15; font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;">${options.eyebrow}</p>`
+      ? `
+          <tr>
+            <td style="padding: 0 0 12px; color: #facc15; font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;">
+              ${options.eyebrow}
+            </td>
+          </tr>
+        `
       : '';
 
     const ctaHtml = options.ctaLabel && options.ctaUrl
       ? `
-          <div style="text-align: center; margin: 32px 0 0;">
-            <a href="${options.ctaUrl}" style="display: inline-block; background: linear-gradient(135deg, #facc15 0%, #fde68a 100%); color: #0c0a09; font-size: 15px; font-weight: 700; text-decoration: none; padding: 14px 28px; border-radius: 999px; box-shadow: 0 12px 30px rgba(250, 204, 21, 0.18);">
-              ${options.ctaLabel}
-            </a>
-          </div>
+          <tr>
+            <td align="center" style="padding: 28px 0 0;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td bgcolor="#facc15" style="border-radius: 24px;">
+                    <a href="${options.ctaUrl}" style="display: inline-block; padding: 14px 28px; font-family: Arial, Helvetica, sans-serif; font-size: 15px; font-weight: 700; line-height: 15px; color: #0c0a09; text-decoration: none; border-radius: 24px;">
+                      ${options.ctaLabel}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
         `
       : '';
 
     const noteHtml = options.note
-      ? `<p style="margin: 24px 0 0; color: #a1a1aa; font-size: 13px; line-height: 1.6;">${options.note}</p>`
+      ? `
+          <tr>
+            <td style="padding: 24px 0 0; color: #a1a1aa; font-family: Arial, Helvetica, sans-serif; font-size: 13px; line-height: 20px;">
+              ${options.note}
+            </td>
+          </tr>
+        `
       : '';
 
     return `
-      <div style="margin: 0; padding: 32px 16px; background-color: #0a0a0a; background-image: radial-gradient(circle at top left, rgba(250, 204, 21, 0.12), transparent 32%), radial-gradient(circle at bottom right, rgba(124, 196, 250, 0.10), transparent 36%); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #fafafa;">
-        <div style="max-width: 600px; margin: 0 auto;">
-          <div style="margin-bottom: 18px; text-align: center; color: #facc15; font-size: 28px; font-weight: 800; letter-spacing: -0.03em;">
-            Scan2Call
-          </div>
-          <div style="border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: 36px 30px; background: rgba(20, 20, 20, 0.92); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);">
-            ${eyebrowHtml}
-            <h1 style="margin: 0 0 16px; color: #fafafa; font-size: 30px; line-height: 1.15; font-weight: 800; letter-spacing: -0.03em;">${options.title}</h1>
-            <p style="margin: 0 0 16px; color: #d4d4d8; font-size: 16px; line-height: 1.75;">${options.intro}</p>
-            <div style="margin-top: 20px; padding: 18px 20px; border-radius: 18px; background: rgba(250, 204, 21, 0.08); border: 1px solid rgba(250, 204, 21, 0.16); color: #e4e4e7; font-size: 15px; line-height: 1.75;">
-              ${options.body}
-            </div>
-            ${ctaHtml}
-            ${noteHtml}
-          </div>
-          <p style="margin: 18px 0 0; text-align: center; color: #71717a; font-size: 12px; line-height: 1.6;">
-            Privacy-first QR identity tags with secure contact relay.
-          </p>
-        </div>
-      </div>
+      <!DOCTYPE html>
+      <html lang="en">
+        <head>
+          <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <title>${options.title}</title>
+        </head>
+        <body style="margin: 0; padding: 0; background-color: #f5f5f5;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f5f5f5; margin: 0; padding: 0;">
+            <tr>
+              <td align="center" style="padding: 24px 12px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; margin: 0 auto;">
+                  <tr>
+                    <td align="center" bgcolor="#111111" style="padding: 16px 24px; color: #facc15; font-family: Arial, Helvetica, sans-serif; font-size: 28px; font-weight: 800; line-height: 32px;">
+                      Scan2Call
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="height: 18px; line-height: 18px; font-size: 18px;">&nbsp;</td>
+                  </tr>
+                  <tr>
+                    <td bgcolor="#111111" style="padding: 32px 24px; border: 1px solid #222222; color: #fafafa;">
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                        ${eyebrowHtml}
+                        <tr>
+                          <td style="padding: 0 0 16px; color: #fafafa; font-family: Arial, Helvetica, sans-serif; font-size: 30px; font-weight: 800; line-height: 36px;">
+                            ${options.title}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 0 0 16px; color: #e4e4e7; font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: 26px;">
+                            ${options.intro}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td bgcolor="#1a1a1a" style="padding: 18px 20px; border: 1px solid #2f2a16; color: #f4f4f5; font-family: Arial, Helvetica, sans-serif; font-size: 15px; line-height: 25px;">
+                            ${options.body}
+                          </td>
+                        </tr>
+                        ${ctaHtml}
+                        ${noteHtml}
+                      </table>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="height: 18px; line-height: 18px; font-size: 18px;">&nbsp;</td>
+                  </tr>
+                  <tr>
+                    <td align="center" style="padding: 0 24px; color: #71717a; font-family: Arial, Helvetica, sans-serif; font-size: 12px; line-height: 18px;">
+                      Privacy-first QR identity tags with secure contact relay.
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
     `;
   }
 
