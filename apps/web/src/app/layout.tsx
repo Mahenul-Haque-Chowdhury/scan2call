@@ -4,7 +4,6 @@ import './globals.css';
 import { AuthProvider } from '@/providers/auth-provider';
 import { CartProvider } from '@/providers/cart-provider';
 import { ThemeProvider } from '@/providers/theme-provider';
-import { CustomCursor } from '@/components/ui/custom-cursor';
 import { DEFAULT_OG_IMAGE, SITE_DESCRIPTION, SITE_NAME, getSiteUrl } from '@/lib/seo';
 
 const spaceGrotesk = Space_Grotesk({
@@ -100,7 +99,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="bg-bg text-text antialiased" suppressHydrationWarning>
-        <CustomCursor />
         <ThemeProvider>
           <AuthProvider>
             <CartProvider>{children}</CartProvider>
