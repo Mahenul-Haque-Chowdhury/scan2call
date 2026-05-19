@@ -312,6 +312,7 @@ model Tag {
   scans             Scan[]
   communicationLogs CommunicationLog[]
   tagGiftRedemptions TagGiftRedemption[]
+  reservedForGiftCode TagGiftCode? @relation("ReservedTagGiftCode")
 
   @@index([ownerId])
   @@index([status])
@@ -653,9 +654,11 @@ model TagGiftCode {
   expiresAt      DateTime?
   maxRedemptions Int            @default(1)
   redeemedCount  Int            @default(0)
+  reservedTagId  String?        @unique
 
   createdById String
   createdBy   User @relation("tagGiftCodeCreatedBy", fields: [createdById], references: [id])
+  reservedTag Tag? @relation("ReservedTagGiftCode", fields: [reservedTagId], references: [id])
 
   redemptions TagGiftRedemption[]
 

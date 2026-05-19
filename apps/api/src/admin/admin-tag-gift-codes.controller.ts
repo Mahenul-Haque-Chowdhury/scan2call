@@ -9,6 +9,7 @@ import { CurrentUser, JwtPayload } from '../common/decorators/current-user.decor
 import { TagGiftService } from '../gifts/tag-gift.service';
 import { CreateTagGiftCodeDto } from './dto/create-tag-gift-code.dto';
 import { AssignGiftCodeDto } from './dto/assign-gift-code.dto';
+import { ReserveTagGiftCodeDto } from './dto/reserve-tag-gift-code.dto';
 
 @ApiTags('admin/tag-gift-codes')
 @ApiBearerAuth()
@@ -56,5 +57,16 @@ export class AdminTagGiftCodesController {
     @Body() dto: AssignGiftCodeDto,
   ) {
     return this.tagGiftService.assignTagGiftCode(admin.id, id, dto.userId, dto.note);
+  }
+
+  @Post(':id/reserve-tag')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Reserve an existing physical tag for a tag gift code' })
+  async reserveGiftTag(
+    @CurrentUser() admin: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: ReserveTagGiftCodeDto,
+  ) {
+    return this.tagGiftService.reserveTagGiftCode(admin.id, id, dto.tagToken, dto.note);
   }
 }

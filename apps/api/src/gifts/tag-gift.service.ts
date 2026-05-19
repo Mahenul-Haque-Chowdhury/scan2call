@@ -15,6 +15,13 @@ interface CreateTagGiftCodeInput {
   maxRedemptions?: number;
 }
 
+interface ReservedTagSummary {
+  id: string;
+  token: string;
+  status: string;
+  type: TagType;
+}
+
 interface TagGiftCodeState {
   id: string;
   status: GiftCodeStatus;
@@ -73,6 +80,7 @@ export class TagGiftService {
         orderBy: { createdAt: 'desc' },
         include: {
           createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+          reservedTag: { select: { id: true, token: true, status: true, type: true } },
         },
       }),
       this.prisma.tagGiftCode.count({ where }),
@@ -88,6 +96,76 @@ export class TagGiftService {
     await this.syncGiftCodeStatus(giftCode);
 
     return this.redeemTagGiftCode(userId, giftCode.code, adminId, note);
+  }
+
+  async reserveTagGiftCode(adminId: string, codeId: string, rawToken: string, note?: string) {
+    const token = rawToken.trim();
+    if (!token) {
+      throw new BadRequestException('Tag token is required');
+    }
+
+    const giftCode = await this.prisma.tagGiftCode.findUnique({
+      where: { id: codeId },
+      include: { reservedTag: { select: { id: true, token: true } } },
+    });
+    if (!giftCode) throw new NotFoundException('Gift code not found');
+
+    const syncedGiftCode = await this.syncGiftCodeStatus(giftCode);
+    this.ensureGiftCodeIsRedeemable(syncedGiftCode);
+
+    if (syncedGiftCode.maxRedemptions !== 1) {
+      throw new BadRequestException('Scanner-based tag gifts require max redemptions to be 1');
+    }
+
+    if (giftCode.reservedTagId) {
+      throw new ConflictException(`Gift code already reserved to tag ${giftCode.reservedTag?.token ?? 'token'}`);
+    }
+
+    const tag = await this.prisma.tag.findUnique({
+      where: { token },
+      include: { reservedForGiftCode: { select: { id: true, code: true } } },
+    });
+
+    if (!tag || tag.deletedAt) {
+      throw new NotFoundException('Tag not found');
+    }
+
+    if (tag.status !== 'INACTIVE') {
+      throw new BadRequestException('Only inactive tags can be reserved for gift codes');
+    }
+
+    if (tag.ownerId) {
+      throw new BadRequestException('Only unowned tags can be reserved for gift codes');
+    }
+
+    if (tag.type !== syncedGiftCode.tagType) {
+      throw new BadRequestException('Scanned tag type does not match the gift code tag type');
+    }
+
+    if (tag.reservedForGiftCode) {
+      throw new ConflictException(`Tag is already reserved for gift code ${tag.reservedForGiftCode.code}`);
+    }
+
+    const updatedGiftCode = await this.prisma.tagGiftCode.update({
+      where: { id: syncedGiftCode.id },
+      data: { reservedTagId: tag.id },
+      include: {
+        createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+        reservedTag: { select: { id: true, token: true, status: true, type: true } },
+      },
+    });
+
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'MODERATION_ACTION',
+        targetType: 'TagGift',
+        targetId: syncedGiftCode.id,
+        metadata: { code: syncedGiftCode.code, reservedTagId: tag.id, reservedTagToken: tag.token, note: note?.trim() || null },
+      },
+    });
+
+    return { data: updatedGiftCode };
   }
 
   async redeemTagGiftCode(userId: string, rawCode: string, adminId?: string, note?: string) {
@@ -114,17 +192,40 @@ export class TagGiftService {
       throw new ConflictException('You have already redeemed this gift code');
     }
 
-    const token = await this.generateUniqueTagToken();
-
     const result = await this.prisma.$transaction(async (tx) => {
-      const tag = await tx.tag.create({
-        data: {
-          token,
-          type: giftCode.tagType,
-          status: 'INACTIVE',
-          ownerId: userId,
-        },
-      });
+      const existingReservation = giftCode.reservedTagId
+        ? await tx.tag.findUnique({ where: { id: giftCode.reservedTagId } })
+        : null;
+
+      if (giftCode.reservedTagId && !existingReservation) {
+        throw new ConflictException('Reserved tag no longer exists');
+      }
+
+      if (existingReservation?.deletedAt) {
+        throw new ConflictException('Reserved tag is no longer available');
+      }
+
+      if (existingReservation && existingReservation.status !== 'INACTIVE') {
+        throw new ConflictException('Reserved tag is no longer inactive');
+      }
+
+      if (existingReservation?.ownerId) {
+        throw new ConflictException('Reserved tag is already assigned');
+      }
+
+      const tag = existingReservation
+        ? await tx.tag.update({
+            where: { id: existingReservation.id },
+            data: { ownerId: userId },
+          })
+        : await tx.tag.create({
+            data: {
+              token: await this.generateUniqueTagToken(),
+              type: giftCode.tagType,
+              status: 'INACTIVE',
+              ownerId: userId,
+            },
+          });
 
       await tx.tagGiftRedemption.create({
         data: {
@@ -142,6 +243,7 @@ export class TagGiftService {
         where: { id: giftCode.id },
         data: {
           redeemedCount,
+          reservedTagId: existingReservation ? null : giftCode.reservedTagId,
           status: nextStatus,
         },
       });

@@ -1,12 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TagType, TAG_TYPE_LABELS } from '@scan2call/shared';
 import { apiClient } from '@/lib/api-client';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Search, Gift, Copy, UserPlus, Tag } from 'lucide-react';
+import { Search, Gift, Copy, UserPlus, Tag, Camera, ScanLine } from 'lucide-react';
 
 interface GiftCodeRow {
   id: string;
@@ -30,7 +30,61 @@ interface TagGiftCodeRow {
   maxRedemptions: number;
   redeemedCount: number;
   createdAt: string;
+  reservedTag?: {
+    id: string;
+    token: string;
+    status: string;
+    type: TagType;
+  } | null;
   createdBy?: { firstName: string; lastName: string; email: string } | null;
+}
+
+type BarcodeDetectorLike = {
+  detect: (source: ImageBitmapSource) => Promise<Array<{ rawValue?: string }>>;
+};
+
+type BarcodeDetectorCtor = new (options?: { formats?: string[] }) => BarcodeDetectorLike;
+
+function extractTagTokenFromScan(value: string): string | null {
+  const trimmedValue = value.trim();
+  if (/^[A-Za-z0-9]{12}$/.test(trimmedValue)) {
+    return trimmedValue;
+  }
+
+  try {
+    const url = new URL(trimmedValue);
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (parts.length >= 2 && parts[parts.length - 2] === 'scan') {
+      const token = parts[parts.length - 1];
+      if (typeof token === 'string' && /^[A-Za-z0-9]{12}$/.test(token)) {
+        return token;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function getCameraErrorMessage(error: unknown): string {
+  if (error instanceof DOMException) {
+    switch (error.name) {
+      case 'NotAllowedError':
+      case 'SecurityError':
+        return 'Camera permission denied. On iOS: Settings > Safari > Camera > Allow, then reload.';
+      case 'NotFoundError':
+        return 'No camera was found on this device.';
+      case 'NotReadableError':
+        return 'The camera is already in use by another app. Close it and try again.';
+      case 'OverconstrainedError':
+        return 'Unable to access the rear camera. Try switching cameras or using a different device.';
+      default:
+        return 'Could not open the camera. Check browser permissions and try again.';
+    }
+  }
+
+  return 'Could not open the camera. Check browser permissions and try again.';
 }
 
 interface AdminUser {
@@ -54,6 +108,11 @@ const STATUS_BADGE: Record<GiftCodeRow['status'], string> = {
 };
 
 export default function AdminSubscriptionGiftsPage() {
+  const reserveVideoRef = useRef<HTMLVideoElement | null>(null);
+  const reserveStreamRef = useRef<MediaStream | null>(null);
+  const reserveCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const reserveJsQrRef = useRef<((data: Uint8ClampedArray, width: number, height: number) => { data: string } | null) | null>(null);
+
   const [codes, setCodes] = useState<GiftCodeRow[]>([]);
   const [meta, setMeta] = useState<PaginationMeta>({ page: 1, pageSize: 20, total: 0 });
   const [statusFilter, setStatusFilter] = useState('');
@@ -84,16 +143,17 @@ export default function AdminSubscriptionGiftsPage() {
 
   const [tagType, setTagType] = useState<TagType>('GENERIC');
   const [tagExpiresAt, setTagExpiresAt] = useState('');
-  const [tagMaxRedemptions, setTagMaxRedemptions] = useState('1');
   const [tagCreating, setTagCreating] = useState(false);
   const [tagCreateResult, setTagCreateResult] = useState<string | null>(null);
 
-  const [tagAssignCodeId, setTagAssignCodeId] = useState('');
-  const [tagUserQuery, setTagUserQuery] = useState('');
-  const [tagUserResults, setTagUserResults] = useState<AdminUser[]>([]);
-  const [tagSelectedUser, setTagSelectedUser] = useState<AdminUser | null>(null);
-  const [tagAssigning, setTagAssigning] = useState(false);
-  const [tagAssignResult, setTagAssignResult] = useState<string | null>(null);
+  const [tagReserveCodeId, setTagReserveCodeId] = useState('');
+  const [tagReserveToken, setTagReserveToken] = useState('');
+  const [tagReserveStatus, setTagReserveStatus] = useState('');
+  const [tagReserveResult, setTagReserveResult] = useState<string | null>(null);
+  const [tagReserveError, setTagReserveError] = useState<string | null>(null);
+  const [tagReserving, setTagReserving] = useState(false);
+  const [tagScannerActive, setTagScannerActive] = useState(false);
+  const [tagScannerOpening, setTagScannerOpening] = useState(false);
 
   const fetchCodes = useCallback(async (page: number, status: string, searchTerm: string) => {
     setLoading(true);
@@ -141,6 +201,12 @@ export default function AdminSubscriptionGiftsPage() {
     fetchTagCodes(1, tagStatusFilter, tagSearch);
   }, [fetchTagCodes, tagStatusFilter, tagSearch]);
 
+  useEffect(() => {
+    return () => {
+      reserveStreamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
   const handleSearch = () => {
     fetchCodes(1, statusFilter, search);
   };
@@ -179,9 +245,9 @@ export default function AdminSubscriptionGiftsPage() {
     try {
       const body: Record<string, unknown> = {
         tagType,
+        maxRedemptions: 1,
       };
       if (tagExpiresAt) body.expiresAt = new Date(tagExpiresAt).toISOString();
-      if (tagMaxRedemptions) body.maxRedemptions = Number(tagMaxRedemptions);
 
       const result = await apiClient.post<{ data: TagGiftCodeRow }>(
         '/admin/tag-gift-codes',
@@ -210,7 +276,7 @@ export default function AdminSubscriptionGiftsPage() {
   );
 
   const activeTagCodes = useMemo(
-    () => tagCodes.filter((c) => c.status === 'ACTIVE'),
+    () => tagCodes.filter((c) => c.status === 'ACTIVE' && !c.reservedTag),
     [tagCodes]
   );
 
@@ -222,17 +288,6 @@ export default function AdminSubscriptionGiftsPage() {
       setUserResults(result.data);
     } catch {
       setUserResults([]);
-    }
-  };
-
-  const handleTagUserSearch = async () => {
-    if (!tagUserQuery.trim()) return;
-    try {
-      const params = new URLSearchParams({ page: '1', pageSize: '5', search: tagUserQuery.trim() });
-      const result = await apiClient.get<{ data: AdminUser[] }>(`/admin/users?${params.toString()}`);
-      setTagUserResults(result.data);
-    } catch {
-      setTagUserResults([]);
     }
   };
 
@@ -258,25 +313,177 @@ export default function AdminSubscriptionGiftsPage() {
     }
   };
 
-  const handleTagAssign = async () => {
-    if (!tagAssignCodeId || !tagSelectedUser) {
-      setTagAssignResult('Select a tag gift code and user first.');
+  const stopTagScanner = useCallback(() => {
+    reserveStreamRef.current?.getTracks().forEach((track) => track.stop());
+    reserveStreamRef.current = null;
+    if (reserveVideoRef.current) {
+      reserveVideoRef.current.pause();
+      reserveVideoRef.current.srcObject = null;
+      reserveVideoRef.current.load();
+    }
+    setTagScannerActive(false);
+  }, []);
+
+  useEffect(() => {
+    if (!tagScannerActive || !reserveVideoRef.current) {
       return;
     }
-    setTagAssigning(true);
-    setTagAssignResult(null);
+
+    const Detector = (window as Window & { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector;
+    const detector = Detector ? new Detector({ formats: ['qr_code'] }) : null;
+    let cancelled = false;
+
+    const intervalId = window.setInterval(async () => {
+      const video = reserveVideoRef.current;
+      if (!video || video.readyState < HTMLMediaElement.HAVE_ENOUGH_DATA) {
+        return;
+      }
+
+      try {
+        let rawValue: string | undefined;
+
+        if (detector) {
+          const barcodes = await detector.detect(video);
+          rawValue = barcodes[0]?.rawValue;
+        } else {
+          if (!reserveJsQrRef.current) {
+            const jsQrModule = await import('jsqr');
+            reserveJsQrRef.current = jsQrModule.default;
+          }
+
+          const jsQr = reserveJsQrRef.current;
+          if (!jsQr) {
+            throw new Error('QR fallback unavailable');
+          }
+
+          const canvas = reserveCanvasRef.current || document.createElement('canvas');
+          reserveCanvasRef.current = canvas;
+          const width = video.videoWidth;
+          const height = video.videoHeight;
+          if (!width || !height) {
+            return;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext('2d', { willReadFrequently: true });
+          if (!context) {
+            return;
+          }
+
+          context.drawImage(video, 0, 0, width, height);
+          const imageData = context.getImageData(0, 0, width, height);
+          const code = jsQr(imageData.data, imageData.width, imageData.height);
+          rawValue = code?.data;
+        }
+
+        if (!rawValue) {
+          return;
+        }
+
+        const token = extractTagTokenFromScan(rawValue);
+        if (!token) {
+          setTagReserveError('The QR code does not contain a valid Scan2Call tag link.');
+          return;
+        }
+
+        if (!cancelled) {
+          setTagReserveToken(token);
+          setTagReserveStatus('QR code captured. Ready to reserve this tag.');
+          setTagReserveError(null);
+          stopTagScanner();
+        }
+      } catch {
+        if (!cancelled) {
+          setTagReserveError('Unable to read the QR code. Try moving closer or improving the lighting.');
+        }
+      }
+    }, 650);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [stopTagScanner, tagScannerActive]);
+
+  const handleStartTagScanner = useCallback(async () => {
+    setTagScannerOpening(true);
+    setTagReserveError(null);
+    setTagReserveStatus('Opening camera...');
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setTagReserveError('Camera access is not supported in this browser.');
+      setTagReserveStatus('');
+      setTagScannerOpening(false);
+      return;
+    }
+
+    stopTagScanner();
+
     try {
-      await apiClient.post(`/admin/tag-gift-codes/${tagAssignCodeId}/assign`, {
-        userId: tagSelectedUser.id,
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false,
       });
-      setTagAssignResult('Tag gift code assigned successfully.');
-      setTagSelectedUser(null);
-      setTagUserResults([]);
-      await fetchTagCodes(tagMeta.page, tagStatusFilter, tagSearch);
+
+      reserveStreamRef.current = stream;
+      setTagScannerActive(true);
+
+      if (reserveVideoRef.current) {
+        const video = reserveVideoRef.current;
+        video.muted = true;
+        video.playsInline = true;
+        video.setAttribute('playsinline', 'true');
+        video.autoplay = true;
+        video.srcObject = stream;
+        try {
+          await video.play();
+        } catch {
+          // Autoplay may be blocked on iOS; scanning can still proceed.
+        }
+      }
+
+      setTagReserveStatus(
+        'BarcodeDetector' in window
+          ? 'Point your camera at the QR code on the physical tag.'
+          : 'Camera ready. Using a fallback QR reader for this device.',
+      );
     } catch (err) {
-      setTagAssignResult(err instanceof Error ? err.message : 'Failed to assign tag gift code');
+      setTagReserveError(getCameraErrorMessage(err));
+      setTagReserveStatus('');
+      stopTagScanner();
     } finally {
-      setTagAssigning(false);
+      setTagScannerOpening(false);
+    }
+  }, [stopTagScanner]);
+
+  const handleReserveTag = async () => {
+    if (!tagReserveCodeId) {
+      setTagReserveResult('Select a tag gift code first.');
+      return;
+    }
+
+    const normalizedToken = extractTagTokenFromScan(tagReserveToken) ?? tagReserveToken.trim();
+    if (!/^[A-Za-z0-9]{12}$/.test(normalizedToken)) {
+      setTagReserveResult('Scan a valid tag QR code or enter a 12-character tag token.');
+      return;
+    }
+
+    setTagReserving(true);
+    setTagReserveResult(null);
+    try {
+      const result = await apiClient.post<{ data: TagGiftCodeRow }>(`/admin/tag-gift-codes/${tagReserveCodeId}/reserve-tag`, {
+        tagToken: normalizedToken,
+      });
+      setTagReserveToken(result.data.reservedTag?.token ?? normalizedToken);
+      setTagReserveStatus('Physical tag reserved to this gift code.');
+      setTagReserveResult(`Reserved ${result.data.reservedTag?.token ?? normalizedToken} to ${result.data.code}.`);
+      await fetchTagCodes(tagMeta.page, tagStatusFilter, tagSearch);
+      setTagReserveCodeId('');
+    } catch (err) {
+      setTagReserveResult(err instanceof Error ? err.message : 'Failed to reserve tag gift code');
+    } finally {
+      setTagReserving(false);
     }
   };
 
@@ -569,7 +776,7 @@ export default function AdminSubscriptionGiftsPage() {
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <div className="rounded-lg border border-border bg-surface p-6">
           <h3 className="text-lg font-semibold text-text">Create Tag Gift Code</h3>
-          <p className="mt-1 text-sm text-text-muted">Issue a redeem code that creates an inactive tag for the user.</p>
+          <p className="mt-1 text-sm text-text-muted">Create a one-time tag gift code, then reserve a physical tag to it by scanning.</p>
 
           <div className="mt-5 grid gap-4">
             <div>
@@ -597,15 +804,7 @@ export default function AdminSubscriptionGiftsPage() {
               />
             </div>
 
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-widest text-text-dim">Max redemptions</label>
-              <input
-                value={tagMaxRedemptions}
-                onChange={(e) => setTagMaxRedemptions(e.target.value)}
-                className="mt-2 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="1"
-              />
-            </div>
+            <Alert variant="info">Scanner-based tag gifts reserve one physical tag per code.</Alert>
 
             {tagCreateResult && (
               <Alert variant={tagCreateResult.startsWith('Scan2Call-Gift') ? 'success' : 'error'}>
@@ -622,18 +821,18 @@ export default function AdminSubscriptionGiftsPage() {
         </div>
 
         <div className="rounded-lg border border-border bg-surface p-6">
-          <h3 className="text-lg font-semibold text-text">Assign Tag Gift</h3>
-          <p className="mt-1 text-sm text-text-muted">Redeem a tag gift code on behalf of a user.</p>
+          <h3 className="text-lg font-semibold text-text">Reserve Physical Tag</h3>
+          <p className="mt-1 text-sm text-text-muted">Bind an inactive, unowned physical tag to an active gift code.</p>
 
           <div className="mt-5 space-y-4">
             <div>
               <label className="text-xs font-semibold uppercase tracking-widest text-text-dim">Gift code</label>
               <select
-                value={tagAssignCodeId}
-                onChange={(e) => setTagAssignCodeId(e.target.value)}
+                value={tagReserveCodeId}
+                onChange={(e) => setTagReserveCodeId(e.target.value)}
                 className="mt-2 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               >
-                <option value="">Select an active code</option>
+                <option value="">Select an unreserved active code</option>
                 {activeTagCodes.map((code) => (
                   <option key={code.id} value={code.id}>
                     {code.code}
@@ -643,51 +842,63 @@ export default function AdminSubscriptionGiftsPage() {
             </div>
 
             <div>
-              <label className="text-xs font-semibold uppercase tracking-widest text-text-dim">Search user</label>
+              <label className="text-xs font-semibold uppercase tracking-widest text-text-dim">Scanned tag token</label>
               <div className="mt-2 flex gap-2">
                 <input
-                  value={tagUserQuery}
-                  onChange={(e) => setTagUserQuery(e.target.value)}
+                  value={tagReserveToken}
+                  onChange={(e) => setTagReserveToken(e.target.value)}
                   className="flex-1 rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="Email or name"
+                  placeholder="12-character token or Scan2Call URL"
                 />
-                <Button variant="secondary" onClick={handleTagUserSearch} icon={<Search className="h-4 w-4" />}>
-                  Find
+                <Button variant="secondary" onClick={handleStartTagScanner} loading={tagScannerOpening} icon={<Camera className="h-4 w-4" />}>
+                  {tagScannerOpening ? 'Opening...' : 'Scan'}
                 </Button>
               </div>
             </div>
 
-            {tagUserResults.length > 0 && (
-              <div className="rounded-md border border-border bg-bg/40">
-                {tagUserResults.map((user) => (
-                  <button
-                    key={user.id}
-                    onClick={() => setTagSelectedUser(user)}
-                    className={`w-full px-4 py-2 text-left text-sm transition-colors hover:bg-surface-raised ${
-                      tagSelectedUser?.id === user.id ? 'bg-surface-raised' : ''
-                    }`}
-                  >
-                    <div className="font-medium text-text">{user.firstName} {user.lastName}</div>
-                    <div className="text-xs text-text-dim">{user.email}</div>
+            <div className="overflow-hidden rounded-md border border-border bg-bg/40">
+              <div className="flex items-center justify-between border-b border-border px-4 py-2 text-xs font-semibold uppercase tracking-widest text-text-dim">
+                <span>Camera capture</span>
+                {tagScannerActive && (
+                  <button onClick={stopTagScanner} className="text-text-muted transition hover:text-text">
+                    Stop
                   </button>
-                ))}
+                )}
               </div>
-            )}
+              <div className="relative aspect-video bg-black/80">
+                {tagScannerActive ? (
+                  <video ref={reserveVideoRef} className="h-full w-full object-cover" muted playsInline />
+                ) : (
+                  <div className="flex h-full items-center justify-center px-6 text-center text-sm text-text-dim">
+                    <div>
+                      <ScanLine className="mx-auto mb-3 h-8 w-8 text-text-muted" />
+                      Open the camera and point it at the physical tag QR code.
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
 
-            {tagSelectedUser && (
+            {tagReserveStatus && (
               <Alert variant="info">
-                Selected: {tagSelectedUser.firstName} {tagSelectedUser.lastName} ({tagSelectedUser.email})
+                {tagReserveStatus}
               </Alert>
             )}
 
-            {tagAssignResult && (
-              <Alert variant={tagAssignResult.includes('successfully') ? 'success' : 'error'}>
-                {tagAssignResult}
+            {tagReserveError && (
+              <Alert variant="error">
+                {tagReserveError}
               </Alert>
             )}
 
-            <Button onClick={handleTagAssign} loading={tagAssigning} icon={<UserPlus className="h-4 w-4" />}>
-              {tagAssigning ? 'Assigning...' : 'Assign Tag Gift'}
+            {tagReserveResult && (
+              <Alert variant={tagReserveResult.startsWith('Reserved ') ? 'success' : 'error'}>
+                {tagReserveResult}
+              </Alert>
+            )}
+
+            <Button onClick={handleReserveTag} loading={tagReserving} icon={<Tag className="h-4 w-4" />}>
+              {tagReserving ? 'Reserving...' : 'Reserve Physical Tag'}
             </Button>
           </div>
         </div>
@@ -732,10 +943,11 @@ export default function AdminSubscriptionGiftsPage() {
       {!tagError && (
         <div className="mt-6 overflow-hidden rounded-lg border border-border bg-surface">
           <div className="border-b border-border px-6 py-3">
-            <div className="grid grid-cols-7 text-sm font-medium text-text-dim">
+            <div className="grid grid-cols-8 text-sm font-medium text-text-dim">
               <span className="col-span-2">Code</span>
               <span>Status</span>
               <span>Tag type</span>
+              <span>Reserved tag</span>
               <span>Expires</span>
               <span>Redeemed</span>
               <span className="text-right">Actions</span>
@@ -753,7 +965,7 @@ export default function AdminSubscriptionGiftsPage() {
               {tagCodes.map((code) => (
                 <div
                   key={code.id}
-                  className="grid grid-cols-7 items-center border-b border-border px-6 py-3 text-sm last:border-b-0 hover:bg-surface-raised"
+                  className="grid grid-cols-8 items-center border-b border-border px-6 py-3 text-sm last:border-b-0 hover:bg-surface-raised"
                 >
                   <div className="col-span-2">
                     <div className="font-mono text-primary">{code.code}</div>
@@ -768,6 +980,16 @@ export default function AdminSubscriptionGiftsPage() {
                   </div>
                   <div className="text-text-muted">
                     {TAG_TYPE_LABELS[code.tagType]}
+                  </div>
+                  <div className="text-text-muted">
+                    {code.reservedTag ? (
+                      <div>
+                        <div className="font-mono text-xs text-text">{code.reservedTag.token}</div>
+                        <div className="text-xs text-text-dim">{code.reservedTag.status}</div>
+                      </div>
+                    ) : (
+                      'Unreserved'
+                    )}
                   </div>
                   <div className="text-text-muted">
                     {code.expiresAt ? new Date(code.expiresAt).toLocaleDateString() : '—'}
