@@ -253,7 +253,9 @@ export class AdminSystemService {
           details: {
             currency: available?.currency?.toUpperCase() || 'N/A',
             webhookSecret: this.config.get('STRIPE_WEBHOOK_SECRET') ? 'set' : 'not set',
-            priceId: this.config.get('STRIPE_SUBSCRIPTION_PRICE_ID') ? 'set' : 'not set',
+            monthlyPriceId: this.config.get('STRIPE_SUBSCRIPTION_MONTHLY_PRICE_ID') ? 'set' : 'not set',
+            yearlyPriceId: this.config.get('STRIPE_SUBSCRIPTION_YEARLY_PRICE_ID') ? 'set' : 'not set',
+            threeYearPriceId: this.config.get('STRIPE_SUBSCRIPTION_THREE_YEAR_PRICE_ID') ? 'set' : 'not set',
           },
         };
       }

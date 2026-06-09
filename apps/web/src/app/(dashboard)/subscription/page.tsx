@@ -13,6 +13,7 @@ import { Sparkles, Check, Crown, CreditCard } from 'lucide-react';
 interface Subscription {
   id: string;
   status: string;
+  plan?: 'monthly' | 'yearly' | 'three_year';
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
@@ -29,8 +30,9 @@ function formatDate(dateStr: string): string {
 
 function getStatusBadge(status: string, cancelAtPeriodEnd: boolean) {
   if (cancelAtPeriodEnd) return <Badge variant="warning">Cancelling</Badge>;
+  const normalized = status.toLowerCase();
   const variants: Record<string, 'success' | 'error' | 'info' | 'neutral'> = { active: 'success', past_due: 'error', trialing: 'info', unpaid: 'error' };
-  return <Badge variant={variants[status] ?? 'neutral'}>{status.replace('_', ' ')}</Badge>;
+  return <Badge variant={variants[normalized] ?? 'neutral'}>{normalized.replace('_', ' ')}</Badge>;
 }
 
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } } };
@@ -50,6 +52,7 @@ const FEATURES = [
 
 const PLANS = [
   {
+    id: 'monthly',
     name: 'Monthly',
     price: '$2.99',
     cadence: '/mo AUD',
@@ -58,6 +61,7 @@ const PLANS = [
     cta: 'Start Monthly',
   },
   {
+    id: 'yearly',
     name: 'Yearly',
     price: '$14.49',
     cadence: '/yr AUD',
@@ -66,20 +70,29 @@ const PLANS = [
     cta: 'Get Yearly Access',
   },
   {
-    name: '5 Years',
-    price: '$79.49',
-    cadence: '/5 yrs AUD',
+    id: 'three_year',
+    name: '3 Years',
+    price: '$43.47',
+    cadence: '/3 yrs AUD',
     note: 'The best long-term savings.',
     highlight: false,
-    cta: 'Lock in 5 Years',
+    cta: 'Lock in 3 Years',
   },
-];
+] as const;
+
+const DEFAULT_PLAN_LABEL = { name: 'Monthly', price: '$2.99', cadence: '/mo AUD' };
+
+const PLAN_LABELS: Record<string, { name: string; price: string; cadence: string }> = {
+  monthly: DEFAULT_PLAN_LABEL,
+  yearly: { name: 'Yearly', price: '$14.49', cadence: '/yr AUD' },
+  three_year: { name: '3 Years', price: '$43.47', cadence: '/3 yrs AUD' },
+};
 
 export default function SubscriptionPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [subscribing, setSubscribing] = useState(false);
+  const [subscribingPlan, setSubscribingPlan] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [resuming, setResuming] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
@@ -105,14 +118,14 @@ export default function SubscriptionPage() {
     return () => { cancelled = true; };
   }, []);
 
-  const handleSubscribe = useCallback(async () => {
-    setSubscribing(true); setActionError(null);
+  const handleSubscribe = useCallback(async (planId: 'monthly' | 'yearly' | 'three_year') => {
+    setSubscribingPlan(planId); setActionError(null);
     try {
-      const result = await apiClient.post<{ data: { sessionUrl: string } }>('/subscriptions');
+      const result = await apiClient.post<{ data: { sessionUrl: string } }>('/subscriptions', { planId });
       window.location.href = result.data.sessionUrl;
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Failed to start checkout.');
-      setSubscribing(false);
+      setSubscribingPlan(null);
     }
   }, []);
 
@@ -231,13 +244,13 @@ export default function SubscriptionPage() {
                   <span className="text-xs text-text-dim">{plan.cadence}</span>
                 </div>
                 <p className="mt-2 text-xs text-text-muted">{plan.note}</p>
-                <Button
-                  onClick={handleSubscribe}
-                  loading={subscribing}
+                  <Button
+                  onClick={() => handleSubscribe(plan.id)}
+                  loading={subscribingPlan === plan.id}
                   size="sm"
                   className="mt-4 w-full"
                 >
-                  {subscribing ? 'Redirecting...' : plan.cta}
+                  {subscribingPlan === plan.id ? 'Redirecting...' : plan.cta}
                 </Button>
               </div>
             ))}
@@ -259,6 +272,8 @@ export default function SubscriptionPage() {
   }
 
   const isCancelled = subscription.cancelAtPeriodEnd;
+  const activePlan = PLAN_LABELS[subscription.plan ?? 'monthly'] ?? DEFAULT_PLAN_LABEL;
+  const isPrepaidPlan = subscription.plan === 'three_year';
   const giftLabel = subscription.isLifetime
     ? 'Lifetime gift access'
     : subscription.giftExpiresAt
@@ -282,7 +297,10 @@ export default function SubscriptionPage() {
               <h2 className="text-lg font-semibold text-text">Scan2Call Subscription</h2>
               {getStatusBadge(subscription.status, isCancelled)}
             </div>
-            <p className="mt-1 text-2xl font-bold text-primary">$9.99<span className="text-sm font-normal text-text-dim">/mo AUD</span></p>
+            <p className="mt-1 text-2xl font-bold text-primary">
+              {activePlan.price}<span className="text-sm font-normal text-text-dim">{activePlan.cadence}</span>
+            </p>
+            <p className="mt-1 text-xs text-text-dim">{activePlan.name} plan</p>
           </div>
         </div>
 
@@ -320,7 +338,11 @@ export default function SubscriptionPage() {
         {actionError && <p className="mt-4 text-sm text-error">{actionError}</p>}
 
         <div className="mt-6 flex flex-wrap gap-3">
-          {isCancelled ? (
+          {isPrepaidPlan ? (
+            <Button variant="secondary" onClick={handleBillingPortal} loading={portalLoading} icon={<CreditCard className="h-4 w-4" />}>
+              {portalLoading ? 'Opening...' : 'Manage Billing'}
+            </Button>
+          ) : isCancelled ? (
             <Button onClick={handleResume} loading={resuming}>{resuming ? 'Resuming...' : 'Resume Subscription'}</Button>
           ) : (
             <>
@@ -344,9 +366,11 @@ export default function SubscriptionPage() {
               )}
             </>
           )}
-          <Button variant="secondary" onClick={handleBillingPortal} loading={portalLoading} icon={<CreditCard className="h-4 w-4" />}>
-            {portalLoading ? 'Opening...' : 'Manage Billing'}
-          </Button>
+          {!isPrepaidPlan && (
+            <Button variant="secondary" onClick={handleBillingPortal} loading={portalLoading} icon={<CreditCard className="h-4 w-4" />}>
+              {portalLoading ? 'Opening...' : 'Manage Billing'}
+            </Button>
+          )}
         </div>
       </motion.div>
 

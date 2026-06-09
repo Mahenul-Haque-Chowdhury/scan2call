@@ -15,6 +15,7 @@ import { PageHeader } from '@/components/ui/page-header';
 interface Subscription {
   id: string;
   status: string;
+  plan?: 'monthly' | 'yearly' | 'three_year';
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
@@ -24,6 +25,12 @@ interface Subscription {
 }
 
 function formatDate(dateStr: string): string { return new Date(dateStr).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }); }
+
+const PLAN_LABELS: Record<string, string> = {
+  monthly: 'Monthly - $2.99/mo AUD',
+  yearly: 'Yearly - $14.49/yr AUD',
+  three_year: '3 Years - $43.47/3 yrs AUD',
+};
 
 const cardAnim = (delay: number) => ({
   initial: { opacity: 0, y: 16 } as const,
@@ -98,10 +105,12 @@ export default function BillingSettingsPage() {
                 <div>
                   <h2 className="font-semibold text-text">Subscription Status</h2>
                   <div className="mt-2 flex items-center gap-2">
-                    <Badge variant={subscription.cancelAtPeriodEnd ? 'warning' : subscription.status === 'active' ? 'success' : 'neutral'}>
-                      {subscription.cancelAtPeriodEnd ? 'Cancelling' : subscription.status.replace('_', ' ')}
+                    <Badge variant={subscription.cancelAtPeriodEnd ? 'warning' : subscription.status.toLowerCase() === 'active' ? 'success' : 'neutral'}>
+                      {subscription.cancelAtPeriodEnd ? 'Cancelling' : subscription.status.toLowerCase().replace('_', ' ')}
                     </Badge>
-                    <span className="text-sm text-text-muted">Scan2Call - $9.99/mo AUD</span>
+                    <span className="text-sm text-text-muted">
+                      Scan2Call - {PLAN_LABELS[subscription.plan ?? 'monthly'] ?? PLAN_LABELS.monthly}
+                    </span>
                     {subscription.isLifetime && (
                       <Badge variant="success">Lifetime Gift</Badge>
                     )}

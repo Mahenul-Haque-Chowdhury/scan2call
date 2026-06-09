@@ -6,10 +6,16 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../database/prisma.service';
-import { SUBSCRIPTION_PRICE_AUD_CENTS } from '@scan2call/shared';
+import {
+  DEFAULT_SUBSCRIPTION_PLAN_ID,
+  SUBSCRIPTION_PLANS,
+  type SubscriptionPlanId,
+} from '@scan2call/shared';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import { GiftService } from './gift.service';
 import Stripe from 'stripe';
+
+const STRIPE_MANAGED_PAYMENTS_API_VERSION = '2026-02-25.preview';
 
 @Injectable()
 export class SubscriptionsService {
@@ -22,9 +28,7 @@ export class SubscriptionsService {
     private readonly giftService: GiftService,
   ) {
     const key = this.config.get<string>('STRIPE_SECRET_KEY');
-    this.stripe = key
-      ? new Stripe(key, { apiVersion: '2025-02-24.acacia' })
-      : null;
+    this.stripe = key ? new Stripe(key) : null;
   }
 
   private get stripeClient(): Stripe {
@@ -37,11 +41,8 @@ export class SubscriptionsService {
    */
   getPlanInfo() {
     return {
-      data: {
-        name: 'Scan2Call Subscription',
-        priceInCents: SUBSCRIPTION_PRICE_AUD_CENTS,
-        currency: 'AUD',
-        interval: 'month',
+      data: Object.values(SUBSCRIPTION_PLANS).map((plan) => ({
+        ...plan,
         features: [
           'Unlimited tags',
           'Unlimited scans',
@@ -51,7 +52,7 @@ export class SubscriptionsService {
           'Tag photos',
           'Store purchasing',
         ],
-      },
+      })),
     };
   }
 
@@ -102,14 +103,24 @@ export class SubscriptionsService {
       select: { stripeCustomerId: true, email: true },
     });
 
-    // Ensure Stripe price ID is configured
-    const stripePriceId = this.config.getOrThrow<string>('STRIPE_SUBSCRIPTION_PRICE_ID');
+    const planId = dto.planId ?? DEFAULT_SUBSCRIPTION_PLAN_ID;
+    const plan = SUBSCRIPTION_PLANS[planId];
+    if (!plan) {
+      throw new BadRequestException('Invalid subscription plan');
+    }
+
+    const stripePriceId = this.getStripePriceId(planId);
     const appUrl = this.config.getOrThrow<string>('APP_URL');
 
+    const isPrepaidPlan = planId === 'three_year';
+
     const session = await this.stripeClient.checkout.sessions.create({
-      mode: 'subscription',
+      mode: isPrepaidPlan ? 'payment' : 'subscription',
       customer: user.stripeCustomerId ?? undefined,
       customer_email: user.stripeCustomerId ? undefined : user.email,
+      managed_payments: {
+        enabled: true,
+      },
       line_items: [
         {
           price: stripePriceId,
@@ -118,12 +129,28 @@ export class SubscriptionsService {
       ],
       metadata: {
         userId,
+        planId,
+        checkoutType: isPrepaidPlan ? 'subscription_prepaid' : 'subscription',
       },
-      success_url: dto.successUrl ?? `${appUrl}/dashboard?subscription=success`,
-      cancel_url: dto.cancelUrl ?? `${appUrl}/pricing?subscription=cancelled`,
+      ...(isPrepaidPlan
+        ? {}
+        : {
+            subscription_data: {
+              metadata: {
+                userId,
+                planId,
+              },
+            },
+          }),
+      success_url: dto.successUrl ?? `${appUrl}/subscription?subscription=success&plan=${planId}`,
+      cancel_url: dto.cancelUrl ?? `${appUrl}/pricing?subscription=cancelled&plan=${planId}`,
+    } as Stripe.Checkout.SessionCreateParams, {
+      apiVersion: STRIPE_MANAGED_PAYMENTS_API_VERSION,
     });
 
-    this.logger.log(`Subscription checkout session ${session.id} created for user ${userId}`);
+    this.logger.log(
+      `Subscription checkout session ${session.id} created for user ${userId} plan ${planId}`,
+    );
 
     return { sessionUrl: session.url! };
   }
@@ -233,5 +260,20 @@ export class SubscriptionsService {
     if (isLifetime) return true;
     if (!giftExpiresAt) return false;
     return giftExpiresAt.getTime() > Date.now();
+  }
+
+  private getStripePriceId(planId: SubscriptionPlanId): string {
+    const envNameByPlan: Record<SubscriptionPlanId, string> = {
+      monthly: 'STRIPE_SUBSCRIPTION_MONTHLY_PRICE_ID',
+      yearly: 'STRIPE_SUBSCRIPTION_YEARLY_PRICE_ID',
+      three_year: 'STRIPE_SUBSCRIPTION_THREE_YEAR_PRICE_ID',
+    };
+
+    const envName = envNameByPlan[planId];
+    const priceId = this.config.get<string>(envName);
+    if (!priceId) {
+      throw new BadRequestException(`${envName} is not configured`);
+    }
+    return priceId;
   }
 }

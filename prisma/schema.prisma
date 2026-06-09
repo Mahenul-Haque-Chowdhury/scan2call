@@ -582,6 +582,7 @@ model Subscription {
   user   User               @relation(fields: [userId], references: [id])
   status SubscriptionStatus @default(ACTIVE)
   source SubscriptionSource @default(STRIPE)
+  plan   String             @default("monthly")
 
   // Stripe
   stripeSubscriptionId String? @unique
@@ -726,6 +727,16 @@ model Payment {
 
   @@index([userId])
   @@map("payments")
+}
+
+model ProcessedWebhookEvent {
+  id          String   @id
+  provider    String
+  eventType   String
+  processedAt DateTime @default(now())
+
+  @@index([provider, eventType])
+  @@map("processed_webhook_events")
 }
 
 // ──────────────────────────────────────────────

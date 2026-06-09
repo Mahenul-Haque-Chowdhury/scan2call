@@ -36,9 +36,7 @@ export class AdminService {
     private readonly qrCodeService: QrCodeService,
   ) {
     const key = this.configService.stripeSecretKey;
-    this.stripe = key
-      ? new Stripe(key, { apiVersion: '2025-02-24.acacia' })
-      : null;
+    this.stripe = key ? new Stripe(key) : null;
   }
 
   private get stripeClient(): Stripe {
@@ -1513,6 +1511,8 @@ export class AdminService {
         sortOrder: dto.sortOrder ?? 0,
         metaTitle: dto.metaTitle,
         metaDescription: dto.metaDescription,
+        stripeProductId: dto.stripeProductId,
+        stripePriceId: dto.stripePriceId,
       },
       include: { images: true },
     });

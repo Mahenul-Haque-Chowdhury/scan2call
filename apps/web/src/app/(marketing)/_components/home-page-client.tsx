@@ -20,7 +20,7 @@ const products = [
     image: '/images/products/luggage-tag.png',
     iconColor: 'text-violet-400',
     badge: 'Most Popular',
-    price: '$14.99',
+    price: '$0.99',
   },
   {
     name: 'Pet Collar Tag',
@@ -29,7 +29,7 @@ const products = [
     image: '/images/products/pet-collar-tag.png',
     iconColor: 'text-amber-400',
     badge: 'Most Popular',
-    price: '$12.99',
+    price: '$9.49',
   },
   {
     name: 'Keychain Tag',
@@ -38,7 +38,7 @@ const products = [
     image: '/images/products/keychain-tag.png',
     iconColor: 'text-emerald-400',
     badge: null,
-    price: '$7.99',
+    price: '$9.49',
   },
   {
     name: 'Car Windshield Sticker',
@@ -47,7 +47,7 @@ const products = [
     image: '/images/products/car-sticker.png',
     iconColor: 'text-blue-400',
     badge: null,
-    price: '$8.99',
+    price: '$0.99',
   },
   {
     name: 'Passport Sticker & Standard Stickers',
@@ -56,7 +56,7 @@ const products = [
     image: '/images/products/passport.png',
     iconColor: 'text-yellow-400',
     badge: 'Featured',
-    price: '$6.99',
+    price: '$0.99',
   },
   {
     name: 'Medical ID Band',
@@ -65,7 +65,7 @@ const products = [
     image: '/images/products/medical-band.png',
     iconColor: 'text-rose-400',
     badge: null,
-    price: '$14.99',
+    price: '$14.49',
   },
 ];
 

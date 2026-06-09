@@ -55,7 +55,7 @@ export const faqCategories = [
       {
         question: 'Do I need a subscription?',
         answer:
-          'Yes. A single subscription ($9.99/mo AUD or $99.99/yr) unlocks all features including unlimited tags, unlimited scans, WhatsApp relay, location tracking, and access to the tag store.',
+          'Yes. A subscription unlocks all features including unlimited tags, unlimited scans, WhatsApp relay, location tracking, and access to the tag store. Plans are $2.99/mo AUD, $14.49/yr AUD, or $43.47/3 yrs AUD.',
       },
       {
         question: 'Can I cancel anytime?',

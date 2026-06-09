@@ -15,13 +15,6 @@ interface CreateTagGiftCodeInput {
   maxRedemptions?: number;
 }
 
-interface ReservedTagSummary {
-  id: string;
-  token: string;
-  status: string;
-  type: TagType;
-}
-
 interface TagGiftCodeState {
   id: string;
   status: GiftCodeStatus;

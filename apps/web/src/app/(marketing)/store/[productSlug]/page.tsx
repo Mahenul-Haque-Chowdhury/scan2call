@@ -37,15 +37,16 @@ async function fetchProduct(productSlug: string): Promise<ProductFetchResult> {
 export async function generateMetadata({
   params,
 }: {
-  params: { productSlug: string };
+  params: Promise<{ productSlug: string }>;
 }): Promise<Metadata> {
-  const result = await fetchProduct(params.productSlug);
+  const { productSlug } = await params;
+  const result = await fetchProduct(productSlug);
 
   if (result.status !== 'found') {
     return createMetadata({
       title: 'Product not found',
       description: 'This product could not be found.',
-      path: `/store/${params.productSlug}`,
+      path: `/store/${productSlug}`,
       noindex: true,
     });
   }
@@ -69,9 +70,10 @@ export async function generateMetadata({
 export default async function ProductDetailPage({
   params,
 }: {
-  params: { productSlug: string };
+  params: Promise<{ productSlug: string }>;
 }) {
-  const result = await fetchProduct(params.productSlug);
+  const { productSlug } = await params;
+  const result = await fetchProduct(productSlug);
 
   if (result.status === 'not-found') {
     notFound();

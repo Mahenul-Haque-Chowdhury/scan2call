@@ -180,7 +180,7 @@ export default function HowItWorksClient() {
             Ready to protect what matters?
           </h2>
           <p className="mt-3 text-text-muted">
-            One plan, $9.99/mo, cancel anytime.
+            Choose monthly, yearly, or 3-year access from $2.99 AUD.
           </p>
           <div className="mt-8 flex items-center justify-center gap-4 flex-wrap">
             <Link

@@ -46,6 +46,8 @@ interface ProductData {
   sortOrder: number;
   metaTitle: string | null;
   metaDescription: string | null;
+  stripeProductId: string | null;
+  stripePriceId: string | null;
   images: ProductImage[];
 }
 
@@ -65,6 +67,8 @@ interface FormState {
   sortOrder: string;
   metaTitle: string;
   metaDescription: string;
+  stripeProductId: string;
+  stripePriceId: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -83,6 +87,8 @@ const EMPTY_FORM: FormState = {
   sortOrder: '0',
   metaTitle: '',
   metaDescription: '',
+  stripeProductId: '',
+  stripePriceId: '',
 };
 
 const TAG_TYPE_OPTIONS = [
@@ -110,6 +116,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [images, setImages] = useState<ProductImage[]>([]);
+  const [removedImageIds, setRemovedImageIds] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingProduct, setLoadingProduct] = useState(isEdit);
@@ -141,8 +148,11 @@ export default function ProductForm({ productId }: ProductFormProps) {
           sortOrder: String(product.sortOrder),
           metaTitle: product.metaTitle || '',
           metaDescription: product.metaDescription || '',
+          stripeProductId: product.stripeProductId || '',
+          stripePriceId: product.stripePriceId || '',
         });
         setImages(product.images || []);
+        setRemovedImageIds([]);
       } catch (err) {
         setSubmitError(err instanceof Error ? err.message : 'Failed to load product');
       } finally {
@@ -271,7 +281,15 @@ export default function ProductForm({ productId }: ProductFormProps) {
   }
 
   function removeImage(index: number) {
-    setImages((prev) => prev.filter((_, i) => i !== index));
+    setImages((prev) => {
+      const image = prev[index];
+      if (image && !image.id.startsWith('temp-')) {
+        setRemovedImageIds((ids) =>
+          ids.includes(image.id) ? ids : [...ids, image.id],
+        );
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   }
 
   // ─── Submit ───
@@ -301,6 +319,8 @@ export default function ProductForm({ productId }: ProductFormProps) {
     if (form.tagType) payload.tagType = form.tagType;
     if (form.metaTitle.trim()) payload.metaTitle = form.metaTitle.trim();
     if (form.metaDescription.trim()) payload.metaDescription = form.metaDescription.trim();
+    payload.stripeProductId = form.stripeProductId.trim() || null;
+    payload.stripePriceId = form.stripePriceId.trim() || null;
 
     try {
       let savedProduct: ProductData;
@@ -311,6 +331,10 @@ export default function ProductForm({ productId }: ProductFormProps) {
       } else {
         const postResult = await apiClient.post<{ data: ProductData }>('/admin/products', payload);
         savedProduct = postResult.data;
+      }
+
+      for (const imageId of removedImageIds) {
+        await apiClient.delete(`/admin/products/${savedProduct.id}/images/${imageId}`);
       }
 
       // Save images - create new ProductImage records for temp images
@@ -325,6 +349,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
       }
 
       setSubmitSuccess(true);
+      setRemovedImageIds([]);
       setTimeout(() => {
         router.push(`/admin/products/${savedProduct.id}`);
       }, 600);
@@ -459,6 +484,29 @@ export default function ProductForm({ productId }: ProductFormProps) {
               onChange={(e) => setField('stockQuantity', e.target.value)}
               error={errors.stockQuantity}
               min={0}
+            />
+          </div>
+        </section>
+
+        {/* ─── Stripe Catalogue ─── */}
+        <section className="rounded-xl border border-border bg-surface p-6">
+          <h2 className="text-sm font-semibold text-text uppercase tracking-wider mb-5">
+            Stripe Catalogue
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Stripe Product ID"
+              value={form.stripeProductId}
+              onChange={(e) => setField('stripeProductId', e.target.value)}
+              placeholder="prod_..."
+              hint="Optional reference to the matching Stripe product"
+            />
+            <Input
+              label="Stripe Price ID"
+              value={form.stripePriceId}
+              onChange={(e) => setField('stripePriceId', e.target.value)}
+              placeholder="price_..."
+              hint="Checkout uses this exact Stripe catalogue price"
             />
           </div>
         </section>

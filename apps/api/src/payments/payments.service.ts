@@ -14,9 +14,7 @@ export class PaymentsService {
     private readonly config: ConfigService,
   ) {
     const key = this.config.get<string>('STRIPE_SECRET_KEY');
-    this.stripe = key
-      ? new Stripe(key, { apiVersion: '2025-02-24.acacia' })
-      : null;
+    this.stripe = key ? new Stripe(key) : null;
   }
 
   /**

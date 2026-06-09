@@ -14,7 +14,10 @@ import { Public } from '../common/decorators/public.decorator';
 import { PrismaService } from '../database/prisma.service';
 import { PaymentsService } from './payments.service';
 import { OrderStatus, SubscriptionStatus } from '@/generated/prisma/client';
+import { Prisma } from '@/generated/prisma/client';
 import Stripe from 'stripe';
+
+type SubscriptionPlanId = 'monthly' | 'yearly' | 'three_year';
 
 @ApiTags('webhooks')
 @Controller('webhooks')
@@ -29,9 +32,7 @@ export class StripeWebhookController {
     private readonly paymentsService: PaymentsService,
   ) {
     const key = this.config.get<string>('STRIPE_SECRET_KEY');
-    this.stripe = key
-      ? new Stripe(key, { apiVersion: '2025-02-24.acacia' })
-      : null;
+    this.stripe = key ? new Stripe(key) : null;
     this.webhookSecret = this.config.get<string>('STRIPE_WEBHOOK_SECRET', '');
   }
 
@@ -65,6 +66,12 @@ export class StripeWebhookController {
     }
 
     this.logger.log(`Received Stripe event: ${event.type} (${event.id})`);
+
+    const isFirstDelivery = await this.markEventForProcessing(event);
+    if (!isFirstDelivery) {
+      this.logger.log(`Skipping already processed Stripe event: ${event.id}`);
+      return { received: true, duplicate: true };
+    }
 
     switch (event.type) {
       case 'checkout.session.completed':
@@ -108,13 +115,39 @@ export class StripeWebhookController {
 
   // ─── Event Handlers ───────────────────────────────────────────────
 
+  private async markEventForProcessing(event: Stripe.Event): Promise<boolean> {
+    try {
+      await this.prisma.processedWebhookEvent.create({
+        data: {
+          id: event.id,
+          provider: 'stripe',
+          eventType: event.type,
+        },
+      });
+      return true;
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        return false;
+      }
+      throw err;
+    }
+  }
+
   /**
    * Handles both one-time payment checkouts (orders) and subscription checkouts.
    */
   private async handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
     const userId = session.metadata?.userId;
 
-    if (session.mode === 'payment') {
+    if (
+      session.mode === 'payment' &&
+      session.metadata?.checkoutType === 'subscription_prepaid'
+    ) {
+      await this.handlePrepaidSubscriptionCheckout(session);
+    } else if (session.mode === 'payment') {
       // One-time product order
       const orderId = session.metadata?.orderId;
       if (!orderId) {
@@ -122,17 +155,59 @@ export class StripeWebhookController {
         return;
       }
 
-      // Update order status to PAID
-      await this.prisma.order.update({
-        where: { id: orderId },
-        data: {
-          status: OrderStatus.PAID,
-          stripePaymentIntentId:
-            typeof session.payment_intent === 'string'
-              ? session.payment_intent
-              : session.payment_intent?.id,
-        },
+      const stripeCustomerId =
+        typeof session.customer === 'string'
+          ? session.customer
+          : session.customer?.id;
+
+      if (userId && stripeCustomerId) {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { stripeCustomerId },
+        });
+      }
+
+      const stripePaymentIntentId =
+        typeof session.payment_intent === 'string'
+          ? session.payment_intent
+          : session.payment_intent?.id;
+
+      const order = await this.prisma.$transaction(async (tx) => {
+        const existingOrder = await tx.order.findUnique({
+          where: { id: orderId },
+          include: { items: true },
+        });
+
+        if (!existingOrder) {
+          this.logger.warn(`checkout.session.completed: order ${orderId} not found`);
+          return null;
+        }
+
+        const wasAlreadyPaid = existingOrder.status === OrderStatus.PAID;
+
+        const updatedOrder = await tx.order.update({
+          where: { id: orderId },
+          data: {
+            status: OrderStatus.PAID,
+            stripePaymentIntentId,
+          },
+        });
+
+        if (!wasAlreadyPaid) {
+          for (const item of existingOrder.items) {
+            await tx.product.update({
+              where: { id: item.productId },
+              data: {
+                stockQuantity: { decrement: item.quantity },
+              },
+            });
+          }
+        }
+
+        return updatedOrder;
       });
+
+      if (!order) return;
 
       // Record the payment
       if (userId) {
@@ -168,6 +243,11 @@ export class StripeWebhookController {
 
       // Fetch the subscription from Stripe for period info
       const stripeSub = await this.stripeClient.subscriptions.retrieve(stripeSubscriptionId);
+      const stripePriceId = stripeSub.items.data[0]?.price.id;
+      const planId =
+        this.getPlanIdForPriceId(stripePriceId) ??
+        this.getValidPlanId(session.metadata?.planId) ??
+        'monthly';
 
       // Ensure Stripe customer ID is saved on user
       const stripeCustomerId =
@@ -189,8 +269,9 @@ export class StripeWebhookController {
           userId,
           status: SubscriptionStatus.ACTIVE,
           source: 'STRIPE',
+          plan: planId,
           stripeSubscriptionId,
-          stripePriceId: stripeSub.items.data[0]?.price.id,
+          stripePriceId,
           currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
           currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
           cancelAtPeriodEnd: false,
@@ -198,8 +279,9 @@ export class StripeWebhookController {
         update: {
           status: SubscriptionStatus.ACTIVE,
           source: 'STRIPE',
+          plan: planId,
           stripeSubscriptionId,
-          stripePriceId: stripeSub.items.data[0]?.price.id,
+          stripePriceId,
           currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
           currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
           cancelAtPeriodEnd: false,
@@ -208,6 +290,69 @@ export class StripeWebhookController {
 
       this.logger.log(`Subscription activated for user ${userId}`);
     }
+  }
+
+  private async handlePrepaidSubscriptionCheckout(session: Stripe.Checkout.Session) {
+    const userId = session.metadata?.userId;
+    const planId = this.getValidPlanId(session.metadata?.planId);
+
+    if (!userId || planId !== 'three_year') {
+      this.logger.warn('prepaid subscription checkout missing valid userId or planId');
+      return;
+    }
+
+    const stripeCustomerId =
+      typeof session.customer === 'string'
+        ? session.customer
+        : session.customer?.id;
+
+    if (stripeCustomerId) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { stripeCustomerId },
+      });
+    }
+
+    const currentPeriodStart = new Date();
+    const currentPeriodEnd = new Date(currentPeriodStart);
+    currentPeriodEnd.setFullYear(currentPeriodEnd.getFullYear() + 3);
+
+    await this.prisma.subscription.upsert({
+      where: { userId },
+      create: {
+        userId,
+        status: SubscriptionStatus.ACTIVE,
+        source: 'STRIPE',
+        plan: 'three_year',
+        stripeSubscriptionId: null,
+        stripePriceId: this.config.get<string>('STRIPE_SUBSCRIPTION_THREE_YEAR_PRICE_ID'),
+        currentPeriodStart,
+        currentPeriodEnd,
+        cancelAtPeriodEnd: false,
+      },
+      update: {
+        status: SubscriptionStatus.ACTIVE,
+        source: 'STRIPE',
+        plan: 'three_year',
+        stripeSubscriptionId: null,
+        stripePriceId: this.config.get<string>('STRIPE_SUBSCRIPTION_THREE_YEAR_PRICE_ID'),
+        currentPeriodStart,
+        currentPeriodEnd,
+        cancelAtPeriodEnd: false,
+      },
+    });
+
+    await this.paymentsService.recordPayment({
+      userId,
+      amountInCents: session.amount_total ?? 0,
+      currency: session.currency?.toUpperCase() ?? 'AUD',
+      stripePaymentIntentId:
+        typeof session.payment_intent === 'string'
+          ? session.payment_intent
+          : session.payment_intent?.id,
+    });
+
+    this.logger.log(`Three-year prepaid subscription activated for user ${userId}`);
   }
 
   /**
@@ -319,6 +464,9 @@ export class StripeWebhookController {
         currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
         currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
         stripePriceId: stripeSub.items.data[0]?.price.id,
+        ...(this.getPlanIdForPriceId(stripeSub.items.data[0]?.price.id)
+          ? { plan: this.getPlanIdForPriceId(stripeSub.items.data[0]?.price.id)! }
+          : {}),
       },
     });
 
@@ -363,5 +511,24 @@ export class StripeWebhookController {
     this.logger.log(
       `Charge ${charge.id} refunded: ${refundedAmount} cents`,
     );
+  }
+
+  private getValidPlanId(planId: string | undefined): SubscriptionPlanId | null {
+    if (planId === 'monthly' || planId === 'yearly' || planId === 'three_year') {
+      return planId;
+    }
+    return null;
+  }
+
+  private getPlanIdForPriceId(priceId: string | undefined): SubscriptionPlanId | null {
+    if (!priceId) return null;
+
+    const planEntries: Array<[string | undefined, SubscriptionPlanId]> = [
+      [this.config.get<string>('STRIPE_SUBSCRIPTION_MONTHLY_PRICE_ID'), 'monthly'],
+      [this.config.get<string>('STRIPE_SUBSCRIPTION_YEARLY_PRICE_ID'), 'yearly'],
+      [this.config.get<string>('STRIPE_SUBSCRIPTION_THREE_YEAR_PRICE_ID'), 'three_year'],
+    ];
+
+    return planEntries.find(([configuredPriceId]) => configuredPriceId === priceId)?.[1] ?? null;
   }
 }

@@ -101,8 +101,16 @@ export class AppConfigService {
     return this.config.get('STRIPE_WEBHOOK_SECRET');
   }
 
-  get stripeSubscriptionPriceId(): string {
-    return this.config.get('STRIPE_SUBSCRIPTION_PRICE_ID');
+  get stripeSubscriptionMonthlyPriceId(): string {
+    return this.config.get('STRIPE_SUBSCRIPTION_MONTHLY_PRICE_ID');
+  }
+
+  get stripeSubscriptionYearlyPriceId(): string {
+    return this.config.get('STRIPE_SUBSCRIPTION_YEARLY_PRICE_ID');
+  }
+
+  get stripeSubscriptionThreeYearPriceId(): string {
+    return this.config.get('STRIPE_SUBSCRIPTION_THREE_YEAR_PRICE_ID');
   }
 
   // ── S3 / R2 ───────────────────────────────────

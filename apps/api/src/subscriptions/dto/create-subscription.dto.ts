@@ -1,7 +1,16 @@
-import { IsOptional, IsString } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsIn, IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import type { SubscriptionPlanId } from '@scan2call/shared';
 
 export class CreateSubscriptionDto {
+  @ApiProperty({
+    enum: ['monthly', 'yearly', 'three_year'],
+    description: 'Subscription plan to purchase',
+  })
+  @IsString()
+  @IsIn(['monthly', 'yearly', 'three_year'])
+  planId: SubscriptionPlanId;
+
   @ApiPropertyOptional({ description: 'URL to redirect to on success (overrides default)' })
   @IsOptional()
   @IsString()

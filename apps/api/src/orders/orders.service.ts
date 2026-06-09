@@ -13,6 +13,9 @@ import { OrderStatus } from '@/generated/prisma/client';
 import Stripe from 'stripe';
 import { randomBytes } from 'crypto';
 
+const STRIPE_MANAGED_PAYMENTS_API_VERSION = '2026-02-25.preview';
+const STRIPE_DIGITAL_PRODUCT_TAX_CODE = 'txcd_10103100';
+
 @Injectable()
 export class OrdersService {
   private readonly stripe: Stripe | null;
@@ -23,9 +26,7 @@ export class OrdersService {
     private readonly config: ConfigService,
   ) {
     const key = this.config.get<string>('STRIPE_SECRET_KEY');
-    this.stripe = key
-      ? new Stripe(key, { apiVersion: '2025-02-24.acacia' })
-      : null;
+    this.stripe = key ? new Stripe(key) : null;
   }
 
   private get stripeClient(): Stripe {
@@ -127,11 +128,19 @@ export class OrdersService {
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = dto.items.map(
       (item) => {
         const product = productMap.get(item.productId)!;
+        if (product.stripePriceId) {
+          return {
+            price: product.stripePriceId,
+            quantity: item.quantity,
+          };
+        }
+
         return {
           price_data: {
             currency: 'aud',
             product_data: {
               name: product.name,
+              tax_code: STRIPE_DIGITAL_PRODUCT_TAX_CODE,
               ...(product.shortDescription
                 ? { description: product.shortDescription }
                 : {}),
@@ -148,14 +157,19 @@ export class OrdersService {
       mode: 'payment',
       customer: user.stripeCustomerId ?? undefined,
       customer_email: user.stripeCustomerId ? undefined : user.email,
+      managed_payments: {
+        enabled: true,
+      },
       line_items: lineItems,
       metadata: {
         orderId: order.id,
         orderNumber: order.orderNumber,
         userId,
       },
-      success_url: `${this.config.getOrThrow<string>('APP_URL')}/orders/${order.id}?status=success`,
+      success_url: `${this.config.getOrThrow<string>('APP_URL')}/store/checkout/success?orderId=${order.id}`,
       cancel_url: `${this.config.getOrThrow<string>('APP_URL')}/store?status=cancelled`,
+    } as Stripe.Checkout.SessionCreateParams, {
+      apiVersion: STRIPE_MANAGED_PAYMENTS_API_VERSION,
     });
 
     this.logger.log(`Checkout session ${session.id} created for order ${orderNumber}`);

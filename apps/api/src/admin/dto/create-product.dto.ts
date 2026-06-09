@@ -94,6 +94,18 @@ export class CreateProductDto {
   @IsString()
   @MaxLength(500)
   metaDescription?: string;
+
+  @ApiPropertyOptional({ description: 'Stripe product ID (prod_...)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  stripeProductId?: string | null;
+
+  @ApiPropertyOptional({ description: 'Stripe price ID (price_...)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  stripePriceId?: string | null;
 }
 
 export class UpdateProductDto {
@@ -188,4 +200,16 @@ export class UpdateProductDto {
   @IsString()
   @MaxLength(500)
   metaDescription?: string;
+
+  @ApiPropertyOptional({ description: 'Stripe product ID (prod_...)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  stripeProductId?: string | null;
+
+  @ApiPropertyOptional({ description: 'Stripe price ID (price_...)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  stripePriceId?: string | null;
 }
