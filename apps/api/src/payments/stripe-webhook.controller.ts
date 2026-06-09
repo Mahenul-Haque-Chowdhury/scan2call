@@ -142,12 +142,7 @@ export class StripeWebhookController {
   private async handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
     const userId = session.metadata?.userId;
 
-    if (
-      session.mode === 'payment' &&
-      session.metadata?.checkoutType === 'subscription_prepaid'
-    ) {
-      await this.handlePrepaidSubscriptionCheckout(session);
-    } else if (session.mode === 'payment') {
+    if (session.mode === 'payment') {
       // One-time product order
       const orderId = session.metadata?.orderId;
       if (!orderId) {
@@ -290,69 +285,6 @@ export class StripeWebhookController {
 
       this.logger.log(`Subscription activated for user ${userId}`);
     }
-  }
-
-  private async handlePrepaidSubscriptionCheckout(session: Stripe.Checkout.Session) {
-    const userId = session.metadata?.userId;
-    const planId = this.getValidPlanId(session.metadata?.planId);
-
-    if (!userId || planId !== 'three_year') {
-      this.logger.warn('prepaid subscription checkout missing valid userId or planId');
-      return;
-    }
-
-    const stripeCustomerId =
-      typeof session.customer === 'string'
-        ? session.customer
-        : session.customer?.id;
-
-    if (stripeCustomerId) {
-      await this.prisma.user.update({
-        where: { id: userId },
-        data: { stripeCustomerId },
-      });
-    }
-
-    const currentPeriodStart = new Date();
-    const currentPeriodEnd = new Date(currentPeriodStart);
-    currentPeriodEnd.setFullYear(currentPeriodEnd.getFullYear() + 3);
-
-    await this.prisma.subscription.upsert({
-      where: { userId },
-      create: {
-        userId,
-        status: SubscriptionStatus.ACTIVE,
-        source: 'STRIPE',
-        plan: 'three_year',
-        stripeSubscriptionId: null,
-        stripePriceId: this.config.get<string>('STRIPE_SUBSCRIPTION_THREE_YEAR_PRICE_ID'),
-        currentPeriodStart,
-        currentPeriodEnd,
-        cancelAtPeriodEnd: false,
-      },
-      update: {
-        status: SubscriptionStatus.ACTIVE,
-        source: 'STRIPE',
-        plan: 'three_year',
-        stripeSubscriptionId: null,
-        stripePriceId: this.config.get<string>('STRIPE_SUBSCRIPTION_THREE_YEAR_PRICE_ID'),
-        currentPeriodStart,
-        currentPeriodEnd,
-        cancelAtPeriodEnd: false,
-      },
-    });
-
-    await this.paymentsService.recordPayment({
-      userId,
-      amountInCents: session.amount_total ?? 0,
-      currency: session.currency?.toUpperCase() ?? 'AUD',
-      stripePaymentIntentId:
-        typeof session.payment_intent === 'string'
-          ? session.payment_intent
-          : session.payment_intent?.id,
-    });
-
-    this.logger.log(`Three-year prepaid subscription activated for user ${userId}`);
   }
 
   /**

@@ -112,10 +112,8 @@ export class SubscriptionsService {
     const stripePriceId = this.getStripePriceId(planId);
     const appUrl = this.config.getOrThrow<string>('APP_URL');
 
-    const isPrepaidPlan = planId === 'three_year';
-
     const session = await this.stripeClient.checkout.sessions.create({
-      mode: isPrepaidPlan ? 'payment' : 'subscription',
+      mode: 'subscription',
       customer: user.stripeCustomerId ?? undefined,
       customer_email: user.stripeCustomerId ? undefined : user.email,
       managed_payments: {
@@ -130,18 +128,14 @@ export class SubscriptionsService {
       metadata: {
         userId,
         planId,
-        checkoutType: isPrepaidPlan ? 'subscription_prepaid' : 'subscription',
+        checkoutType: 'subscription',
       },
-      ...(isPrepaidPlan
-        ? {}
-        : {
-            subscription_data: {
-              metadata: {
-                userId,
-                planId,
-              },
-            },
-          }),
+      subscription_data: {
+        metadata: {
+          userId,
+          planId,
+        },
+      },
       success_url: dto.successUrl ?? `${appUrl}/subscription?subscription=success&plan=${planId}`,
       cancel_url: dto.cancelUrl ?? `${appUrl}/pricing?subscription=cancelled&plan=${planId}`,
     } as Stripe.Checkout.SessionCreateParams, {

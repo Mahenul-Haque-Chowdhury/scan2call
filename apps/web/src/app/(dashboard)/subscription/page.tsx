@@ -273,7 +273,6 @@ export default function SubscriptionPage() {
 
   const isCancelled = subscription.cancelAtPeriodEnd;
   const activePlan = PLAN_LABELS[subscription.plan ?? 'monthly'] ?? DEFAULT_PLAN_LABEL;
-  const isPrepaidPlan = subscription.plan === 'three_year';
   const giftLabel = subscription.isLifetime
     ? 'Lifetime gift access'
     : subscription.giftExpiresAt
@@ -338,11 +337,7 @@ export default function SubscriptionPage() {
         {actionError && <p className="mt-4 text-sm text-error">{actionError}</p>}
 
         <div className="mt-6 flex flex-wrap gap-3">
-          {isPrepaidPlan ? (
-            <Button variant="secondary" onClick={handleBillingPortal} loading={portalLoading} icon={<CreditCard className="h-4 w-4" />}>
-              {portalLoading ? 'Opening...' : 'Manage Billing'}
-            </Button>
-          ) : isCancelled ? (
+          {isCancelled ? (
             <Button onClick={handleResume} loading={resuming}>{resuming ? 'Resuming...' : 'Resume Subscription'}</Button>
           ) : (
             <>
@@ -366,11 +361,9 @@ export default function SubscriptionPage() {
               )}
             </>
           )}
-          {!isPrepaidPlan && (
-            <Button variant="secondary" onClick={handleBillingPortal} loading={portalLoading} icon={<CreditCard className="h-4 w-4" />}>
-              {portalLoading ? 'Opening...' : 'Manage Billing'}
-            </Button>
-          )}
+          <Button variant="secondary" onClick={handleBillingPortal} loading={portalLoading} icon={<CreditCard className="h-4 w-4" />}>
+            {portalLoading ? 'Opening...' : 'Manage Billing'}
+          </Button>
         </div>
       </motion.div>
 
