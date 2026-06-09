@@ -1,11 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
+import { TOKEN_LENGTH } from '../../common/constants';
 
 export class SendSmsDto {
-  @ApiProperty({ example: 'aB3kF9mN2', description: '9-char base62 tag token' })
+  @ApiProperty({ example: 'aB3kF9mN2xR7', description: '12-char base62 tag token' })
   @IsString()
-  @Length(9, 9)
-  @Matches(/^[a-zA-Z0-9_]+$/, { message: 'Token must be alphanumeric (base62)' })
+  @Length(TOKEN_LENGTH, TOKEN_LENGTH)
+  @Matches(/^[a-zA-Z0-9]+$/, { message: 'Token must be alphanumeric (base62)' })
   token: string;
 
   @ApiProperty({

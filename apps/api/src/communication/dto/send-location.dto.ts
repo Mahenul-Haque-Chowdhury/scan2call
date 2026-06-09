@@ -1,10 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
+import { TOKEN_LENGTH } from '../../common/constants';
 
 export class SendLocationDto {
-  @ApiProperty({ description: 'Tag token (9-char base62)' })
+  @ApiProperty({ description: 'Tag token (12-char base62)' })
   @IsString()
-  @Matches(/^[a-zA-Z0-9]{9}$/, { message: 'Token must be exactly 9 alphanumeric characters' })
+  @Length(TOKEN_LENGTH, TOKEN_LENGTH)
+  @Matches(/^[a-zA-Z0-9]+$/, { message: 'Token must be alphanumeric (base62)' })
   token: string;
 
   @ApiProperty({ description: 'Finder latitude' })
