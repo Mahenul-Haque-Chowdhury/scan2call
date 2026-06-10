@@ -13,6 +13,7 @@ export class TwilioService implements OnModuleInit {
   private accountSid: string;
   private authToken: string;
   private phoneNumber: string;
+  private smsFrom: string;
   private twimlAppSid: string;
   private apiKeySid: string;
   private apiKeySecret: string;
@@ -23,6 +24,7 @@ export class TwilioService implements OnModuleInit {
     this.accountSid = this.config.get<string>('TWILIO_ACCOUNT_SID', '');
     this.authToken = this.config.get<string>('TWILIO_AUTH_TOKEN', '');
     this.phoneNumber = this.config.get<string>('TWILIO_PHONE_NUMBER', '');
+    this.smsFrom = this.config.get<string>('TWILIO_SMS_FROM', '') || this.phoneNumber;
     this.proxyServiceSid = this.config.get<string>('TWILIO_PROXY_SERVICE_SID', '');
     this.twimlAppSid = this.config.get<string>('TWILIO_TWIML_APP_SID', '');
     this.apiKeySid = this.config.get<string>('TWILIO_API_KEY_SID', '');
@@ -166,11 +168,11 @@ export class TwilioService implements OnModuleInit {
       this.logger.warn(`[DEV SMS] To: ${to}, Body: ${body}`);
       return 'dev-message-sid';
     }
-    if (!this.phoneNumber) {
-      throw new BadRequestException('Twilio SMS is not configured. Set TWILIO_PHONE_NUMBER.');
+    if (!this.smsFrom) {
+      throw new BadRequestException('Twilio SMS is not configured. Set TWILIO_SMS_FROM or TWILIO_PHONE_NUMBER.');
     }
     try {
-      const message = await this.client.messages.create({ to, from: this.phoneNumber, body });
+      const message = await this.client.messages.create({ to, from: this.smsFrom, body });
       return message.sid;
     } catch (err) {
       this.logger.error(`Twilio SMS failed to ${to}`, err);
@@ -222,4 +224,3 @@ export class TwilioService implements OnModuleInit {
     return this.twilioClient.messages(messageSid).fetch();
   }
 }
-
