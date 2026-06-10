@@ -47,7 +47,13 @@ export class TwilioVoiceController {
       },
     });
 
-    if (!tag || tag.deletedAt || tag.status !== 'ACTIVE' || !tag.allowVoiceCall) {
+    if (
+      !tag ||
+      tag.deletedAt ||
+      tag.status === 'INACTIVE' ||
+      tag.status === 'DEACTIVATED' ||
+      !tag.allowVoiceCall
+    ) {
       this.logger.warn(`Voice call rejected for tag token ${tagToken}`);
       twiml.say('Voice calls are not available for this tag.');
       twiml.hangup();
