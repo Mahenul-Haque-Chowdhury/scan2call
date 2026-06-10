@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, MessageCircle, MapPin, Flag, ChevronDown, AlertTriangle, CheckCircle, X, ImageIcon, Paperclip, ShieldCheck, Trash2 } from 'lucide-react';
+import { Phone, MessageCircle, MapPin, ChevronDown, AlertTriangle, CheckCircle, X, ImageIcon, ShieldCheck, Sparkles } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -27,7 +27,7 @@ interface TagData {
   };
 }
 
-type ContactMethod = 'call' | 'sms' | 'whatsapp' | 'location' | 'report';
+type ContactMethod = 'call' | 'sms' | 'whatsapp' | 'location';
 
 interface TurnstileRenderOptions {
   sitekey: string;
@@ -128,11 +128,7 @@ export default function ScanPageClient({ token }: { token: string }) {
   const [activeMethod, setActiveMethod] = useState<ContactMethod | null>(null);
   const [smsMessage, setSmsMessage] = useState('');
   const [whatsappMessage, setWhatsappMessage] = useState('');
-  const [reportMessage, setReportMessage] = useState('');
-  const [reportImageUrl, setReportImageUrl] = useState<string | null>(null);
-  const [reportImageName, setReportImageName] = useState<string | null>(null);
-  const [reportImageUploading, setReportImageUploading] = useState(false);
-  const [reportCaptchaToken, setReportCaptchaToken] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [locationMessage, setLocationMessage] = useState('');
   const [gettingLocation, setGettingLocation] = useState(false);
   const [locationCoords, setLocationCoords] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -191,10 +187,31 @@ export default function ScanPageClient({ token }: { token: string }) {
     };
   }, [token]);
 
+  const effectiveCaptchaToken = captchaToken || (!turnstileSiteKey && isDevelopment ? 'dev-local-captcha' : null);
+  const isHumanVerified = Boolean(effectiveCaptchaToken);
+  const captchaUnavailable = !turnstileSiteKey && !isDevelopment;
+
+  const requireHumanVerification = useCallback(() => {
+    if (!effectiveCaptchaToken) {
+      setActionError(
+        captchaUnavailable
+          ? 'Human verification is currently unavailable. Please try again later.'
+          : 'Please complete human verification before contacting the owner.',
+      );
+      return null;
+    }
+
+    return effectiveCaptchaToken;
+  }, [captchaUnavailable, effectiveCaptchaToken]);
+
   const toggleMethod = useCallback((method: ContactMethod) => {
+    if (!isHumanVerified) {
+      requireHumanVerification();
+      return;
+    }
     setActiveMethod((prev) => (prev === method ? null : method));
     setActionError(null);
-  }, []);
+  }, [isHumanVerified, requireHumanVerification]);
 
   const postAction = useCallback(async (url: string, body: Record<string, unknown>): Promise<boolean> => {
     setSubmitting(true);
@@ -218,77 +235,10 @@ export default function ScanPageClient({ token }: { token: string }) {
     }
   }, []);
 
-  const handleReportImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-
-    if (!file) return;
-
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      setActionError('Please upload a JPG, PNG, or WebP image.');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setActionError('Image must be under 5MB.');
-      return;
-    }
-
-    setActionError(null);
-    setReportImageUploading(true);
-
-    try {
-      const uploadUrlRes = await fetch(`${API}/scan/${token}/report-image-upload-url`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fileName: file.name,
-          contentType: file.type,
-          fileSize: file.size,
-        }),
-      });
-
-      const uploadUrlBody = await uploadUrlRes.json().catch(() => null);
-      if (!uploadUrlRes.ok) {
-        throw new Error(getApiErrorMessage(uploadUrlBody, 'Could not prepare image upload.'));
-      }
-
-      const uploadData = (uploadUrlBody as {
-        data?: {
-          uploadUrl: string;
-          publicUrl: string;
-        };
-      })?.data;
-
-      if (!uploadData?.uploadUrl || !uploadData.publicUrl) {
-        throw new Error('Invalid upload response from server.');
-      }
-
-      const uploadRes = await fetch(uploadData.uploadUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': file.type,
-        },
-        body: file,
-      });
-
-      if (!uploadRes.ok) {
-        throw new Error('Image upload failed. Please try again.');
-      }
-
-      setReportImageUrl(uploadData.publicUrl);
-      setReportImageName(file.name);
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to upload image.');
-    } finally {
-      setReportImageUploading(false);
-    }
-  };
-
   const handleCall = async () => {
+    const verifiedToken = requireHumanVerification();
+    if (!verifiedToken) return;
+
     setSubmitting(true);
     setActionError(null);
     setCallStatus('connecting');
@@ -296,7 +246,7 @@ export default function ScanPageClient({ token }: { token: string }) {
       const res = await fetch(`${API}/communication/call`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token, captchaToken: verifiedToken }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -353,6 +303,9 @@ export default function ScanPageClient({ token }: { token: string }) {
   };
 
   const handleSms = async () => {
+    const verifiedToken = requireHumanVerification();
+    if (!verifiedToken) return;
+
     if (!smsMessage.trim()) {
       setActionError('Please enter a message.');
       return;
@@ -360,6 +313,7 @@ export default function ScanPageClient({ token }: { token: string }) {
     const ok = await postAction(`${API}/communication/sms`, {
       token,
       message: smsMessage.trim(),
+      captchaToken: verifiedToken,
     });
     if (ok) {
       setSuccess('Message sent to the owner anonymously!');
@@ -369,6 +323,9 @@ export default function ScanPageClient({ token }: { token: string }) {
   };
 
   const handleWhatsApp = async () => {
+    const verifiedToken = requireHumanVerification();
+    if (!verifiedToken) return;
+
     if (!whatsappMessage.trim()) {
       setActionError('Please enter a message.');
       return;
@@ -376,6 +333,7 @@ export default function ScanPageClient({ token }: { token: string }) {
     const ok = await postAction(`${API}/communication/whatsapp`, {
       token,
       message: whatsappMessage.trim(),
+      captchaToken: verifiedToken,
     });
     if (ok) {
       setSuccess('WhatsApp message sent to the owner!');
@@ -384,41 +342,19 @@ export default function ScanPageClient({ token }: { token: string }) {
     }
   };
 
-  const handleReport = async () => {
-    const captchaToken = reportCaptchaToken || (!turnstileSiteKey && isDevelopment ? 'dev-local-captcha' : null);
-    if (!captchaToken) {
-      setActionError('Please complete human verification before notifying the owner.');
-      return;
-    }
-
-    const body: Record<string, unknown> = {
-      captchaToken,
-    };
-    if (reportMessage.trim()) body.message = reportMessage.trim();
-    if (reportImageUrl) body.finderImageUrl = reportImageUrl;
-
-    const ok = await postAction(`${API}/scan/${token}/report-found`, body);
-    if (ok) {
-      setSuccess('Thank you! The owner has been notified that their item was found.');
-      setActiveMethod(null);
-      setReportMessage('');
-      setReportImageUrl(null);
-      setReportImageName(null);
-      setReportCaptchaToken(null);
-    }
-  };
-
   const handleCaptchaVerify = useCallback((verifiedToken: string) => {
-    setReportCaptchaToken(verifiedToken);
+    setCaptchaToken(verifiedToken);
     setActionError(null);
   }, []);
 
   const handleCaptchaExpired = useCallback(() => {
-    setReportCaptchaToken(null);
+    setCaptchaToken(null);
+    setActiveMethod(null);
   }, []);
 
   const handleCaptchaError = useCallback(() => {
-    setReportCaptchaToken(null);
+    setCaptchaToken(null);
+    setActiveMethod(null);
     setActionError('Could not verify captcha. Please refresh and try again.');
   }, []);
 
@@ -452,6 +388,9 @@ export default function ScanPageClient({ token }: { token: string }) {
   };
 
   const handleSendLocation = async () => {
+    const verifiedToken = requireHumanVerification();
+    if (!verifiedToken) return;
+
     if (!locationCoords) return;
     setSubmitting(true);
     setActionError(null);
@@ -464,6 +403,7 @@ export default function ScanPageClient({ token }: { token: string }) {
           latitude: locationCoords.latitude,
           longitude: locationCoords.longitude,
           message: locationMessage.trim() || undefined,
+          captchaToken: verifiedToken,
         }),
       });
       if (!res.ok) {
@@ -660,9 +600,72 @@ export default function ScanPageClient({ token }: { token: string }) {
           transition={{ delay: 0.35, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="space-y-3"
         >
-          <p className="text-center text-sm font-medium text-text">
-            Found this item? Contact the owner anonymously.
+          <p className="text-center text-sm font-semibold text-text">
+            Found this item? Contact the owner anonymously at Zero Cost.
           </p>
+
+          <div className={`rounded-2xl border p-4 shadow-sm ${
+            isHumanVerified
+              ? 'border-green-200 bg-green-50'
+              : captchaUnavailable
+                ? 'border-red-200 bg-red-50'
+                : 'border-amber-200 bg-amber-50'
+          }`}>
+            <div className="flex items-start gap-3">
+              <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                isHumanVerified
+                  ? 'bg-green-100 text-green-700'
+                  : captchaUnavailable
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-amber-100 text-amber-700'
+              }`}>
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className={`text-sm font-semibold ${
+                  isHumanVerified
+                    ? 'text-green-900'
+                    : captchaUnavailable
+                      ? 'text-red-900'
+                      : 'text-amber-900'
+                }`}>
+                  {isHumanVerified ? 'Human verification complete' : 'Human verification required'}
+                </p>
+                <p className={`mt-1 text-xs leading-5 ${
+                  isHumanVerified
+                    ? 'text-green-700'
+                    : captchaUnavailable
+                      ? 'text-red-700'
+                      : 'text-amber-700'
+                }`}>
+                  {isHumanVerified
+                    ? 'You can now contact the owner through any available option.'
+                    : 'Complete this once to unlock call, text, WhatsApp, and location sharing.'}
+                </p>
+              </div>
+            </div>
+
+            {!isHumanVerified && (
+              <div className="mt-3">
+                {turnstileSiteKey ? (
+                  <TurnstileWidget
+                    siteKey={turnstileSiteKey}
+                    onVerify={handleCaptchaVerify}
+                    onExpired={handleCaptchaExpired}
+                    onError={handleCaptchaError}
+                  />
+                ) : (
+                  <p className={`rounded-xl px-3 py-2 text-xs ${
+                    isDevelopment ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {isDevelopment
+                      ? 'Captcha key is not configured. Local development will use a test verification token.'
+                      : 'Human verification is currently unavailable. Please try again later.'}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
 
           {(tag.contactOptions?.call || tag.contactOptions?.browserCall) && (
             <ContactButton
@@ -671,6 +674,7 @@ export default function ScanPageClient({ token }: { token: string }) {
               onToggle={toggleMethod}
               icon={<Phone className="h-5 w-5" />}
               badge="Free"
+              disabled={!isHumanVerified}
               index={0}
             >
               <AnimatePresence>
@@ -690,7 +694,7 @@ export default function ScanPageClient({ token }: { token: string }) {
                           {actionError && <p className="mt-2 text-sm text-red-600">{actionError}</p>}
                           <button
                             onClick={handleCall}
-                            disabled={submitting}
+                            disabled={submitting || !isHumanVerified}
                             className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-60"
                           >
                             {submitting ? <Spinner size="sm" /> : <Phone className="h-4 w-4" />}
@@ -766,6 +770,7 @@ export default function ScanPageClient({ token }: { token: string }) {
               onToggle={toggleMethod}
               icon={<MessageCircle className="h-5 w-5" />}
               badge="Free"
+              disabled={!isHumanVerified}
               index={1}
             >
               <AnimatePresence>
@@ -794,7 +799,7 @@ export default function ScanPageClient({ token }: { token: string }) {
                       {actionError && <p className="mt-2 text-sm text-red-600">{actionError}</p>}
                       <button
                         onClick={handleSms}
-                        disabled={submitting}
+                        disabled={submitting || !isHumanVerified}
                         className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
                       >
                         {submitting ? <Spinner size="sm" /> : <MessageCircle className="h-4 w-4" />}
@@ -813,6 +818,7 @@ export default function ScanPageClient({ token }: { token: string }) {
               activeMethod={activeMethod}
               onToggle={toggleMethod}
               icon={<WhatsAppIcon className="h-5 w-5" />}
+              disabled={!isHumanVerified}
               index={2}
             >
               <AnimatePresence>
@@ -841,7 +847,7 @@ export default function ScanPageClient({ token }: { token: string }) {
                       {actionError && <p className="mt-2 text-sm text-red-600">{actionError}</p>}
                       <button
                         onClick={handleWhatsApp}
-                        disabled={submitting}
+                        disabled={submitting || !isHumanVerified}
                         className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
                       >
                         {submitting ? <Spinner size="sm" /> : <WhatsAppIcon className="h-4 w-4" />}
@@ -860,13 +866,14 @@ export default function ScanPageClient({ token }: { token: string }) {
               activeMethod={activeMethod}
               onToggle={(method) => {
                 toggleMethod(method);
-                if (activeMethod !== 'location') {
+                if (isHumanVerified && activeMethod !== 'location') {
                   setLocationCoords(null);
                   setLocationMessage('');
                   handleGetLocation();
                 }
               }}
               icon={<MapPin className="h-5 w-5" />}
+              disabled={!isHumanVerified}
               index={3}
             >
               <AnimatePresence>
@@ -906,7 +913,7 @@ export default function ScanPageClient({ token }: { token: string }) {
                           {actionError && <p className="mt-2 text-sm text-red-600">{actionError}</p>}
                           <button
                             onClick={handleSendLocation}
-                            disabled={submitting}
+                            disabled={submitting || !isHumanVerified}
                             className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-cyan-700 disabled:opacity-60"
                           >
                             {submitting ? <Spinner size="sm" /> : <MapPin className="h-4 w-4" />}
@@ -935,148 +942,22 @@ export default function ScanPageClient({ token }: { token: string }) {
       )}
 
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.45, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      >
-        {hasContactOptions && (
-          <div className="mb-3 flex items-center gap-2">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-xs text-text-dim">or</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
-        )}
-        <button
-          onClick={() => toggleMethod('report')}
-          className={`flex w-full items-center justify-center gap-2 rounded-2xl border-2 py-3 text-sm font-medium transition-all ${
-            activeMethod === 'report'
-              ? 'border-amber-500 bg-amber-500 text-white'
-              : 'border-border bg-surface text-text-muted hover:border-amber-300 hover:text-amber-700'
-          }`}
-        >
-          <Flag className="h-4 w-4" />
-          Report as Found
-        </button>
-        <AnimatePresence>
-          {activeMethod === 'report' && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <div className="mt-2 rounded-2xl border border-border bg-surface p-4 shadow-sm">
-                <label htmlFor="report-message" className="block text-sm font-medium text-text">
-                  Message <span className="font-normal text-text-dim">(optional)</span>
-                </label>
-                <textarea
-                  id="report-message"
-                  value={reportMessage}
-                  onChange={(e) => setReportMessage(e.target.value)}
-                  placeholder="e.g., I found it at the park near..."
-                  rows={3}
-                  className="mt-1.5 block w-full resize-none rounded-xl border border-border bg-surface-raised px-4 py-3 text-sm text-text placeholder:text-text-dim focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                />
-
-                <div className="mt-3 rounded-xl border border-border bg-surface-raised p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-medium text-text">Attach image <span className="font-normal text-text-dim">(optional)</span></p>
-                      <p className="text-xs text-text-dim">JPG, PNG, or WebP up to 5MB.</p>
-                    </div>
-                    <label
-                      htmlFor="report-image"
-                      className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-text transition-colors hover:bg-surface"
-                    >
-                      {reportImageUploading ? <Spinner size="sm" /> : <Paperclip className="h-4 w-4" />}
-                      {reportImageUploading ? 'Uploading...' : reportImageUrl ? 'Replace' : 'Upload'}
-                    </label>
-                  </div>
-
-                  <input
-                    id="report-image"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={handleReportImageChange}
-                    className="sr-only"
-                  />
-
-                  {reportImageName && (
-                    <p className="mt-2 text-xs text-text-dim">Attached: {reportImageName}</p>
-                  )}
-
-                  {reportImageUrl && (
-                    <div className="mt-3 overflow-hidden rounded-lg border border-border">
-                      <motion.img
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        src={reportImageUrl}
-                        alt="Finder attachment preview"
-                        className="h-40 w-full object-cover"
-                      />
-                    </div>
-                  )}
-
-                  {reportImageUrl && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReportImageUrl(null);
-                        setReportImageName(null);
-                      }}
-                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Remove image
-                    </button>
-                  )}
-                </div>
-
-                <div className="mt-3 rounded-xl border border-border bg-surface-raised p-3">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-amber-600" />
-                    <p className="text-sm font-medium text-text">Human verification</p>
-                  </div>
-
-                  {turnstileSiteKey ? (
-                    <div className="mt-2">
-                      <TurnstileWidget
-                        siteKey={turnstileSiteKey}
-                        onVerify={handleCaptchaVerify}
-                        onExpired={handleCaptchaExpired}
-                        onError={handleCaptchaError}
-                      />
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-xs text-amber-700">
-                      Captcha key is not configured. Reporting works in local development only.
-                    </p>
-                  )}
-                </div>
-
-                {actionError && <p className="mt-2 text-sm text-red-600">{actionError}</p>}
-                <button
-                  onClick={handleReport}
-                  disabled={submitting || reportImageUploading}
-                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-3 text-sm font-semibold text-white transition-colors hover:bg-amber-600 disabled:opacity-60"
-                >
-                  {submitting ? <Spinner size="sm" /> : <Flag className="h-4 w-4" />}
-                  {submitting ? 'Reporting...' : 'Notify the Owner'}
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
-
-      <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.55 }}
-        className="pb-2 text-center text-xs text-text-dim"
+        className="space-y-3 pb-2 text-center"
       >
-        All communication is anonymous. Your identity stays private.
-      </motion.p>
+        <p className="text-xs text-text-dim">
+          All communication is anonymous. Your identity stays private.
+        </p>
+        <Link
+          href="/"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-surface px-4 py-3 text-sm font-semibold text-text transition-all hover:border-primary/40 hover:bg-surface-raised hover:shadow-sm"
+        >
+          <Sparkles className="h-4 w-4 text-primary" />
+          Explore Scan2Call&apos;s Services
+        </Link>
+      </motion.div>
     </motion.div>
   );
 }
@@ -1087,6 +968,7 @@ function ContactButton({
   onToggle,
   icon,
   badge,
+  disabled = false,
   children,
   index = 0,
 }: {
@@ -1095,6 +977,7 @@ function ContactButton({
   onToggle: (m: ContactMethod) => void;
   icon: ReactNode;
   badge?: string;
+  disabled?: boolean;
   children: ReactNode;
   index?: number;
 }) {
@@ -1110,10 +993,13 @@ function ContactButton({
     >
       <motion.button
         onClick={() => onToggle(method)}
+        disabled={disabled}
         className={`flex w-full items-center gap-4 rounded-2xl border-2 px-5 py-4 text-left transition-all min-h-17 ${
           isActive
             ? config.activeColor
-            : 'border-border bg-surface text-text hover:border-border-hover hover:shadow-md'
+            : disabled
+              ? 'border-border bg-surface/70 text-text-dim opacity-70'
+              : 'border-border bg-surface text-text hover:border-border-hover hover:shadow-md'
         }`}
         whileTap={{ scale: 0.98 }}
       >

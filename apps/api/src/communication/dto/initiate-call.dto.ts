@@ -8,4 +8,8 @@ export class InitiateCallDto {
   @Length(TOKEN_LENGTH, TOKEN_LENGTH)
   @Matches(/^[a-zA-Z0-9]+$/, { message: 'Token must be alphanumeric (base62)' })
   token: string;
+
+  @ApiProperty({ description: 'Cloudflare Turnstile verification token' })
+  @IsString()
+  captchaToken: string;
 }

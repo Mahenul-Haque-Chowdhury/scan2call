@@ -9,6 +9,7 @@ import { TwilioService } from './twilio/twilio.service';
 import { InitiateCallDto } from './dto/initiate-call.dto';
 import { SendSmsDto } from './dto/send-sms.dto';
 import { SendLocationDto } from './dto/send-location.dto';
+import { TurnstileService } from '../tags/turnstile.service';
 
 @Injectable()
 export class CommunicationService {
@@ -17,6 +18,7 @@ export class CommunicationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly twilioService: TwilioService,
+    private readonly turnstileService: TurnstileService,
   ) {}
 
   /**
@@ -24,6 +26,7 @@ export class CommunicationService {
    * Returns a Twilio Client token for WebRTC calling.
    */
   async initiateCall(dto: InitiateCallDto) {
+    await this.turnstileService.verifyToken(dto.captchaToken);
     return this.generateBrowserCallToken(dto.token);
   }
 
@@ -32,6 +35,7 @@ export class CommunicationService {
    * One-way direct SMS, no proxy needed, no finder phone required.
    */
   async initiateSms(dto: SendSmsDto) {
+    await this.turnstileService.verifyToken(dto.captchaToken);
     const tag = await this.findActiveTagWithOwner(dto.token);
 
     if (!tag.allowSms) {
@@ -73,6 +77,7 @@ export class CommunicationService {
    * One-way direct message, no finder phone required.
    */
   async initiateWhatsApp(dto: SendSmsDto) {
+    await this.turnstileService.verifyToken(dto.captchaToken);
     const tag = await this.findActiveTagWithOwner(dto.token);
 
     if (!tag.allowWhatsApp) {
@@ -154,6 +159,7 @@ export class CommunicationService {
    * No proxy needed - this is a one-way notification.
    */
   async sendLocation(dto: SendLocationDto) {
+    await this.turnstileService.verifyToken(dto.captchaToken);
     const tag = await this.findActiveTagWithOwner(dto.token);
 
     if (!tag.allowSendLocation) {

@@ -16,12 +16,21 @@ interface TurnstileVerifyResponse {
 @Injectable()
 export class TurnstileService {
   private readonly logger = new Logger(TurnstileService.name);
+  private readonly verifiedTokens = new Map<string, number>();
+  private readonly verifiedTokenTtlMs = 30 * 60 * 1000;
 
   constructor(private readonly configService: AppConfigService) {}
 
   async verifyToken(token: string, remoteIp?: string): Promise<void> {
     if (!token?.trim()) {
       throw new BadRequestException('Human verification is required.');
+    }
+
+    this.pruneVerifiedTokens();
+
+    const cachedUntil = this.verifiedTokens.get(token);
+    if (cachedUntil && cachedUntil > Date.now()) {
+      return;
     }
 
     const secret = this.configService.turnstileSecretKey;
@@ -75,6 +84,17 @@ export class TurnstileService {
       const errorCodes = result['error-codes']?.join(', ') || 'unknown_error';
       this.logger.warn(`Turnstile token rejected: ${errorCodes}`);
       throw new BadRequestException('Human verification failed. Please try again.');
+    }
+
+    this.verifiedTokens.set(token, Date.now() + this.verifiedTokenTtlMs);
+  }
+
+  private pruneVerifiedTokens(): void {
+    const now = Date.now();
+    for (const [token, expiresAt] of this.verifiedTokens.entries()) {
+      if (expiresAt <= now) {
+        this.verifiedTokens.delete(token);
+      }
     }
   }
 }

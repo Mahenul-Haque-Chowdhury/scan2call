@@ -18,4 +18,8 @@ export class SendSmsDto {
   @IsString()
   @MaxLength(500)
   message?: string;
+
+  @ApiProperty({ description: 'Cloudflare Turnstile verification token' })
+  @IsString()
+  captchaToken: string;
 }
