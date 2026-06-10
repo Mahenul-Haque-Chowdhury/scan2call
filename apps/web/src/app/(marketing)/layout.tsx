@@ -121,6 +121,12 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               <p className="mt-3 text-sm text-text-muted max-w-xs">
                 Privacy-first QR identity tags. Protect your valuables with anonymous contact relay.
               </p>
+              <div className="mt-4 space-y-2 text-sm text-text-muted">
+                <p>3/13 Lena Street, Beckenham, Perth WA 6107, Australia</p>
+                <a href="mailto:contact@scan2call.com.au" className="inline-flex text-primary hover:underline">
+                  contact@scan2call.com.au
+                </a>
+              </div>
             </div>
 
             {/* Link columns */}

@@ -17,12 +17,20 @@ export default function ScanLayout({ children }: { children: React.ReactNode }) 
 
       <main className="flex flex-1 items-center justify-center p-6">{children}</main>
 
-      <footer className="border-t border-border py-4 text-center text-xs text-text-dim">
-        Powered by{' '}
-        <Link href="/" className="hover:text-text-muted transition-colors">
-          Scan2Call
-        </Link>{' '}
-        - Privacy-first QR identity tags
+      <footer className="border-t border-border px-6 py-4 text-center text-xs text-text-dim">
+        <p>
+          Powered by{' '}
+          <Link href="/" className="hover:text-text-muted transition-colors">
+            Scan2Call
+          </Link>{' '}
+          - Privacy-first QR identity tags
+        </p>
+        <p className="mt-2">
+          3/13 Lena Street, Beckenham, Perth WA 6107, Australia
+        </p>
+        <a href="mailto:contact@scan2call.com.au" className="mt-1 inline-flex text-yellow-700 hover:underline">
+          contact@scan2call.com.au
+        </a>
       </footer>
     </div>
   );
