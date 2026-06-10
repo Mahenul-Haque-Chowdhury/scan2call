@@ -65,6 +65,7 @@ export class NotificationsService {
   private readonly resend: Resend | null;
   private readonly twilioClient: twilio.Twilio | null;
   private readonly twilioVerifyServiceSid: string;
+  private readonly twilioSmsFrom: string;
 
   constructor(private readonly configService: AppConfigService) {
     const apiKey = this.configService.resendApiKey;
@@ -73,6 +74,7 @@ export class NotificationsService {
     const twilioSid = this.configService.twilioAccountSid;
     const twilioToken = this.configService.twilioAuthToken;
     this.twilioVerifyServiceSid = this.configService.twilioVerifyServiceSid;
+    this.twilioSmsFrom = this.configService.twilioSmsFrom || this.configService.twilioPhoneNumber;
 
     if (twilioSid && twilioToken) {
       this.twilioClient = twilio.default(twilioSid, twilioToken);
@@ -360,7 +362,7 @@ export class NotificationsService {
       try {
         await this.twilioClient.messages.create({
           to: payload.ownerPhone,
-          from: this.configService.twilioPhoneNumber,
+          from: this.twilioSmsFrom,
           body: smsBody,
         });
         this.logger.log(`[SCAN NOTIFICATION SMS] Sent to: ${payload.ownerPhone.slice(0, -4)}****`);
@@ -449,12 +451,13 @@ export class NotificationsService {
     options: DeliveryOptions = {},
   ): Promise<void> {
     try {
-      if (!this.twilioClient || !this.twilioVerifyServiceSid) {
-        if (options.critical && this.configService.isProduction) {
-          this.handleCriticalFailure('Twilio Verify is not configured for phone verification.');
-        }
-
+      if (!this.twilioClient) {
         this.logger.log(`[DEV PHONE OTP] To: ${phone}, Code: ${otpCode ?? 'unavailable'}`);
+        return;
+      }
+
+      if (!this.twilioVerifyServiceSid) {
+        await this.sendPhoneOtpViaProgrammableSms(phone, otpCode, options);
         return;
       }
 
@@ -464,11 +467,58 @@ export class NotificationsService {
 
       this.logger.log(`Phone OTP sent to ${phone} via Twilio Verify`);
     } catch (error) {
+      this.logger.error(`Failed to send phone OTP to ${phone} via Twilio Verify: ${error}`);
+
+      if (otpCode) {
+        await this.sendPhoneOtpViaProgrammableSms(phone, otpCode, options);
+        return;
+      }
+
+      if (options.critical && this.configService.isProduction) {
+        this.handleCriticalFailure('Failed to send phone verification code.', error);
+      }
+    }
+  }
+
+  private async sendPhoneOtpViaProgrammableSms(
+    phone: string,
+    otpCode: string | undefined,
+    options: DeliveryOptions = {},
+  ): Promise<void> {
+    if (!otpCode) {
+      if (options.critical && this.configService.isProduction) {
+        this.handleCriticalFailure('Phone verification fallback requires a generated OTP code.');
+      }
+
+      this.logger.warn('Phone verification fallback skipped because no OTP code was provided.');
+      return;
+    }
+
+    if (!this.twilioClient || !this.twilioSmsFrom) {
+      if (options.critical && this.configService.isProduction) {
+        this.handleCriticalFailure(
+          'Twilio SMS is not configured for phone verification. Set TWILIO_SMS_FROM or TWILIO_PHONE_NUMBER.',
+        );
+      }
+
+      this.logger.log(`[DEV PHONE OTP] To: ${phone}, Code: ${otpCode}`);
+      return;
+    }
+
+    try {
+      await this.twilioClient.messages.create({
+        to: phone,
+        from: this.twilioSmsFrom,
+        body: `Scan2Call verification code: ${otpCode}`,
+      });
+
+      this.logger.log(`Phone OTP sent to ${phone} via Programmable SMS`);
+    } catch (error) {
       if (options.critical && this.configService.isProduction) {
         this.handleCriticalFailure('Failed to send phone verification code.', error);
       }
 
-      this.logger.error(`Failed to send phone OTP to ${phone}: ${error}`);
+      this.logger.error(`Failed to send phone OTP to ${phone} via Programmable SMS: ${error}`);
     }
   }
 

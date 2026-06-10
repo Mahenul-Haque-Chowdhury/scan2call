@@ -41,6 +41,10 @@ export class AppConfigService {
     return this.config.get('TWILIO_PHONE_NUMBER');
   }
 
+  get twilioSmsFrom(): string {
+    return this.config.get('TWILIO_SMS_FROM');
+  }
+
   get twilioWhatsAppNumber(): string {
     return this.config.get('TWILIO_WHATSAPP_NUMBER');
   }
