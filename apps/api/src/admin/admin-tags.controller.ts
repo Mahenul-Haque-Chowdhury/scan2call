@@ -28,6 +28,7 @@ import { CsvImportDto } from './dto/csv-import.dto';
 import { AssignTagDto } from './dto/assign-tag.dto';
 import { QrCodeService } from '../qr-code/qr-code.service';
 import { DEFAULT_QR_FRAME_STYLE, QrFrameStyle } from '../qr-code/qr-frame-style';
+import { DEFAULT_QR_LAYOUT, QrLayout } from '../qr-code/qr-layout';
 import { DownloadQrAssetsDto } from './dto/download-qr-assets.dto';
 import archiver from 'archiver';
 
@@ -217,26 +218,34 @@ export class AdminTagsController {
   @ApiOperation({ summary: 'Preview a QR frame style' })
   @ApiQuery({ name: 'format', required: false, enum: ['png', 'svg'] })
   @ApiQuery({ name: 'frameStyle', required: false, enum: Object.values(QrFrameStyle) })
+  @ApiQuery({ name: 'qrLayout', required: false, enum: Object.values(QrLayout) })
   async previewQrFrame(
     @Query('format') format: string = 'svg',
     @Res() res: Response,
     @Query('frameStyle') frameStyle?: QrFrameStyle,
+    @Query('qrLayout') qrLayout?: QrLayout,
   ) {
     if (frameStyle && !Object.values(QrFrameStyle).includes(frameStyle)) {
       throw new BadRequestException('Invalid QR frame style');
     }
+    if (qrLayout && !Object.values(QrLayout).includes(qrLayout)) {
+      throw new BadRequestException('Invalid QR layout');
+    }
     const resolvedFrameStyle = frameStyle ?? DEFAULT_QR_FRAME_STYLE;
+    const resolvedQrLayout = qrLayout ?? DEFAULT_QR_LAYOUT;
     const scanUrl = this.qrCodeService.buildScanUrl('SAMPLE123456');
 
     if (format === 'png') {
       const png = await this.qrCodeService.generatePngWithOptions(scanUrl, {
         frameStyle: resolvedFrameStyle,
+        qrLayout: resolvedQrLayout,
       });
       res.set('Content-Type', 'image/png');
       res.send(png);
     } else {
       const svg = await this.qrCodeService.generateSvgWithOptions(scanUrl, {
         frameStyle: resolvedFrameStyle,
+        qrLayout: resolvedQrLayout,
       });
       res.set('Content-Type', 'image/svg+xml');
       res.send(svg);
@@ -261,6 +270,7 @@ export class AdminTagsController {
       const svg = await this.qrCodeService.generateSvgWithOptions(url, {
         size: sizeNum,
         frameStyle: tag.frameStyle,
+        qrLayout: tag.qrLayout,
       });
       res.set('Content-Type', 'image/svg+xml');
       res.set('Content-Disposition', `attachment; filename="scan2call-${tag.token}.svg"`);
@@ -269,6 +279,7 @@ export class AdminTagsController {
       const png = await this.qrCodeService.generatePngWithOptions(url, {
         size: sizeNum,
         frameStyle: tag.frameStyle,
+        qrLayout: tag.qrLayout,
       });
       res.set('Content-Type', 'image/png');
       res.set('Content-Disposition', `attachment; filename="scan2call-${tag.token}.png"`);

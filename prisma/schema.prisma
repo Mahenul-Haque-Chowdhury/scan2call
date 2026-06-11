@@ -45,6 +45,11 @@ enum QrFrameStyle {
   NONE
 }
 
+enum QrLayout {
+  STANDARD
+  WINDSHIELD_CARD
+}
+
 enum CommunicationType {
   VOICE_CALL
   SMS
@@ -327,6 +332,7 @@ model Tag {
   qrPngUrl       String?
   qrSvgUrl       String?
   qrFrameStyle   QrFrameStyle @default(SCAN2CALL_TOP)
+  qrLayout       QrLayout     @default(STANDARD)
 
   // Order item link (tag created from order)
   orderItemId String?
@@ -374,6 +380,7 @@ model TagBatch {
   generatedByUser User @relation("tagBatchesGenerated", fields: [generatedBy], references: [id])
   notes       String?
   qrFrameStyle QrFrameStyle @default(SCAN2CALL_TOP)
+  qrLayout     QrLayout     @default(STANDARD)
   createdAt   DateTime @default(now())
 
   tags Tag[]

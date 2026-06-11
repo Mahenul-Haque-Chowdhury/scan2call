@@ -36,7 +36,21 @@ const FRAME_STYLES = [
   },
 ];
 
+const QR_LAYOUTS = [
+  {
+    value: 'STANDARD',
+    label: 'Current size',
+    description: 'Use the existing QR frame size and settings',
+  },
+  {
+    value: 'WINDSHIELD_CARD',
+    label: 'Windshield card',
+    description: 'Landscape car windshield sticker with QR on the left',
+  },
+];
+
 type FrameStyle = (typeof FRAME_STYLES)[number]['value'];
+type QrLayout = (typeof QR_LAYOUTS)[number]['value'];
 
 interface GenerateResult {
   batchId: string;
@@ -53,11 +67,19 @@ export default function AdminGenerateTagsPage() {
   const [notes, setNotes] = useState('');
   const [storeQrAssets, setStoreQrAssets] = useState(false);
   const [frameStyle, setFrameStyle] = useState<FrameStyle>('SCAN2CALL_TOP');
+  const [qrLayout, setQrLayout] = useState<QrLayout>('STANDARD');
   const [framePreviewUrl, setFramePreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerateResult | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const isCarSticker = tagType === 'CAR_STICKER';
+  const resolvedQrLayout: QrLayout = isCarSticker ? qrLayout : 'STANDARD';
+
+  useEffect(() => {
+    setQrLayout(tagType === 'CAR_STICKER' ? 'WINDSHIELD_CARD' : 'STANDARD');
+  }, [tagType]);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,7 +90,7 @@ export default function AdminGenerateTagsPage() {
       try {
         const apiOrigin = getApiOrigin();
         const res = await fetchWithAuth(
-          `${apiOrigin}/api/v1/admin/tags/qr-frame/preview?format=svg&frameStyle=${frameStyle}`,
+          `${apiOrigin}/api/v1/admin/tags/qr-frame/preview?format=svg&frameStyle=${frameStyle}&qrLayout=${resolvedQrLayout}`,
           { method: 'GET' },
         );
         if (!res.ok) return;
@@ -92,7 +114,7 @@ export default function AdminGenerateTagsPage() {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [frameStyle]);
+  }, [frameStyle, resolvedQrLayout]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,7 +123,13 @@ export default function AdminGenerateTagsPage() {
     setResult(null);
 
     try {
-      const body: Record<string, unknown> = { quantity, tagType, storeQrAssets, qrFrameStyle: frameStyle };
+      const body: Record<string, unknown> = {
+        quantity,
+        tagType,
+        storeQrAssets,
+        qrFrameStyle: frameStyle,
+        qrLayout: resolvedQrLayout,
+      };
       if (name.trim()) body.batchName = name.trim();
       if (notes.trim()) body.notes = notes.trim();
 
@@ -219,10 +247,37 @@ export default function AdminGenerateTagsPage() {
           </p>
         </div>
 
+        {isCarSticker && (
+          <div>
+            <label htmlFor="qrLayout" className="block text-sm font-medium text-text-muted">
+              Sticker Layout
+            </label>
+            <select
+              id="qrLayout"
+              value={qrLayout}
+              onChange={(e) => setQrLayout(e.target.value as QrLayout)}
+              className="mt-1 block w-full rounded-md border border-border bg-surface px-4 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              {QR_LAYOUTS.map((layout) => (
+                <option key={layout.value} value={layout.value}>
+                  {layout.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-text-dim">
+              {QR_LAYOUTS.find((layout) => layout.value === qrLayout)?.description}
+            </p>
+          </div>
+        )}
+
         {framePreviewUrl && (
           <div className="rounded-lg border border-border bg-surface p-3">
             <p className="text-xs font-semibold uppercase tracking-widest text-text-dim">Frame Preview</p>
-            <img src={framePreviewUrl} alt="QR frame preview" className="mt-2 w-44 rounded bg-white p-2" />
+            <img
+              src={framePreviewUrl}
+              alt="QR frame preview"
+              className={resolvedQrLayout === 'WINDSHIELD_CARD' ? 'mt-2 w-full rounded bg-white p-2' : 'mt-2 w-44 rounded bg-white p-2'}
+            />
           </div>
         )}
 

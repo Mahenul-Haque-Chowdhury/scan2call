@@ -3,6 +3,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { TagType } from '@scan2call/shared';
 import { QrFrameStyle } from '../../qr-code/qr-frame-style';
+import { QrLayout, QR_LAYOUT_VALUES } from '../../qr-code/qr-layout';
 
 export class BatchGenerateTagsDto {
   @ApiProperty({ example: 50, description: 'Number of tags to generate (1-10000)' })
@@ -35,4 +36,9 @@ export class BatchGenerateTagsDto {
   @IsOptional()
   @IsEnum(QrFrameStyle)
   qrFrameStyle?: QrFrameStyle;
+
+  @ApiPropertyOptional({ description: 'QR physical layout for this batch', enum: QR_LAYOUT_VALUES })
+  @IsOptional()
+  @IsEnum(QrLayout)
+  qrLayout?: QrLayout;
 }

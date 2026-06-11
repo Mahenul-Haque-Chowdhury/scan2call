@@ -17,6 +17,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { MediaService } from '../media/media.service';
 import { QrCodeService, QrRenderOptions } from '../qr-code/qr-code.service';
 import { DEFAULT_QR_FRAME_STYLE, QrFrameStyle } from '../qr-code/qr-frame-style';
+import { DEFAULT_QR_LAYOUT, QrLayout } from '../qr-code/qr-layout';
 import * as crypto from 'crypto';
 import Stripe from 'stripe';
 
@@ -642,6 +643,7 @@ export class AdminService {
     const tokens = this.generateUniqueTokens(dto.quantity);
     const batchName = dto.batchName?.trim() || `Batch ${new Date().toISOString()}`;
     const frameStyle = dto.qrFrameStyle ?? DEFAULT_QR_FRAME_STYLE;
+    const qrLayout = dto.qrLayout ?? DEFAULT_QR_LAYOUT;
 
     if (dto.storeQrAssets && dto.quantity > 1000) {
       throw new BadRequestException(
@@ -658,6 +660,7 @@ export class AdminService {
         generatedBy: adminId,
         notes: dto.notes,
         qrFrameStyle: frameStyle,
+        qrLayout,
       },
     });
 
@@ -669,16 +672,17 @@ export class AdminService {
         status: 'INACTIVE' as const,
         batchId: batch.id,
         qrFrameStyle: frameStyle,
+        qrLayout,
       })),
     });
 
     if (dto.storeQrAssets) {
       const tags = await this.prisma.tag.findMany({
         where: { batchId: batch.id },
-        select: { id: true, token: true, qrFrameStyle: true },
+        select: { id: true, token: true, qrFrameStyle: true, qrLayout: true },
       });
 
-      await this.generateAndStoreQrAssets(batch.id, tags, frameStyle);
+      await this.generateAndStoreQrAssets(batch.id, tags, frameStyle, qrLayout);
     }
 
     // Audit log
@@ -692,6 +696,7 @@ export class AdminService {
           quantity: dto.quantity,
           tagType: dto.tagType,
           batchName: dto.batchName,
+          qrLayout,
         },
       },
     });
@@ -713,35 +718,53 @@ export class AdminService {
     return frameStyle ?? DEFAULT_QR_FRAME_STYLE;
   }
 
-  private buildQrRenderOptions(frameStyle?: QrFrameStyle | null): QrRenderOptions {
+  private resolveQrLayout(qrLayout?: QrLayout | null): QrLayout {
+    return qrLayout ?? DEFAULT_QR_LAYOUT;
+  }
+
+  private buildQrRenderOptions(
+    frameStyle?: QrFrameStyle | null,
+    qrLayout?: QrLayout | null,
+  ): QrRenderOptions {
     return {
       size: DEFAULT_QR_SIZE,
       margin: 2,
       frameStyle: this.resolveFrameStyle(frameStyle),
+      qrLayout: this.resolveQrLayout(qrLayout),
     };
   }
 
   private buildQrAssetsForTags(
-    tags: Array<{ token: string; qrFrameStyle: QrFrameStyle | null }>,
+    tags: Array<{ token: string; qrFrameStyle: QrFrameStyle | null; qrLayout: QrLayout | null }>,
     batchFrameStyle?: QrFrameStyle | null,
+    batchQrLayout?: QrLayout | null,
   ): Array<{ token: string; renderOptions: QrRenderOptions }> {
     const resolvedBatchStyle = this.resolveFrameStyle(batchFrameStyle ?? null);
+    const resolvedBatchLayout = this.resolveQrLayout(batchQrLayout ?? null);
     return tags.map((tag) => ({
       token: tag.token,
-      renderOptions: this.buildQrRenderOptions(tag.qrFrameStyle ?? resolvedBatchStyle),
+      renderOptions: this.buildQrRenderOptions(
+        tag.qrFrameStyle ?? resolvedBatchStyle,
+        tag.qrLayout ?? resolvedBatchLayout,
+      ),
     }));
   }
 
   private async generateAndStoreQrAssets(
     batchId: string,
-    tags: Array<{ id: string; token: string; qrFrameStyle: QrFrameStyle | null }>,
+    tags: Array<{ id: string; token: string; qrFrameStyle: QrFrameStyle | null; qrLayout: QrLayout | null }>,
     batchFrameStyle: QrFrameStyle,
+    batchQrLayout: QrLayout,
   ): Promise<void> {
     const concurrency = 6;
     const resolvedBatchStyle = this.resolveFrameStyle(batchFrameStyle);
+    const resolvedBatchLayout = this.resolveQrLayout(batchQrLayout);
 
     await this.mapWithConcurrency(tags, concurrency, async (tag) => {
-      const renderOptions = this.buildQrRenderOptions(tag.qrFrameStyle ?? resolvedBatchStyle);
+      const renderOptions = this.buildQrRenderOptions(
+        tag.qrFrameStyle ?? resolvedBatchStyle,
+        tag.qrLayout ?? resolvedBatchLayout,
+      );
 
       const scanUrl = this.qrCodeService.buildScanUrl(tag.token);
       const [png, svg] = await Promise.all([
@@ -801,7 +824,7 @@ export class AdminService {
   async regenerateTagQrAssets(adminId: string, tagId: string) {
     const tag = await this.prisma.tag.findUnique({
       where: { id: tagId },
-      select: { id: true, token: true, batchId: true, qrFrameStyle: true },
+      select: { id: true, token: true, batchId: true, qrFrameStyle: true, qrLayout: true },
     });
 
     if (!tag) {
@@ -814,11 +837,12 @@ export class AdminService {
 
     const batch = await this.prisma.tagBatch.findUnique({
       where: { id: tag.batchId },
-      select: { qrFrameStyle: true },
+      select: { qrFrameStyle: true, qrLayout: true },
     });
 
     const frameStyle = this.resolveFrameStyle(tag.qrFrameStyle ?? batch?.qrFrameStyle ?? null);
-    await this.generateAndStoreQrAssets(tag.batchId, [tag], frameStyle);
+    const qrLayout = this.resolveQrLayout(tag.qrLayout ?? batch?.qrLayout ?? null);
+    await this.generateAndStoreQrAssets(tag.batchId, [tag], frameStyle, qrLayout);
 
     await this.prisma.adminAuditLog.create({
       data: {
@@ -835,7 +859,7 @@ export class AdminService {
   async regenerateBatchQrAssets(adminId: string, batchId: string) {
     const batch = await this.prisma.tagBatch.findUnique({
       where: { id: batchId },
-      select: { id: true, qrFrameStyle: true },
+      select: { id: true, qrFrameStyle: true, qrLayout: true },
     });
 
     if (!batch) {
@@ -844,11 +868,12 @@ export class AdminService {
 
     const tags = await this.prisma.tag.findMany({
       where: { batchId: batch.id },
-      select: { id: true, token: true, qrFrameStyle: true },
+      select: { id: true, token: true, qrFrameStyle: true, qrLayout: true },
     });
 
     const frameStyle = this.resolveFrameStyle(batch.qrFrameStyle ?? null);
-    await this.generateAndStoreQrAssets(batch.id, tags, frameStyle);
+    const qrLayout = this.resolveQrLayout(batch.qrLayout ?? null);
+    await this.generateAndStoreQrAssets(batch.id, tags, frameStyle, qrLayout);
 
     await this.prisma.adminAuditLog.create({
       data: {
@@ -865,7 +890,7 @@ export class AdminService {
   async getQrAssetsForTagIds(tagIds: string[]) {
     const tags = await this.prisma.tag.findMany({
       where: { id: { in: tagIds } },
-      select: { id: true, token: true, batchId: true, qrFrameStyle: true },
+      select: { id: true, token: true, batchId: true, qrFrameStyle: true, qrLayout: true },
     });
 
     if (tags.length === 0) {
@@ -876,17 +901,20 @@ export class AdminService {
     const batches = batchIds.length > 0
       ? await this.prisma.tagBatch.findMany({
           where: { id: { in: batchIds } },
-          select: { id: true, qrFrameStyle: true },
+          select: { id: true, qrFrameStyle: true, qrLayout: true },
         })
       : [];
     const batchStyleMap = new Map(batches.map((batch) => [batch.id, batch.qrFrameStyle ?? null]));
+    const batchLayoutMap = new Map(batches.map((batch) => [batch.id, batch.qrLayout ?? null]));
 
     const items = tags.map((tag) => {
       const batchStyle = tag.batchId ? batchStyleMap.get(tag.batchId) ?? null : null;
+      const batchQrLayout = tag.batchId ? batchLayoutMap.get(tag.batchId) ?? null : null;
       const frameStyle = this.resolveFrameStyle(tag.qrFrameStyle ?? batchStyle ?? null);
+      const qrLayout = this.resolveQrLayout(tag.qrLayout ?? batchQrLayout ?? null);
       return {
         token: tag.token,
-        renderOptions: this.buildQrRenderOptions(frameStyle),
+        renderOptions: this.buildQrRenderOptions(frameStyle, qrLayout),
       };
     });
 
@@ -896,7 +924,7 @@ export class AdminService {
   async getQrAssetsForBatch(batchId: string) {
     const batch = await this.prisma.tagBatch.findUnique({
       where: { id: batchId },
-      select: { id: true, name: true, qrFrameStyle: true },
+      select: { id: true, name: true, qrFrameStyle: true, qrLayout: true },
     });
 
     if (!batch) {
@@ -905,11 +933,11 @@ export class AdminService {
 
     const tags = await this.prisma.tag.findMany({
       where: { batchId: batch.id },
-      select: { token: true, qrFrameStyle: true },
+      select: { token: true, qrFrameStyle: true, qrLayout: true },
       orderBy: { createdAt: 'asc' },
     });
 
-    const assets = this.buildQrAssetsForTags(tags, batch.qrFrameStyle ?? null);
+    const assets = this.buildQrAssetsForTags(tags, batch.qrFrameStyle ?? null, batch.qrLayout ?? null);
     return { data: assets, batchName: batch.name };
   }
 
@@ -1973,20 +2001,21 @@ export class AdminService {
   async getTagForQr(tagId: string) {
     const tag = await this.prisma.tag.findUnique({
       where: { id: tagId },
-      select: { id: true, token: true, batchId: true, qrFrameStyle: true },
+      select: { id: true, token: true, batchId: true, qrFrameStyle: true, qrLayout: true },
     });
     if (!tag) throw new NotFoundException('Tag not found');
 
     const batchStyle = tag.batchId
       ? (await this.prisma.tagBatch.findUnique({
           where: { id: tag.batchId },
-          select: { qrFrameStyle: true },
-        }))?.qrFrameStyle ?? null
+          select: { qrFrameStyle: true, qrLayout: true },
+        }))
       : null;
 
-    const frameStyle = this.resolveFrameStyle(tag.qrFrameStyle ?? batchStyle ?? null);
+    const frameStyle = this.resolveFrameStyle(tag.qrFrameStyle ?? batchStyle?.qrFrameStyle ?? null);
+    const qrLayout = this.resolveQrLayout(tag.qrLayout ?? batchStyle?.qrLayout ?? null);
 
-    return { id: tag.id, token: tag.token, frameStyle };
+    return { id: tag.id, token: tag.token, frameStyle, qrLayout };
   }
 
   // ──────────────────────────────────────────────
