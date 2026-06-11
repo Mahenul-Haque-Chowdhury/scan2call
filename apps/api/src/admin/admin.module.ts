@@ -9,6 +9,7 @@ import { AdminSystemController } from './admin-system.controller';
 import { AdminContactMessagesController } from './admin-contact-messages.controller';
 import { AdminGiftCodesController } from './admin-gift-codes.controller';
 import { AdminTagGiftCodesController } from './admin-tag-gift-codes.controller';
+import { AdminBlogPostsController } from './admin-blog-posts.controller';
 import { AdminService } from './admin.service';
 import { AdminSystemService } from './admin-system.service';
 import { QrCodeModule } from '../qr-code/qr-code.module';
@@ -29,6 +30,7 @@ import { MediaModule } from '../media/media.module';
     AdminContactMessagesController,
     AdminGiftCodesController,
     AdminTagGiftCodesController,
+    AdminBlogPostsController,
   ],
   providers: [AdminService, AdminSystemService],
   exports: [AdminService],

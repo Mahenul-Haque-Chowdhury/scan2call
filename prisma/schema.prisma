@@ -182,6 +182,7 @@ model User {
   giftRedemptions SubscriptionGiftRedemption[] @relation("giftRedemptions")
   tagGiftCodesCreated TagGiftCode[] @relation("tagGiftCodeCreatedBy")
   tagGiftRedemptions TagGiftRedemption[] @relation("tagGiftRedemptions")
+  blogPostsAuthored BlogPost[] @relation("blogPostsAuthored")
 
   @@index([deletedAt])
   @@map("users")
@@ -214,6 +215,36 @@ model VerificationToken {
   @@index([identifier, type])
   @@index([expiresAt])
   @@map("verification_tokens")
+}
+
+// ──────────────────────────────────────────────
+// BLOG
+// ──────────────────────────────────────────────
+
+model BlogPost {
+  id              String    @id @default(cuid())
+  title           String
+  slug            String    @unique
+  excerpt         String
+  content         String
+  coverImageUrl   String?
+  category        String?
+  tags            String[]  @default([])
+  isPublished     Boolean   @default(false)
+  isFeatured      Boolean   @default(false)
+  publishedAt     DateTime?
+  metaTitle       String?
+  metaDescription String?
+  authorId        String?
+  author          User?     @relation("blogPostsAuthored", fields: [authorId], references: [id], onDelete: SetNull)
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([isPublished, publishedAt])
+  @@index([isFeatured])
+  @@index([deletedAt])
+  @@map("blog_posts")
 }
 
 // ──────────────────────────────────────────────

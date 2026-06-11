@@ -12,6 +12,7 @@ import { BatchGenerateTagsDto } from './dto/batch-generate-tags.dto';
 import { AssignTagDto } from './dto/assign-tag.dto';
 import { AnalyticsQueryDto, AnalyticsGranularity } from './dto/analytics-query.dto';
 import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';
+import { CreateBlogPostDto, UpdateBlogPostDto } from './dto/create-blog-post.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MediaService } from '../media/media.service';
 import { QrCodeService, QrRenderOptions } from '../qr-code/qr-code.service';
@@ -1411,6 +1412,202 @@ export class AdminService {
       byStatus: byStatus.map((s) => ({ status: s.status, count: s._count.id })),
       byType: byType.map((t) => ({ type: t.type, count: t._count.id })),
     };
+  }
+
+  // ──────────────────────────────────────────────
+  // BLOG MANAGEMENT
+  // ──────────────────────────────────────────────
+
+  async listBlogPosts(params: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    status?: 'published' | 'draft';
+    includeDeleted?: boolean;
+  }) {
+    const page = params.page || 1;
+    const pageSize = Math.min(params.pageSize || 20, 100);
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.BlogPostWhereInput = {};
+
+    if (!params.includeDeleted) {
+      where.deletedAt = null;
+    }
+    if (params.status === 'published') {
+      where.isPublished = true;
+    }
+    if (params.status === 'draft') {
+      where.isPublished = false;
+    }
+    if (params.search) {
+      where.OR = [
+        { title: { contains: params.search, mode: 'insensitive' } },
+        { slug: { contains: params.search, mode: 'insensitive' } },
+        { excerpt: { contains: params.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [posts, total] = await Promise.all([
+      this.prisma.blogPost.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: [{ createdAt: 'desc' }],
+        include: {
+          author: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+        },
+      }),
+      this.prisma.blogPost.count({ where }),
+    ]);
+
+    return {
+      data: posts,
+      meta: { page, pageSize, total },
+    };
+  }
+
+  async getBlogPostById(postId: string) {
+    const post = await this.prisma.blogPost.findUnique({
+      where: { id: postId },
+      include: {
+        author: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+    });
+
+    if (!post) {
+      throw new NotFoundException('Blog post not found');
+    }
+
+    return post;
+  }
+
+  async createBlogPost(adminId: string, dto: CreateBlogPostDto) {
+    const existing = await this.prisma.blogPost.findUnique({
+      where: { slug: dto.slug },
+      select: { id: true },
+    });
+
+    if (existing) {
+      throw new BadRequestException('A blog post with this slug already exists');
+    }
+
+    const isPublished = dto.isPublished ?? false;
+    const post = await this.prisma.blogPost.create({
+      data: {
+        title: dto.title,
+        slug: dto.slug,
+        excerpt: dto.excerpt,
+        content: dto.content,
+        coverImageUrl: dto.coverImageUrl || null,
+        category: dto.category || null,
+        tags: dto.tags ?? [],
+        isPublished,
+        isFeatured: dto.isFeatured ?? false,
+        publishedAt: isPublished
+          ? dto.publishedAt
+            ? new Date(dto.publishedAt)
+            : new Date()
+          : null,
+        metaTitle: dto.metaTitle || null,
+        metaDescription: dto.metaDescription || null,
+        authorId: adminId,
+      },
+    });
+
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'MODERATION_ACTION',
+        targetType: 'BlogPost',
+        targetId: post.id,
+        metadata: { action: 'created', title: dto.title, published: isPublished },
+      },
+    });
+
+    this.logger.log(`Admin ${adminId} created blog post "${dto.title}" (${post.id})`);
+    return post;
+  }
+
+  async updateBlogPost(adminId: string, postId: string, dto: UpdateBlogPostDto) {
+    const post = await this.prisma.blogPost.findUnique({ where: { id: postId } });
+    if (!post) {
+      throw new NotFoundException('Blog post not found');
+    }
+
+    if (dto.slug && dto.slug !== post.slug) {
+      const slugTaken = await this.prisma.blogPost.findFirst({
+        where: { slug: dto.slug, id: { not: postId } },
+        select: { id: true },
+      });
+      if (slugTaken) throw new BadRequestException('A blog post with this slug already exists');
+    }
+
+    const data: Prisma.BlogPostUpdateInput = {
+      ...dto,
+      coverImageUrl: dto.coverImageUrl === undefined ? undefined : dto.coverImageUrl || null,
+      category: dto.category === undefined ? undefined : dto.category || null,
+      metaTitle: dto.metaTitle === undefined ? undefined : dto.metaTitle || null,
+      metaDescription:
+        dto.metaDescription === undefined ? undefined : dto.metaDescription || null,
+    };
+
+    if (dto.isPublished === true && !post.publishedAt && !dto.publishedAt) {
+      data.publishedAt = new Date();
+    } else if (dto.isPublished === false) {
+      data.publishedAt = null;
+    } else if (dto.publishedAt !== undefined) {
+      data.publishedAt = dto.publishedAt ? new Date(dto.publishedAt) : null;
+    }
+
+    const updated = await this.prisma.blogPost.update({
+      where: { id: postId },
+      data,
+    });
+
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'MODERATION_ACTION',
+        targetType: 'BlogPost',
+        targetId: postId,
+        metadata: { action: 'updated', changes: Object.keys(dto) },
+      },
+    });
+
+    this.logger.log(`Admin ${adminId} updated blog post ${postId}`);
+    return updated;
+  }
+
+  async deleteBlogPost(adminId: string, postId: string) {
+    const post = await this.prisma.blogPost.findFirst({
+      where: { id: postId, deletedAt: null },
+    });
+    if (!post) {
+      throw new NotFoundException('Blog post not found');
+    }
+
+    await this.prisma.blogPost.update({
+      where: { id: postId },
+      data: { deletedAt: new Date(), isPublished: false },
+    });
+
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'MODERATION_ACTION',
+        targetType: 'BlogPost',
+        targetId: postId,
+        metadata: { action: 'deleted', title: post.title },
+      },
+    });
+
+    this.logger.log(`Admin ${adminId} soft-deleted blog post ${postId}`);
+    return { deleted: true };
   }
 
   // ──────────────────────────────────────────────

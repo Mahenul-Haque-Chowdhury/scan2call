@@ -12,6 +12,7 @@ import { TagsModule } from './tags/tags.module';
 import { ScansModule } from './scans/scans.module';
 import { CommunicationModule } from './communication/communication.module';
 import { StoreModule } from './store/store.module';
+import { BlogModule } from './blog/blog.module';
 import { OrdersModule } from './orders/orders.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { GiftsModule } from './gifts/gifts.module';
@@ -39,6 +40,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     ScansModule,
     CommunicationModule,
     StoreModule,
+    BlogModule,
     OrdersModule,
     SubscriptionsModule,
     GiftsModule,
