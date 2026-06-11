@@ -89,13 +89,19 @@ export class CommunicationService {
     }
 
     // Compose a privacy-safe message - never reveal finder's real number
+    const tagLabel = tag.label || 'Tag';
+    const finderMessage = dto.message || 'No message provided';
     const messageBody = dto.message
-      ? `Scan2Call: Someone found your item "${tag.label || 'Tag'}". They said: "${dto.message}". Reply to this message to respond anonymously.`
-      : `Scan2Call: Someone found your item "${tag.label || 'Tag'}" and wants to contact you. Reply to this message to respond.`;
+      ? `Scan2Call: Someone found your item "${tagLabel}". They said: "${dto.message}". Reply to this message to respond anonymously.`
+      : `Scan2Call: Someone found your item "${tagLabel}" and wants to contact you. Reply to this message to respond.`;
 
     const messageSid = await this.twilioService.sendWhatsAppMessage(
       tag.owner.phone,
       messageBody,
+      {
+        1: tagLabel,
+        2: finderMessage,
+      },
     );
 
     const log = await this.prisma.communicationLog.create({

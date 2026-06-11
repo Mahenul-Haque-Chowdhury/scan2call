@@ -16,6 +16,7 @@ export const envSchema = z.object({
   TWILIO_PHONE_NUMBER: z.string().optional().default(''),
   TWILIO_SMS_FROM: z.string().optional().default(''),
   TWILIO_WHATSAPP_NUMBER: z.string().optional().default(''),
+  TWILIO_WHATSAPP_FOUND_TEMPLATE_SID: z.string().optional().default(''),
   TWILIO_TWIML_APP_SID: z.string().optional().default(''),
   TWILIO_VERIFY_SERVICE_SID: z.string().optional().default(''),
   TWILIO_API_KEY_SID: z.string().optional().default(''),

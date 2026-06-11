@@ -183,18 +183,32 @@ export class TwilioService implements OnModuleInit {
   /**
    * Send a WhatsApp message via Twilio.
    */
-  async sendWhatsAppMessage(to: string, body: string): Promise<string> {
+  async sendWhatsAppMessage(
+    to: string,
+    body: string,
+    contentVariables?: Record<string, string>,
+  ): Promise<string> {
     const whatsappFrom = this.config.get<string>(
       'TWILIO_WHATSAPP_NUMBER',
       'whatsapp:+14155238886',
     );
+    const contentSid = this.config.get<string>('TWILIO_WHATSAPP_FOUND_TEMPLATE_SID', '');
 
     try {
-      const message = await this.twilioClient.messages.create({
-        body,
-        from: `whatsapp:${whatsappFrom.replace('whatsapp:', '')}`,
-        to: `whatsapp:${to.replace('whatsapp:', '')}`,
-      });
+      const from = `whatsapp:${whatsappFrom.replace('whatsapp:', '')}`;
+      const recipient = `whatsapp:${to.replace('whatsapp:', '')}`;
+      const message = contentSid
+        ? await this.twilioClient.messages.create({
+            from,
+            to: recipient,
+            contentSid,
+            contentVariables: JSON.stringify(contentVariables ?? {}),
+          })
+        : await this.twilioClient.messages.create({
+            body,
+            from,
+            to: recipient,
+          });
       this.logger.log(`WhatsApp message sent: ${message.sid}`);
       return message.sid;
     } catch (err) {

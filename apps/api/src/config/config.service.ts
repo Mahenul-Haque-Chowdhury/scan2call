@@ -49,6 +49,10 @@ export class AppConfigService {
     return this.config.get('TWILIO_WHATSAPP_NUMBER');
   }
 
+  get twilioWhatsAppFoundTemplateSid(): string {
+    return this.config.get('TWILIO_WHATSAPP_FOUND_TEMPLATE_SID');
+  }
+
   get twilioTwimlAppSid(): string {
     return this.config.get('TWILIO_TWIML_APP_SID');
   }
