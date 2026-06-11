@@ -76,7 +76,7 @@ const PLANS = [
     cadence: '/3 yrs AUD',
     note: 'The best long-term savings.',
     highlight: false,
-    cta: 'Lock in 3 Years',
+    cta: 'Choose Long Term Access',
   },
 ] as const;
 
