@@ -117,7 +117,9 @@ export class QrCodeService {
       brandX: 421,
       brandY: 170,
       brandFontSize: 112,
-      brandTextLength: 548,
+      brandScanX: 421,
+      brandTwoX: 716,
+      brandCallX: 780,
       detailX: 428,
       detailLineOneY: 270,
       detailLineTwoY: 338,
@@ -260,9 +262,9 @@ export class QrCodeService {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${layout.frameWidth}" height="${layout.frameHeight}" viewBox="0 0 ${layout.frameWidth} ${layout.frameHeight}" xmlns="http://www.w3.org/2000/svg">
   <rect x="0" y="0" width="${layout.frameWidth}" height="${layout.frameHeight}" fill="${background}" />
-  <text x="${layout.brandX}" y="${layout.brandY}" font-family="${safeFontFamily}" font-size="${layout.brandFontSize}" font-weight="700" fill="${textColor}" textLength="${layout.brandTextLength}" lengthAdjust="spacingAndGlyphs">
-    <tspan fill="${textColor}">Scan</tspan><tspan fill="${accent}">2</tspan><tspan fill="${textColor}">Call</tspan>
-  </text>
+  <text x="${layout.brandScanX}" y="${layout.brandY}" font-family="${safeFontFamily}" font-size="${layout.brandFontSize}" font-weight="700" fill="${textColor}">Scan</text>
+  <text x="${layout.brandTwoX}" y="${layout.brandY}" font-family="${safeFontFamily}" font-size="${layout.brandFontSize}" font-weight="700" fill="${accent}">2</text>
+  <text x="${layout.brandCallX}" y="${layout.brandY}" font-family="${safeFontFamily}" font-size="${layout.brandFontSize}" font-weight="700" fill="${textColor}">Call</text>
   <text x="${layout.detailX}" y="${layout.detailLineOneY}" font-family="${safeFontFamily}" font-size="${layout.detailFontSize}" font-weight="400" fill="${textColor}">Scan The QR Code To</text>
   <text x="${layout.detailX}" y="${layout.detailLineTwoY}" font-family="${safeFontFamily}" font-size="${layout.detailFontSize}" font-weight="400" fill="${textColor}">Contact The Owner</text>
   <rect x="-1" y="-1" width="1" height="1" fill="${qrColor}" opacity="0" />
