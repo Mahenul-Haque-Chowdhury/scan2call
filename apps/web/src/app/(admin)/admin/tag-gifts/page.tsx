@@ -1,3 +1,5 @@
-import AdminSubscriptionGiftsPage from '../subscription-gifts/page';
+import { GiftCodesPageClient } from '../_components/gift-codes-page-client';
 
-export default AdminSubscriptionGiftsPage;
+export default function AdminTagGiftsPage() {
+  return <GiftCodesPageClient mode="tag" />;
+}
