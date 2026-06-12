@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, Logger, ConflictException } from '@nestj
 import { PrismaService } from '../database/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateNotificationPrefsDto } from './dto/update-notification-prefs.dto';
+import { SavedAddressDto, UpdateSavedAddressDto } from './dto/saved-address.dto';
 
 @Injectable()
 export class UsersService {
@@ -183,6 +184,122 @@ export class UsersService {
     };
   }
 
+  async listSavedAddresses(userId: string) {
+    await this.ensureUserExists(userId);
+
+    const addresses = await this.prisma.savedAddress.findMany({
+      where: { userId },
+      orderBy: [
+        { isDefault: 'desc' },
+        { updatedAt: 'desc' },
+      ],
+    });
+
+    return { data: addresses };
+  }
+
+  async createSavedAddress(userId: string, dto: SavedAddressDto) {
+    await this.ensureUserExists(userId);
+
+    const hasAddress = await this.prisma.savedAddress.findFirst({
+      where: { userId },
+      select: { id: true },
+    });
+    const shouldBeDefault = dto.isDefault ?? !hasAddress;
+    const data = this.cleanCreateSavedAddressData(dto);
+
+    const address = await this.prisma.$transaction(async (tx) => {
+      if (shouldBeDefault) {
+        await tx.savedAddress.updateMany({
+          where: { userId },
+          data: { isDefault: false },
+        });
+      }
+
+      return tx.savedAddress.create({
+        data: {
+          ...data,
+          userId,
+          isDefault: shouldBeDefault,
+        },
+      });
+    });
+
+    this.logger.log(`Saved address created for user ${userId}`);
+    return { data: address };
+  }
+
+  async updateSavedAddress(userId: string, addressId: string, dto: UpdateSavedAddressDto) {
+    await this.ensureSavedAddressOwner(userId, addressId);
+
+    const shouldBeDefault = dto.isDefault === true;
+    const data = this.cleanSavedAddressData(dto);
+
+    const address = await this.prisma.$transaction(async (tx) => {
+      if (shouldBeDefault) {
+        await tx.savedAddress.updateMany({
+          where: { userId, id: { not: addressId } },
+          data: { isDefault: false },
+        });
+      }
+
+      return tx.savedAddress.update({
+        where: { id: addressId },
+        data: {
+          ...data,
+          ...(shouldBeDefault && { isDefault: true }),
+        },
+      });
+    });
+
+    this.logger.log(`Saved address ${addressId} updated for user ${userId}`);
+    return { data: address };
+  }
+
+  async setDefaultSavedAddress(userId: string, addressId: string) {
+    await this.ensureSavedAddressOwner(userId, addressId);
+
+    const address = await this.prisma.$transaction(async (tx) => {
+      await tx.savedAddress.updateMany({
+        where: { userId },
+        data: { isDefault: false },
+      });
+
+      return tx.savedAddress.update({
+        where: { id: addressId },
+        data: { isDefault: true },
+      });
+    });
+
+    return { data: address };
+  }
+
+  async deleteSavedAddress(userId: string, addressId: string) {
+    const address = await this.ensureSavedAddressOwner(userId, addressId);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.savedAddress.delete({ where: { id: addressId } });
+
+      if (address.isDefault) {
+        const nextDefault = await tx.savedAddress.findFirst({
+          where: { userId },
+          orderBy: { updatedAt: 'desc' },
+          select: { id: true },
+        });
+
+        if (nextDefault) {
+          await tx.savedAddress.update({
+            where: { id: nextDefault.id },
+            data: { isDefault: true },
+          });
+        }
+      }
+    });
+
+    this.logger.log(`Saved address ${addressId} deleted for user ${userId}`);
+    return { deleted: true };
+  }
+
   /**
    * Soft delete a user account. Sets deletedAt timestamp.
    * Revokes all refresh tokens and deactivates owned tags.
@@ -229,5 +346,45 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+  }
+
+  private async ensureSavedAddressOwner(userId: string, addressId: string) {
+    await this.ensureUserExists(userId);
+
+    const address = await this.prisma.savedAddress.findFirst({
+      where: { id: addressId, userId },
+    });
+
+    if (!address) {
+      throw new NotFoundException('Saved address not found');
+    }
+
+    return address;
+  }
+
+  private cleanSavedAddressData(dto: SavedAddressDto | UpdateSavedAddressDto) {
+    return {
+      ...(dto.firstName !== undefined && { firstName: dto.firstName.trim() }),
+      ...(dto.lastName !== undefined && { lastName: dto.lastName.trim() }),
+      ...(dto.address1 !== undefined && { address1: dto.address1.trim() }),
+      ...(dto.address2 !== undefined && { address2: dto.address2.trim() || null }),
+      ...(dto.city !== undefined && { city: dto.city.trim() }),
+      ...(dto.state !== undefined && { state: dto.state.trim() }),
+      ...(dto.postcode !== undefined && { postcode: dto.postcode.trim() }),
+      ...(dto.country !== undefined && { country: dto.country.trim() || 'AU' }),
+    };
+  }
+
+  private cleanCreateSavedAddressData(dto: SavedAddressDto) {
+    return {
+      firstName: dto.firstName.trim(),
+      lastName: dto.lastName.trim(),
+      address1: dto.address1.trim(),
+      address2: dto.address2?.trim() || null,
+      city: dto.city.trim(),
+      state: dto.state.trim(),
+      postcode: dto.postcode.trim(),
+      country: dto.country?.trim() || 'AU',
+    };
   }
 }

@@ -1,9 +1,11 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Delete,
   Body,
+  Param,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -14,6 +16,7 @@ import { CurrentUser, JwtPayload } from '../common/decorators/current-user.decor
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateNotificationPrefsDto } from './dto/update-notification-prefs.dto';
+import { SavedAddressDto, UpdateSavedAddressDto } from './dto/saved-address.dto';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -50,6 +53,50 @@ export class UsersController {
   @ApiOperation({ summary: 'Get dashboard statistics for current user' })
   async getStats(@CurrentUser() user: JwtPayload) {
     return this.usersService.getDashboardStats(user.id);
+  }
+
+  @Get('me/addresses')
+  @ApiOperation({ summary: 'List current user saved addresses' })
+  async listSavedAddresses(@CurrentUser() user: JwtPayload) {
+    return this.usersService.listSavedAddresses(user.id);
+  }
+
+  @Post('me/addresses')
+  @ApiOperation({ summary: 'Create a saved address for current user' })
+  async createSavedAddress(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: SavedAddressDto,
+  ) {
+    return this.usersService.createSavedAddress(user.id, dto);
+  }
+
+  @Patch('me/addresses/:addressId')
+  @ApiOperation({ summary: 'Update a saved address for current user' })
+  async updateSavedAddress(
+    @CurrentUser() user: JwtPayload,
+    @Param('addressId') addressId: string,
+    @Body() dto: UpdateSavedAddressDto,
+  ) {
+    return this.usersService.updateSavedAddress(user.id, addressId, dto);
+  }
+
+  @Patch('me/addresses/:addressId/default')
+  @ApiOperation({ summary: 'Mark a saved address as default' })
+  async setDefaultSavedAddress(
+    @CurrentUser() user: JwtPayload,
+    @Param('addressId') addressId: string,
+  ) {
+    return this.usersService.setDefaultSavedAddress(user.id, addressId);
+  }
+
+  @Delete('me/addresses/:addressId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete a saved address for current user' })
+  async deleteSavedAddress(
+    @CurrentUser() user: JwtPayload,
+    @Param('addressId') addressId: string,
+  ) {
+    return this.usersService.deleteSavedAddress(user.id, addressId);
   }
 
   @Delete('me')

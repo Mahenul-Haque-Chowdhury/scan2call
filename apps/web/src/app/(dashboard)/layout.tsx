@@ -21,6 +21,7 @@ import {
   Menu,
   X,
   Gift,
+  MapPin,
 } from 'lucide-react';
 
 const headerLinks = [
@@ -37,6 +38,7 @@ const sidebarLinks = [
   { href: '/orders', label: 'Orders', icon: Package },
   { href: '/subscription', label: 'Subscription', icon: Crown },
   { href: '/store/cart', label: 'Store', icon: ShoppingCart },
+  { href: '/saved-addresses', label: 'Saved Addresses', icon: MapPin },
   { href: '/redeem-gifts', label: 'Redeem Gifts', icon: Gift },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
@@ -173,7 +175,11 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
             <div className="border-b border-accent/10 px-4 py-4">
               {user && (
-                <Link href="/settings" className="block px-1 rounded-md hover:bg-surface-raised transition-colors">
+                <Link
+                  href="/settings"
+                  onClick={() => setSidebarOpen(false)}
+                  className="block px-1 rounded-md hover:bg-surface-raised transition-colors"
+                >
                   <p className="truncate text-sm font-medium text-text">{user.firstName} {user.lastName}</p>
                   <p className="truncate text-xs text-text-dim">{user.email}</p>
                 </Link>
@@ -188,7 +194,11 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.04, duration: 0.4, ease: [0.16, 1, 0.3, 1] as const }}
                 >
-                  <SidebarLink href={link.href} icon={<link.icon className="h-5 w-5" />}>
+                  <SidebarLink
+                    href={link.href}
+                    icon={<link.icon className="h-5 w-5" />}
+                    onClick={() => setSidebarOpen(false)}
+                  >
                     {link.label}
                   </SidebarLink>
                 </motion.div>

@@ -173,6 +173,7 @@ model User {
 
   // Relations
   tags              Tag[]
+  savedAddresses    SavedAddress[]
   scans             Scan[]
   orders            Order[]
   subscription      Subscription?
@@ -191,6 +192,29 @@ model User {
 
   @@index([deletedAt])
   @@map("users")
+}
+
+model SavedAddress {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  firstName String
+  lastName  String
+  address1  String
+  address2  String?
+  city      String
+  state     String
+  postcode  String
+  country   String   @default("AU")
+  isDefault Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, isDefault])
+  @@map("saved_addresses")
 }
 
 model RefreshToken {

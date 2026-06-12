@@ -10,15 +10,17 @@ interface SidebarLinkProps {
   icon: React.ReactNode;
   children: React.ReactNode;
   badge?: string | number;
+  onClick?: () => void;
 }
 
-export function SidebarLink({ href, icon, children, badge }: SidebarLinkProps) {
+export function SidebarLink({ href, icon, children, badge, onClick }: SidebarLinkProps) {
   const pathname = usePathname();
   const isActive = pathname === href || (href !== '/dashboard' && href !== '/admin' && pathname.startsWith(href));
 
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={cn(
         'flex items-center gap-3 px-3 py-2 text-sm rounded-xl transition-all duration-200 group relative',
         isActive

@@ -101,9 +101,9 @@ export class QrCodeService {
       qrY: topTextHeight + padding,
       radius: Math.round(frameWidth * 0.08),
       brandFontSize: Math.round(qrSize * 0.18),
-      detailFontSize: Math.round(qrSize * 0.075) + 1,
+      detailFontSize: Math.round(qrSize * 0.09) + 1,
       topTextY: Math.round(padding * 0.7 + topTextHeight / 2) + Math.round(qrSize * 0.03),
-      bottomTextY: Math.round(topTextHeight + padding + qrSize + padding + bottomTextHeight / 2) - Math.round(qrSize * 0.06),
+      bottomTextY: Math.round(topTextHeight + padding + qrSize + padding + bottomTextHeight / 2) - Math.round(qrSize * 0.1),
     };
   }
 
@@ -119,8 +119,8 @@ export class QrCodeService {
       brandFontSize: 112,
       detailX: 428,
       detailLineOneY: 270,
-      detailLineTwoY: 316,
-      detailFontSize: 33,
+      detailLineTwoY: 338,
+      detailFontSize: 50,
     };
   }
 

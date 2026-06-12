@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { useCart } from '@/providers/cart-provider';
 import { useAuth } from '@/providers/auth-provider';
 import { apiClient } from '@/lib/api-client';
-import { Package } from 'lucide-react';
+import { MapPin, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
@@ -31,6 +31,19 @@ interface CheckoutSessionResponse {
   data: {
     sessionUrl: string;
   };
+}
+
+interface SavedAddress {
+  id: string;
+  firstName: string;
+  lastName: string;
+  address1: string;
+  address2: string | null;
+  city: string;
+  state: string;
+  postcode: string;
+  country: string;
+  isDefault: boolean;
 }
 
 interface ShippingForm {
@@ -73,6 +86,9 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState('');
+  const [saveAddressForLater, setSaveAddressForLater] = useState(false);
   const [tagCustomizations, setTagCustomizations] = useState<
     Record<string, { tagLabel: string; tagDescription: string }>
   >({});
@@ -86,6 +102,34 @@ export default function CheckoutPage() {
       }));
     }
   }, [user]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSavedAddresses() {
+      try {
+        const response = await apiClient.get<{ data: SavedAddress[] }>('/users/me/addresses');
+        if (cancelled) return;
+        setSavedAddresses(response.data);
+
+        const defaultAddress = response.data.find((address) => address.isDefault) ?? response.data[0];
+        if (defaultAddress) {
+          setSelectedAddressId(defaultAddress.id);
+          applySavedAddress(defaultAddress);
+        }
+      } catch {
+        if (!cancelled) {
+          setSavedAddresses([]);
+        }
+      }
+    }
+
+    loadSavedAddresses();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const total = getTotal();
 
@@ -111,9 +155,64 @@ export default function CheckoutPage() {
 
   function updateField(field: keyof ShippingForm, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
+    setSelectedAddressId('');
     if (errors[field as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
+  }
+
+  function applySavedAddress(address: SavedAddress) {
+    setForm((prev) => ({
+      ...prev,
+      firstName: address.firstName,
+      lastName: address.lastName,
+      address1: address.address1,
+      address2: address.address2 ?? '',
+      city: address.city,
+      state: address.state,
+      postcode: address.postcode,
+      country: address.country,
+    }));
+    setErrors({});
+  }
+
+  function handleSavedAddressChange(addressId: string) {
+    setSelectedAddressId(addressId);
+    const address = savedAddresses.find((item) => item.id === addressId);
+    if (address) {
+      applySavedAddress(address);
+    }
+  }
+
+  function formMatchesSavedAddress(): boolean {
+    return savedAddresses.some((address) =>
+      address.firstName.trim().toLowerCase() === form.firstName.trim().toLowerCase()
+      && address.lastName.trim().toLowerCase() === form.lastName.trim().toLowerCase()
+      && address.address1.trim().toLowerCase() === form.address1.trim().toLowerCase()
+      && (address.address2 ?? '').trim().toLowerCase() === form.address2.trim().toLowerCase()
+      && address.city.trim().toLowerCase() === form.city.trim().toLowerCase()
+      && address.state === form.state
+      && address.postcode.trim() === form.postcode.trim()
+      && address.country === form.country,
+    );
+  }
+
+  async function saveCurrentAddressIfNeeded() {
+    if (!saveAddressForLater || formMatchesSavedAddress()) return;
+
+    await apiClient.post('/users/me/addresses', {
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
+      address1: form.address1.trim(),
+      ...(form.address2.trim() && {
+        address2: form.address2.trim(),
+      }),
+      city: form.city.trim(),
+      state: form.state,
+      postcode: form.postcode.trim(),
+      country: form.country,
+      isDefault: savedAddresses.length === 0,
+    });
   }
 
   function validate(): boolean {
@@ -153,6 +252,8 @@ export default function CheckoutPage() {
     setSubmitError(null);
 
     try {
+      await saveCurrentAddressIfNeeded();
+
       const body = {
         items: items.map((item) => ({
           productId: item.productId,
@@ -220,6 +321,35 @@ export default function CheckoutPage() {
               <h2 className="text-lg font-semibold text-text">Shipping Address</h2>
 
               <div className="mt-5 space-y-4">
+                {savedAddresses.length > 0 && (
+                  <div className="rounded-lg border border-border bg-surface-raised p-4">
+                    <label
+                      htmlFor="savedAddress"
+                      className="flex items-center gap-2 text-sm font-medium text-text-muted"
+                    >
+                      <MapPin className="h-4 w-4 text-primary" />
+                      Saved address
+                    </label>
+                    <select
+                      id="savedAddress"
+                      value={selectedAddressId}
+                      onChange={(e) => handleSavedAddressChange(e.target.value)}
+                      className="mt-2 block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="">Enter a new address...</option>
+                      {savedAddresses.map((address) => (
+                        <option key={address.id} value={address.id}>
+                          {address.isDefault ? 'Default - ' : ''}
+                          {address.firstName} {address.lastName}, {address.address1}, {address.city}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-xs text-text-dim">
+                      Select a saved address to fill the shipping form automatically.
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label
@@ -410,6 +540,16 @@ export default function CheckoutPage() {
                     placeholder="Any special instructions for your order..."
                   />
                 </div>
+
+                <label className="flex items-center gap-3 rounded-lg border border-border bg-surface-raised p-4 text-sm text-text-muted">
+                  <input
+                    type="checkbox"
+                    checked={saveAddressForLater}
+                    onChange={(e) => setSaveAddressForLater(e.target.checked)}
+                    className="h-4 w-4 rounded border-border bg-surface text-primary focus:ring-primary"
+                  />
+                  Save this address for future checkout
+                </label>
               </div>
             </CardContent>
           </Card>
