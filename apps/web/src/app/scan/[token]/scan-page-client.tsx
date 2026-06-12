@@ -8,6 +8,7 @@ import { Spinner } from '@/components/ui/spinner';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const API = `${API_BASE}/api/v1`;
+const DEFAULT_BROWSER_CALL_MAX_SECONDS = 300;
 
 interface TagData {
   tagId: string;
@@ -28,6 +29,7 @@ interface TagData {
 }
 
 type ContactMethod = 'call' | 'sms' | 'whatsapp' | 'location';
+type CallEndReason = 'completed' | 'not-answered' | 'cancelled' | 'limit-reached' | null;
 
 interface TurnstileRenderOptions {
   sitekey: string;
@@ -66,6 +68,14 @@ function getApiErrorMessage(payload: unknown, fallback: string): string {
   }
 
   return fallback;
+}
+
+function formatCallTime(totalSeconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 function WhatsAppIcon({ className = 'h-5 w-5' }: { className?: string }) {
@@ -139,6 +149,12 @@ export default function ScanPageClient({ token }: { token: string }) {
   const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'ringing' | 'connected' | 'ended'>('idle');
   const [callDevice, setCallDevice] = useState<unknown>(null);
   const [activeCall, setActiveCall] = useState<unknown>(null);
+  const [maxCallSeconds, setMaxCallSeconds] = useState(DEFAULT_BROWSER_CALL_MAX_SECONDS);
+  const [callSecondsRemaining, setCallSecondsRemaining] = useState(DEFAULT_BROWSER_CALL_MAX_SECONDS);
+  const [callEndReason, setCallEndReason] = useState<CallEndReason>(null);
+  const callWasAcceptedRef = useRef(false);
+  const callEndedByUserRef = useRef(false);
+  const callEndedByLimitRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -235,6 +251,29 @@ export default function ScanPageClient({ token }: { token: string }) {
     }
   }, []);
 
+  useEffect(() => {
+    if (callStatus !== 'connected') return;
+
+    setCallSecondsRemaining(maxCallSeconds);
+
+    const intervalId = window.setInterval(() => {
+      setCallSecondsRemaining((current) => {
+        if (current <= 1) {
+          if (activeCall) {
+            callEndedByLimitRef.current = true;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (activeCall as any).disconnect();
+          }
+          return 0;
+        }
+
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [activeCall, callStatus, maxCallSeconds]);
+
   const handleCall = async () => {
     const verifiedToken = requireHumanVerification();
     if (!verifiedToken) return;
@@ -242,6 +281,11 @@ export default function ScanPageClient({ token }: { token: string }) {
     setSubmitting(true);
     setActionError(null);
     setCallStatus('connecting');
+    setCallEndReason(null);
+    setCallSecondsRemaining(maxCallSeconds);
+    callWasAcceptedRef.current = false;
+    callEndedByUserRef.current = false;
+    callEndedByLimitRef.current = false;
     try {
       const res = await fetch(`${API}/communication/call`, {
         method: 'POST',
@@ -253,7 +297,12 @@ export default function ScanPageClient({ token }: { token: string }) {
         throw new Error(getApiErrorMessage(data, 'Failed to initiate call.'));
       }
       const json = await res.json();
-      const { token: clientToken, identity } = json.data;
+      const { token: clientToken, identity, maxCallSeconds: serverMaxCallSeconds } = json.data;
+      const callLimitSeconds = typeof serverMaxCallSeconds === 'number' && serverMaxCallSeconds > 0
+        ? serverMaxCallSeconds
+        : DEFAULT_BROWSER_CALL_MAX_SECONDS;
+      setMaxCallSeconds(callLimitSeconds);
+      setCallSecondsRemaining(callLimitSeconds);
 
       const { Device } = await import('@twilio/voice-sdk');
 
@@ -271,11 +320,26 @@ export default function ScanPageClient({ token }: { token: string }) {
       setCallStatus('ringing');
       setActiveCall(call);
 
-      call.on('accept', () => setCallStatus('connected'));
+      call.on('accept', () => {
+        callWasAcceptedRef.current = true;
+        setCallSecondsRemaining(callLimitSeconds);
+        setCallStatus('connected');
+      });
       call.on('disconnect', () => {
+        const endReason: CallEndReason = callWasAcceptedRef.current
+          ? callEndedByLimitRef.current
+            ? 'limit-reached'
+            : 'completed'
+          : callEndedByUserRef.current
+            ? 'cancelled'
+            : 'not-answered';
+
+        setCallEndReason(endReason);
         setCallStatus('ended');
-        setSuccess('Call ended. Thank you for helping return this item!');
-        setActiveMethod(null);
+        setActiveCall(null);
+        if (endReason === 'completed' || endReason === 'limit-reached') {
+          setSuccess('Call ended. Thank you for helping return this item!');
+        }
       });
       call.on('error', (err: Error) => {
         setActionError(err.message || 'Call failed. Please try again.');
@@ -290,6 +354,7 @@ export default function ScanPageClient({ token }: { token: string }) {
   };
 
   const handleHangUp = () => {
+    callEndedByUserRef.current = true;
     if (activeCall) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (activeCall as any).disconnect();
@@ -299,6 +364,7 @@ export default function ScanPageClient({ token }: { token: string }) {
       (callDevice as any).disconnectAll();
     }
     setCallStatus('ended');
+    setCallEndReason(callWasAcceptedRef.current ? 'completed' : 'cancelled');
     setActiveCall(null);
   };
 
@@ -691,6 +757,9 @@ export default function ScanPageClient({ token }: { token: string }) {
                           <p className="text-sm text-text-muted">
                             Start an anonymous voice call directly from your browser. The owner will not see your number.
                           </p>
+                          <p className="mt-2 text-xs text-text-dim">
+                            Calls are limited to {formatCallTime(maxCallSeconds)} to prevent misuse.
+                          </p>
                           {actionError && <p className="mt-2 text-sm text-red-600">{actionError}</p>}
                           <button
                             onClick={handleCall}
@@ -718,6 +787,9 @@ export default function ScanPageClient({ token }: { token: string }) {
                             <Phone className="h-7 w-7 text-green-600" />
                           </motion.div>
                           <p className="text-sm font-medium text-text">Ringing...</p>
+                          <p className="max-w-56 text-center text-xs text-text-muted">
+                            Some carriers do not send an audible ringback tone, but the owner&apos;s phone is still being dialed.
+                          </p>
                           <button
                             onClick={handleHangUp}
                             className="mt-2 rounded-xl bg-red-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-red-700"
@@ -736,7 +808,9 @@ export default function ScanPageClient({ token }: { token: string }) {
                             <Phone className="h-7 w-7 text-white" />
                           </motion.div>
                           <p className="text-sm font-bold text-green-700">Connected</p>
-                          <p className="text-xs text-text-muted">Call is in progress</p>
+                          <p className="text-xs text-text-muted">
+                            Call is in progress. Time left: {formatCallTime(callSecondsRemaining)}
+                          </p>
                           <button
                             onClick={handleHangUp}
                             className="mt-2 rounded-xl bg-red-600 px-8 py-2.5 text-sm font-semibold text-white hover:bg-red-700"
@@ -747,7 +821,24 @@ export default function ScanPageClient({ token }: { token: string }) {
                       )}
                       {callStatus === 'ended' && (
                         <div className="flex flex-col items-center gap-2 py-4">
-                          <p className="text-sm font-medium text-text">Call ended</p>
+                          <p className="text-sm font-medium text-text">
+                            {callEndReason === 'not-answered'
+                              ? 'No answer'
+                              : callEndReason === 'cancelled'
+                                ? 'Call cancelled'
+                                : callEndReason === 'limit-reached'
+                                  ? 'Call time limit reached'
+                                  : 'Call ended'}
+                          </p>
+                          <p className="max-w-64 text-center text-xs text-text-muted">
+                            {callEndReason === 'not-answered'
+                              ? 'The owner did not answer this time. You can try again or send a message instead.'
+                              : callEndReason === 'cancelled'
+                                ? 'The call was cancelled before it connected.'
+                                : callEndReason === 'limit-reached'
+                                  ? `Calls are limited to ${formatCallTime(maxCallSeconds)} to prevent misuse.`
+                                  : 'Thank you for helping return this item.'}
+                          </p>
                           <button
                             onClick={() => setCallStatus('idle')}
                             className="text-sm font-medium text-green-700 underline hover:text-green-800"

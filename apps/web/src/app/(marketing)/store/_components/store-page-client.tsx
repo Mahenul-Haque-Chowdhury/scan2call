@@ -57,6 +57,8 @@ export default function StorePageClient() {
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
 
   const handleAddToCart = useCallback((product: Product) => {
+    if (!product.isInStock || product.stockQuantity <= 0) return;
+
     addItem(
       {
         productId: product.id,
@@ -80,9 +82,12 @@ export default function StorePageClient() {
   const AddToCartButton = useCallback(
     ({ product }: { product: Product }) => {
       const added = addedIds.has(product.id);
+      const available = product.isInStock && product.stockQuantity > 0;
+
       return (
         <motion.button
           onClick={() => handleAddToCart(product)}
+          disabled={!available}
           className={`relative w-full flex items-center justify-center gap-2 h-10 px-4 text-sm font-semibold rounded-xl overflow-hidden transition-colors duration-300 ${
             added
               ? 'bg-success/15 text-success border border-success/30'
@@ -120,7 +125,8 @@ export default function StorePageClient() {
                 className="flex items-center gap-1.5"
               >
                 <ShoppingCart className="h-4 w-4" />
-                Add to Cart
+                <span className="sm:hidden">+ Add</span>
+                <span className="hidden sm:inline">Add to Cart</span>
               </motion.span>
             )}
           </AnimatePresence>
@@ -211,98 +217,110 @@ export default function StorePageClient() {
           ) : (
             <div className="grid gap-5 grid-cols-2 lg:grid-cols-4">
               {products.map((product, i) => (
-                <motion.div
-                  key={product.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.06, duration: 0.4 }}
-                  className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-surface transition-all duration-300 hover:border-primary/25 hover:-translate-y-1 hover:shadow-xl hover:shadow-shadow"
-                >
-                  {/* Image */}
-                  <Link href={`/store/${product.slug}`}>
-                    <div className="relative aspect-square bg-surface-raised overflow-hidden">
-                      {product.images.length > 0 && product.images[0] ? (
-                        <img
-                          src={product.images[0].url}
-                          alt={product.images[0].altText || product.name}
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-text-dim">
-                          <ImageIcon className="h-12 w-12" strokeWidth={1} />
-                        </div>
-                      )}
+                (() => {
+                  const available = product.isInStock && product.stockQuantity > 0;
 
-                      {/* Overlay badges */}
-                      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-start justify-between">
-                        {product.isFeatured && product.isInStock && (
-                          <Badge variant="primary" className="shadow-sm">
-                            <Star className="mr-1 h-3 w-3 fill-current" />
-                            Featured
-                          </Badge>
-                        )}
-                        {!product.isInStock && (
-                          <Badge variant="error" className="ml-auto">Out of Stock</Badge>
-                        )}
-                      </div>
-
-                      {/* Compare-at price ribbon */}
-                      {product.compareAtPrice && product.isInStock && (
-                        <div className="absolute bottom-0 right-0 bg-primary/90 text-primary-foreground text-[10px] font-bold px-2 py-1 rounded-tl-lg">
-                          SALE
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-
-                  {/* Info */}
-                  <div className="flex flex-col flex-1 p-4 gap-3">
-                    <div className="flex-1">
+                  return (
+                    <motion.div
+                      key={product.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.06, duration: 0.4 }}
+                      className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-surface transition-all duration-300 hover:border-primary/25 hover:-translate-y-1 hover:shadow-xl hover:shadow-shadow"
+                    >
+                      {/* Image */}
                       <Link href={`/store/${product.slug}`}>
-                        <h2 className="text-sm font-semibold leading-snug transition-colors group-hover:text-primary line-clamp-2">
-                          {product.name}
-                        </h2>
-                      </Link>
-                      <p className="mt-1 line-clamp-2 text-xs text-text-muted leading-relaxed">
-                        {product.shortDescription}
-                      </p>
-                    </div>
+                        <div className="relative aspect-square bg-surface-raised overflow-hidden">
+                          {product.images.length > 0 && product.images[0] ? (
+                            <img
+                              src={product.images[0].url}
+                              alt={product.images[0].altText || product.name}
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-text-dim">
+                              <ImageIcon className="h-12 w-12" strokeWidth={1} />
+                            </div>
+                          )}
 
-                    {/* Price + tag type */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-lg font-bold text-primary">
-                          ${formatPrice(product.priceInCents)}
-                        </span>
-                        {product.compareAtPrice && (
-                          <span className="text-xs text-text-dim line-through">
-                            ${formatPrice(product.compareAtPrice)}
-                          </span>
+                          {/* Overlay badges */}
+                          <div className="absolute top-2.5 left-2.5 right-2.5 flex items-start justify-between">
+                            {product.isFeatured && available && (
+                              <Badge variant="primary" className="shadow-sm">
+                                <Star className="mr-1 h-3 w-3 fill-current" />
+                                Featured
+                              </Badge>
+                            )}
+                            {!available && (
+                              <Badge variant="error" className="ml-auto">Out of Stock</Badge>
+                            )}
+                          </div>
+
+                          {/* Compare-at price ribbon */}
+                          {product.compareAtPrice && available && (
+                            <div className="absolute bottom-0 right-0 bg-primary/90 text-primary-foreground text-[10px] font-bold px-2 py-1 rounded-tl-lg">
+                              SALE
+                            </div>
+                          )}
+                        </div>
+                      </Link>
+
+                      {/* Info */}
+                      <div className="flex flex-col flex-1 p-4 gap-3">
+                        <div className="flex-1">
+                          <Link href={`/store/${product.slug}`}>
+                            <h2 className="text-sm font-semibold leading-snug transition-colors group-hover:text-primary line-clamp-2">
+                              {product.name}
+                            </h2>
+                          </Link>
+                          <p className="mt-1 line-clamp-2 text-xs text-text-muted leading-relaxed">
+                            {product.shortDescription}
+                          </p>
+                        </div>
+
+                        {/* Price + tag type */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-lg font-bold text-primary">
+                              ${formatPrice(product.priceInCents)}
+                            </span>
+                            {product.compareAtPrice && (
+                              <span className="text-xs text-text-dim line-through">
+                                ${formatPrice(product.compareAtPrice)}
+                              </span>
+                            )}
+                            <span className="text-xs text-text-dim">AUD</span>
+                          </div>
+                          <Badge variant="neutral" className="shrink-0 text-[10px]">
+                            {product.tagType}
+                          </Badge>
+                        </div>
+
+                        <div className="flex">
+                          <Badge variant={available ? 'success' : 'error'} className="text-[10px]">
+                            {available ? 'In Stock' : 'Out of Stock'}
+                          </Badge>
+                        </div>
+
+                        {/* CTA */}
+                        {!available ? (
+                          <button disabled className="w-full h-10 px-4 text-xs font-medium rounded-xl bg-surface-raised text-text-dim cursor-not-allowed opacity-50 border border-border">
+                            Out of Stock
+                          </button>
+                        ) : canPurchase ? (
+                          <AddToCartButton product={product} />
+                        ) : (
+                          <Link
+                            href="/subscription"
+                            className="flex items-center justify-center w-full h-10 px-4 text-xs font-medium rounded-xl bg-surface-raised text-text-secondary border border-border hover:bg-surface-overlay hover:border-border-hover transition-colors"
+                          >
+                            Subscribe to Purchase
+                          </Link>
                         )}
-                        <span className="text-xs text-text-dim">AUD</span>
                       </div>
-                      <Badge variant="neutral" className="shrink-0 text-[10px]">
-                        {product.tagType}
-                      </Badge>
-                    </div>
-
-                    {/* CTA */}
-                    {!product.isInStock ? (
-                      <button disabled className="w-full h-10 px-4 text-xs font-medium rounded-xl bg-surface-raised text-text-dim cursor-not-allowed opacity-50 border border-border">
-                        Out of Stock
-                      </button>
-                    ) : canPurchase ? (
-                      <AddToCartButton product={product} />
-                    ) : (
-                      <Link
-                        href="/subscription"
-                        className="flex items-center justify-center w-full h-10 px-4 text-xs font-medium rounded-xl bg-surface-raised text-text-secondary border border-border hover:bg-surface-overlay hover:border-border-hover transition-colors"
-                      >
-                        Subscribe to Purchase
-                      </Link>
-                    )}
-                  </div>
-                </motion.div>
+                    </motion.div>
+                  );
+                })()
               ))}
             </div>
           )}

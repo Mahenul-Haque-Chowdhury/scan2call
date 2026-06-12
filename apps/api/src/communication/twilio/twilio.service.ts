@@ -6,6 +6,7 @@ import { validateRequest } from 'twilio';
 @Injectable()
 export class TwilioService implements OnModuleInit {
   private readonly logger = new Logger(TwilioService.name);
+  private readonly defaultBrowserCallMaxSeconds = 300;
   private client: Twilio.Twilio | null = null;
   private proxyServiceSid: string;
 
@@ -53,6 +54,16 @@ export class TwilioService implements OnModuleInit {
       }
     }
     return 'Twilio request failed. Please try again.';
+  }
+
+  getBrowserCallMaxSeconds(): number {
+    const configured = Number(this.config.get<string>('TWILIO_BROWSER_CALL_MAX_SECONDS', ''));
+
+    if (!Number.isFinite(configured) || configured <= 0) {
+      return this.defaultBrowserCallMaxSeconds;
+    }
+
+    return Math.min(Math.floor(configured), 900);
   }
 
   /**

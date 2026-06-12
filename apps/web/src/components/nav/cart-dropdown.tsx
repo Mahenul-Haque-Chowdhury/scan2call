@@ -110,7 +110,7 @@ export function CartDropdown() {
             initial="hidden"
             animate="visible"
             exit="hidden"
-            className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-border/60 bg-surface/95 backdrop-blur-xl shadow-2xl shadow-shadow/50 z-50 overflow-hidden"
+            className="fixed left-3 right-3 top-28 z-50 overflow-hidden rounded-xl border border-border/60 bg-surface/95 shadow-2xl shadow-shadow/50 backdrop-blur-xl sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 pt-3.5 pb-2">

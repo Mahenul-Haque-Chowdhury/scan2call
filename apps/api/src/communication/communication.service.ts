@@ -157,6 +157,7 @@ export class CommunicationService {
       communicationId: log.id,
       token: clientToken,
       identity,
+      maxCallSeconds: this.twilioService.getBrowserCallMaxSeconds(),
     };
   }
 

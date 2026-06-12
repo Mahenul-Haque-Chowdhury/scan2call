@@ -4,13 +4,17 @@ import type { Response } from 'express';
 import Twilio from 'twilio';
 import { PrismaService } from '../../database/prisma.service';
 import { Public } from '../../common/decorators/public.decorator';
+import { TwilioService } from './twilio.service';
 
 @ApiExcludeController()
 @Controller('twilio/voice')
 export class TwilioVoiceController {
   private readonly logger = new Logger(TwilioVoiceController.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly twilioService: TwilioService,
+  ) {}
 
   @Post('twiml')
   @Public()
@@ -70,8 +74,22 @@ export class TwilioVoiceController {
     }
 
     const callerId = process.env.TWILIO_PHONE_NUMBER;
+    const maxCallSeconds = this.twilioService.getBrowserCallMaxSeconds();
     const dial = twiml.dial(
-      callerId ? { callerId, answerOnBridge: true } : { answerOnBridge: true },
+      callerId
+        ? {
+            callerId,
+            answerOnBridge: true,
+            ringTone: 'au',
+            timeLimit: maxCallSeconds,
+            timeout: 30,
+          }
+        : {
+            answerOnBridge: true,
+            ringTone: 'au',
+            timeLimit: maxCallSeconds,
+            timeout: 30,
+          },
     );
 
     dial.number(tag.owner.phone);
