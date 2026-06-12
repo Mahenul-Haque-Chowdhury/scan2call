@@ -28,19 +28,19 @@ import {
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 const adminLinks = [
-  { href: '/admin', label: 'Overview', icon: LayoutGrid },
-  { href: '/admin/users', label: 'Users', icon: Users },
-  { href: '/admin/active-subscribers', label: 'Active Subscribers', icon: Crown },
-  { href: '/admin/tags', label: 'Tags', icon: Tag },
-  { href: '/admin/orders', label: 'Orders', icon: Package },
-  { href: '/admin/products', label: 'Products', icon: Store },
-  { href: '/admin/blog', label: 'Blog', icon: Newspaper },
-  { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/admin/contact-messages', label: 'Contact Inbox', icon: Mail },
-  { href: '/admin/subscription-gifts', label: 'Subscription Gifts', icon: Gift },
-  { href: '/admin/tag-gifts', label: 'Tag Gifts', icon: Ticket },
-  { href: '/admin/audit-log', label: 'Audit Log', icon: FileText },
-  { href: '/admin/system-status', label: 'System Status', icon: Activity },
+  { href: '/office', label: 'Overview', icon: LayoutGrid },
+  { href: '/office/users', label: 'Users', icon: Users },
+  { href: '/office/active-subscribers', label: 'Active Subscribers', icon: Crown },
+  { href: '/office/tags', label: 'Tags', icon: Tag },
+  { href: '/office/orders', label: 'Orders', icon: Package },
+  { href: '/office/products', label: 'Products', icon: Store },
+  { href: '/office/blog', label: 'Blog', icon: Newspaper },
+  { href: '/office/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/office/contact-messages', label: 'Contact Inbox', icon: Mail },
+  { href: '/office/subscription-gifts', label: 'Subscription Gifts', icon: Gift },
+  { href: '/office/tag-gifts', label: 'Tag Gifts', icon: Ticket },
+  { href: '/office/audit-log', label: 'Audit Log', icon: FileText },
+  { href: '/office/system-status', label: 'System Status', icon: Activity },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -87,7 +87,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         <div className="flex items-center justify-between px-5 h-16 border-b border-border">
           <div className="flex items-center gap-2">
-            <Logo size="sm" align="center" linkTo="/admin" />
+            <Logo size="sm" align="center" linkTo="/office" />
             <span className="text-xs font-medium text-text-dim bg-surface-raised px-1.5 py-0.5 rounded-sm">
               Admin
             </span>
@@ -137,7 +137,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           >
             <Menu className="h-5 w-5" />
           </button>
-          <Logo size="sm" align="center" linkTo="/admin" />
+          <Logo size="sm" align="center" linkTo="/office" />
           <span className="text-xs font-medium text-text-dim bg-surface-raised px-1.5 py-0.5 rounded-sm">
             Admin
           </span>

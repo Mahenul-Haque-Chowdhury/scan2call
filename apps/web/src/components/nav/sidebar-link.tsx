@@ -15,7 +15,7 @@ interface SidebarLinkProps {
 
 export function SidebarLink({ href, icon, children, badge, onClick }: SidebarLinkProps) {
   const pathname = usePathname();
-  const isActive = pathname === href || (href !== '/dashboard' && href !== '/admin' && pathname.startsWith(href));
+  const isActive = pathname === href || (href !== '/dashboard' && href !== '/office' && pathname.startsWith(href));
 
   return (
     <Link

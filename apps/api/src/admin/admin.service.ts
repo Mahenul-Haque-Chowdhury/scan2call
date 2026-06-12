@@ -204,6 +204,21 @@ export class AdminService {
       where: { id: userId, deletedAt: null },
       include: {
         subscription: true,
+        tags: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            token: true,
+            type: true,
+            status: true,
+            label: true,
+            isLostMode: true,
+            createdAt: true,
+            activatedAt: true,
+            _count: { select: { scans: true } },
+          },
+        },
         _count: { select: { tags: true, scans: true, orders: true } },
       },
     });
