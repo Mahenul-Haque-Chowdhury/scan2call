@@ -291,7 +291,7 @@ export default function StorePageClient() {
                             )}
                             <span className="text-xs text-text-dim">AUD</span>
                           </div>
-                          <Badge variant="neutral" className="shrink-0 text-[10px]">
+                          <Badge variant="neutral" className="hidden shrink-0 text-[10px] sm:inline-flex">
                             {product.tagType}
                           </Badge>
                         </div>

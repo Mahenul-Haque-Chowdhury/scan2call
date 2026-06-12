@@ -105,6 +105,8 @@ export default function ProductDetailClient({
 
   function handleAddToCart() {
     if (!product) return;
+    if (!product.isInStock || product.stockQuantity <= 0) return;
+
     addItem(
       {
         productId: product.id,
@@ -164,6 +166,7 @@ export default function ProductDetailClient({
   const sortedImages = [...product.images].sort(
     (a, b) => a.sortOrder - b.sortOrder,
   );
+  const available = product.isInStock && product.stockQuantity > 0;
 
   return (
     <div className="mx-auto max-w-4xl px-6 pt-28 pb-16">
@@ -282,7 +285,7 @@ export default function ProductDetailClient({
               className="flex justify-between border-b border-border py-2.5"
             >
               <span className="text-text-dim">Availability</span>
-              {product.isInStock ? (
+              {available ? (
                 <Badge variant="success">
                   In Stock ({product.stockQuantity} available)
                 </Badge>
@@ -298,7 +301,7 @@ export default function ProductDetailClient({
             transition={{ delay: 0.4, duration: 0.4 }}
             className="mt-8 space-y-3"
           >
-            {product.isInStock && canPurchase && (
+            {available && canPurchase && (
               <div className="flex items-center gap-3">
                 <label
                   htmlFor="quantity"
@@ -330,7 +333,7 @@ export default function ProductDetailClient({
               </div>
             )}
 
-            {!product.isInStock ? (
+            {!available ? (
               <Button disabled className="w-full">
                 Out of Stock
               </Button>
@@ -357,7 +360,7 @@ export default function ProductDetailClient({
               </Link>
             )}
 
-            {!canPurchase && product.isInStock && (
+            {!canPurchase && available && (
               <p className="text-center text-xs text-text-dim">
                 Active subscription required to purchase
               </p>
