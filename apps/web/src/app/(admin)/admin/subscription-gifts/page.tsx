@@ -1,12 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { TagType, TAG_TYPE_LABELS } from '@scan2call/shared';
 import { apiClient } from '@/lib/api-client';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Search, Gift, Copy, UserPlus, Tag, Camera, ScanLine } from 'lucide-react';
+import { Search, Gift, Copy, UserPlus, Tag, Camera, ScanLine, Trash2 } from 'lucide-react';
 
 interface GiftCodeRow {
   id: string;
@@ -108,6 +109,9 @@ const STATUS_BADGE: Record<GiftCodeRow['status'], string> = {
 };
 
 export default function AdminSubscriptionGiftsPage() {
+  const pathname = usePathname();
+  const isTagGiftsPage = pathname.startsWith('/admin/tag-gifts');
+  const isSubscriptionGiftsPage = !isTagGiftsPage;
   const reserveVideoRef = useRef<HTMLVideoElement | null>(null);
   const reserveStreamRef = useRef<MediaStream | null>(null);
   const reserveCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -133,6 +137,7 @@ export default function AdminSubscriptionGiftsPage() {
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [assigning, setAssigning] = useState(false);
   const [assignResult, setAssignResult] = useState<string | null>(null);
+  const [deletingCodeId, setDeletingCodeId] = useState<string | null>(null);
 
   const [tagCodes, setTagCodes] = useState<TagGiftCodeRow[]>([]);
   const [tagMeta, setTagMeta] = useState<PaginationMeta>({ page: 1, pageSize: 20, total: 0 });
@@ -154,6 +159,7 @@ export default function AdminSubscriptionGiftsPage() {
   const [tagReserving, setTagReserving] = useState(false);
   const [tagScannerActive, setTagScannerActive] = useState(false);
   const [tagScannerOpening, setTagScannerOpening] = useState(false);
+  const [tagDeletingCodeId, setTagDeletingCodeId] = useState<string | null>(null);
 
   const fetchCodes = useCallback(async (page: number, status: string, searchTerm: string) => {
     setLoading(true);
@@ -194,12 +200,14 @@ export default function AdminSubscriptionGiftsPage() {
   }, []);
 
   useEffect(() => {
+    if (!isSubscriptionGiftsPage) return;
     fetchCodes(1, statusFilter, search);
-  }, [fetchCodes, statusFilter, search]);
+  }, [fetchCodes, isSubscriptionGiftsPage, statusFilter, search]);
 
   useEffect(() => {
+    if (!isTagGiftsPage) return;
     fetchTagCodes(1, tagStatusFilter, tagSearch);
-  }, [fetchTagCodes, tagStatusFilter, tagSearch]);
+  }, [fetchTagCodes, isTagGiftsPage, tagStatusFilter, tagSearch]);
 
   useEffect(() => {
     return () => {
@@ -267,6 +275,38 @@ export default function AdminSubscriptionGiftsPage() {
       await navigator.clipboard.writeText(code);
     } catch {
       // no-op
+    }
+  };
+
+  const handleDelete = async (code: GiftCodeRow) => {
+    if (!window.confirm(`Delete generated gift code ${code.code}? This cannot be undone.`)) {
+      return;
+    }
+    setDeletingCodeId(code.id);
+    setError(null);
+    try {
+      await apiClient.delete(`/admin/gift-codes/${code.id}`);
+      await fetchCodes(meta.page, statusFilter, search);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete gift code');
+    } finally {
+      setDeletingCodeId(null);
+    }
+  };
+
+  const handleTagDelete = async (code: TagGiftCodeRow) => {
+    if (!window.confirm(`Delete generated tag gift code ${code.code}? This cannot be undone.`)) {
+      return;
+    }
+    setTagDeletingCodeId(code.id);
+    setTagError(null);
+    try {
+      await apiClient.delete(`/admin/tag-gift-codes/${code.id}`);
+      await fetchTagCodes(tagMeta.page, tagStatusFilter, tagSearch);
+    } catch (err) {
+      setTagError(err instanceof Error ? err.message : 'Failed to delete tag gift code');
+    } finally {
+      setTagDeletingCodeId(null);
     }
   };
 
@@ -492,6 +532,8 @@ export default function AdminSubscriptionGiftsPage() {
 
   return (
     <div>
+      {isSubscriptionGiftsPage && (
+        <>
       <div className="flex items-start justify-between gap-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight font-display text-text">Subscription Gifts</h1>
@@ -719,7 +761,7 @@ export default function AdminSubscriptionGiftsPage() {
                   <div className="text-text-muted">
                     {code.redeemedCount}/{code.maxRedemptions}
                   </div>
-                  <div className="text-right">
+                  <div className="flex justify-end gap-2">
                     <Button
                       variant="secondary"
                       size="sm"
@@ -727,6 +769,15 @@ export default function AdminSubscriptionGiftsPage() {
                       icon={<Copy className="h-3.5 w-3.5" />}
                     >
                       Copy
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => handleDelete(code)}
+                      loading={deletingCodeId === code.id}
+                      icon={<Trash2 className="h-3.5 w-3.5" />}
+                    >
+                      Delete
                     </Button>
                   </div>
                 </div>
@@ -762,9 +813,14 @@ export default function AdminSubscriptionGiftsPage() {
         </div>
       )}
 
-      <div className="mt-12 flex items-start justify-between gap-6">
+        </>
+      )}
+
+      {isTagGiftsPage && (
+        <>
+      <div className="flex items-start justify-between gap-6">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight font-display text-text">Tag Gifts</h2>
+          <h1 className="text-3xl font-bold tracking-tight font-display text-text">Tag Gifts</h1>
           <p className="mt-2 text-text-muted">Generate and manage gift codes that add tags to user accounts.</p>
         </div>
         <div className="hidden sm:flex items-center gap-2 text-text-dim">
@@ -997,7 +1053,7 @@ export default function AdminSubscriptionGiftsPage() {
                   <div className="text-text-muted">
                     {code.redeemedCount}/{code.maxRedemptions}
                   </div>
-                  <div className="text-right">
+                  <div className="flex justify-end gap-2">
                     <Button
                       variant="secondary"
                       size="sm"
@@ -1005,6 +1061,15 @@ export default function AdminSubscriptionGiftsPage() {
                       icon={<Copy className="h-3.5 w-3.5" />}
                     >
                       Copy
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => handleTagDelete(code)}
+                      loading={tagDeletingCodeId === code.id}
+                      icon={<Trash2 className="h-3.5 w-3.5" />}
+                    >
+                      Delete
                     </Button>
                   </div>
                 </div>
@@ -1038,6 +1103,8 @@ export default function AdminSubscriptionGiftsPage() {
             </div>
           )}
         </div>
+      )}
+        </>
       )}
     </div>
   );

@@ -19,15 +19,18 @@ import {
   Newspaper,
   Mail,
   Gift,
+  Ticket,
   ArrowLeft,
   Menu,
   X,
+  Crown,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 const adminLinks = [
   { href: '/admin', label: 'Overview', icon: LayoutGrid },
   { href: '/admin/users', label: 'Users', icon: Users },
+  { href: '/admin/active-subscribers', label: 'Active Subscribers', icon: Crown },
   { href: '/admin/tags', label: 'Tags', icon: Tag },
   { href: '/admin/orders', label: 'Orders', icon: Package },
   { href: '/admin/products', label: 'Products', icon: Store },
@@ -35,6 +38,7 @@ const adminLinks = [
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/admin/contact-messages', label: 'Contact Inbox', icon: Mail },
   { href: '/admin/subscription-gifts', label: 'Subscription Gifts', icon: Gift },
+  { href: '/admin/tag-gifts', label: 'Tag Gifts', icon: Ticket },
   { href: '/admin/audit-log', label: 'Audit Log', icon: FileText },
   { href: '/admin/system-status', label: 'System Status', icon: Activity },
 ];

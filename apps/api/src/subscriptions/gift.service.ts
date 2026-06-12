@@ -99,6 +99,33 @@ export class GiftService {
     return this.redeemGiftCode(userId, giftCode.code, adminId, note);
   }
 
+  async deleteGiftCode(adminId: string, codeId: string) {
+    const giftCode = await this.prisma.subscriptionGiftCode.findUnique({
+      where: { id: codeId },
+      select: { id: true, code: true, redeemedCount: true },
+    });
+    if (!giftCode) throw new NotFoundException('Gift code not found');
+
+    if (giftCode.redeemedCount > 0) {
+      throw new BadRequestException('Redeemed gift codes cannot be deleted');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.subscriptionGiftCode.delete({ where: { id: codeId } });
+      await tx.adminAuditLog.create({
+        data: {
+          adminId,
+          action: 'MODERATION_ACTION',
+          targetType: 'SubscriptionGift',
+          targetId: codeId,
+          metadata: { code: giftCode.code, action: 'deleted' },
+        },
+      });
+    });
+
+    return { deleted: true };
+  }
+
   async redeemGiftCode(userId: string, rawCode: string, adminId?: string, note?: string) {
     const code = rawCode.trim();
     if (!code) throw new BadRequestException('Redeem code is required');

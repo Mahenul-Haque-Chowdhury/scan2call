@@ -91,6 +91,37 @@ export class TagGiftService {
     return this.redeemTagGiftCode(userId, giftCode.code, adminId, note);
   }
 
+  async deleteTagGiftCode(adminId: string, codeId: string) {
+    const giftCode = await this.prisma.tagGiftCode.findUnique({
+      where: { id: codeId },
+      select: { id: true, code: true, redeemedCount: true, reservedTagId: true },
+    });
+    if (!giftCode) throw new NotFoundException('Gift code not found');
+
+    if (giftCode.redeemedCount > 0) {
+      throw new BadRequestException('Redeemed tag gift codes cannot be deleted');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.tagGiftCode.delete({ where: { id: codeId } });
+      await tx.adminAuditLog.create({
+        data: {
+          adminId,
+          action: 'MODERATION_ACTION',
+          targetType: 'TagGift',
+          targetId: codeId,
+          metadata: {
+            code: giftCode.code,
+            action: 'deleted',
+            reservedTagId: giftCode.reservedTagId,
+          },
+        },
+      });
+    });
+
+    return { deleted: true };
+  }
+
   async reserveTagGiftCode(adminId: string, codeId: string, rawToken: string, note?: string) {
     const token = rawToken.trim();
     if (!token) {

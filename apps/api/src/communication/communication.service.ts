@@ -93,7 +93,7 @@ export class CommunicationService {
     const finderMessage = dto.message || 'No message provided';
     const messageBody = dto.message
       ? `Scan2Call: Someone found your item "${tagLabel}". They said: "${dto.message}". Reply to this message to respond anonymously.`
-      : `Scan2Call: Someone found your item "${tagLabel}" and wants to contact you. Reply to this message to respond.`;
+      : `Scan2Call: Someone found your item "${tagLabel}" and they might contact you Soon.`;
 
     const messageSid = await this.twilioService.sendWhatsAppMessage(
       tag.owner.phone,

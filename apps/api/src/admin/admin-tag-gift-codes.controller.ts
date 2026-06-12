@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { GiftCodeStatus as PrismaGiftCodeStatus } from '@prisma/client';
 import { Role } from '@scan2call/shared';
@@ -68,5 +68,15 @@ export class AdminTagGiftCodesController {
     @Body() dto: ReserveTagGiftCodeDto,
   ) {
     return this.tagGiftService.reserveTagGiftCode(admin.id, id, dto.tagToken, dto.note);
+  }
+
+  @Delete(':id')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Delete an unredeemed tag gift code' })
+  async deleteGiftCode(
+    @CurrentUser() admin: JwtPayload,
+    @Param('id') id: string,
+  ) {
+    return this.tagGiftService.deleteTagGiftCode(admin.id, id);
   }
 }

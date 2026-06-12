@@ -105,6 +105,97 @@ export class AdminService {
     };
   }
 
+  async listActiveSubscribers(params: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+  }) {
+    const page = params.page || 1;
+    const pageSize = Math.min(params.pageSize || 20, 100);
+    const skip = (page - 1) * pageSize;
+    const now = new Date();
+
+    const where: Prisma.UserWhereInput = {
+      deletedAt: null,
+      subscription: {
+        is: {
+          OR: [
+            { status: 'ACTIVE' },
+            { isLifetime: true },
+            { giftExpiresAt: { gt: now } },
+          ],
+        },
+      },
+    };
+
+    if (params.search) {
+      where.OR = [
+        { email: { contains: params.search, mode: 'insensitive' } },
+        { firstName: { contains: params.search, mode: 'insensitive' } },
+        { lastName: { contains: params.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          isSuspended: true,
+          subscription: {
+            select: {
+              id: true,
+              status: true,
+              source: true,
+              plan: true,
+              currentPeriodEnd: true,
+              giftExpiresAt: true,
+              isLifetime: true,
+              cancelAtPeriodEnd: true,
+              stripeSubscriptionId: true,
+            },
+          },
+        },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return {
+      data: users.map((user) => {
+        const subscription = user.subscription!;
+        const accessType = subscription.isLifetime
+          ? 'Lifetime'
+          : subscription.source === 'GIFT' || subscription.giftExpiresAt
+            ? 'Gift'
+            : 'Stripe';
+
+        return {
+          userId: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          isSuspended: user.isSuspended,
+          subscriptionId: subscription.id,
+          status: subscription.status,
+          source: subscription.source,
+          plan: subscription.plan,
+          currentPeriodEnd: subscription.currentPeriodEnd,
+          giftExpiresAt: subscription.giftExpiresAt,
+          isLifetime: subscription.isLifetime,
+          cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+          accessType,
+        };
+      }),
+      meta: { page, pageSize, total },
+    };
+  }
+
   /**
    * Get a single user's detailed profile by ID.
    */
