@@ -45,7 +45,9 @@ export interface AuthUser {
   lastName: string;
   role: string;
   emailVerified: boolean;
+  phone?: string | null;
   phoneVerified: boolean;
+  whatsappPhone?: string | null;
   hasActiveSubscription?: boolean;
   isSubscribed?: boolean;
 }

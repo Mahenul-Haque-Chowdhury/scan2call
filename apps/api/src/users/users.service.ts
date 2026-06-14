@@ -22,6 +22,7 @@ export class UsersService {
         emailVerified: true,
         phone: true,
         phoneVerified: true,
+        whatsappPhone: true,
         firstName: true,
         lastName: true,
         role: true,
@@ -81,6 +82,7 @@ export class UsersService {
     }
 
     const nextPhone = dto.phone === undefined ? undefined : dto.phone?.trim() || null;
+    const nextWhatsappPhone = dto.whatsappPhone === undefined ? undefined : dto.whatsappPhone?.trim() || null;
 
     if (nextPhone && nextPhone !== existingUser.phone) {
       const phoneOwner = await this.prisma.user.findFirst({
@@ -110,6 +112,7 @@ export class UsersService {
             phoneVerifiedAt: null,
           }),
         }),
+        ...(nextWhatsappPhone !== undefined && { whatsappPhone: nextWhatsappPhone }),
         ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
       },
       select: {
@@ -118,6 +121,7 @@ export class UsersService {
         lastName: true,
         phone: true,
         phoneVerified: true,
+        whatsappPhone: true,
         timezone: true,
         avatarUrl: true,
         updatedAt: true,

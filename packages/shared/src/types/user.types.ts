@@ -6,6 +6,7 @@ export interface UserProfile {
   emailVerified: boolean;
   phone: string | null;
   phoneVerified: boolean;
+  whatsappPhone: string | null;
   firstName: string;
   lastName: string;
   role: Role;

@@ -26,6 +26,12 @@ export class UpdateProfileDto {
   @MaxLength(30)
   phone?: string | null;
 
+  @ApiPropertyOptional({ example: '+61412345678' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  whatsappPhone?: string | null;
+
   @ApiPropertyOptional({ example: 'https://cdn.example.com/avatar.jpg' })
   @IsOptional()
   @IsUrl()

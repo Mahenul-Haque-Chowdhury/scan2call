@@ -142,6 +142,7 @@ model User {
   phone           String?   @unique
   phoneVerified   Boolean   @default(false)
   phoneVerifiedAt DateTime?
+  whatsappPhone   String?
   passwordHash    String?
   firstName       String
   lastName        String

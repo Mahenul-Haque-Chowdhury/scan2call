@@ -240,7 +240,7 @@ export class TagsService {
       where: { token },
       include: {
         owner: {
-          select: { firstName: true, phone: true, phoneVerified: true },
+          select: { firstName: true, phone: true, phoneVerified: true, whatsappPhone: true },
         },
       },
     });
@@ -261,6 +261,7 @@ export class TagsService {
 
     // Determine contact options based on tag preferences and owner setup
     const ownerHasPhone = !!tag.owner?.phone && !!tag.owner?.phoneVerified;
+    const ownerHasWhatsApp = !!(tag.owner?.whatsappPhone || tag.owner?.phone);
 
     return {
       tagType: tag.type,
@@ -273,7 +274,7 @@ export class TagsService {
       contactOptions: {
         call: tag.allowVoiceCall && ownerHasPhone,
         sms: tag.allowSms && ownerHasPhone,
-        whatsapp: tag.allowWhatsApp && ownerHasPhone,
+        whatsapp: tag.allowWhatsApp && ownerHasWhatsApp,
         browserCall: tag.allowVoiceCall, // Browser call only needs owner to exist
         sendLocation: tag.allowSendLocation && ownerHasPhone,
       },

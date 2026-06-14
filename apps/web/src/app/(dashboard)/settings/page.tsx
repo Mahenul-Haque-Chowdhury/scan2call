@@ -13,7 +13,15 @@ import { Spinner } from '@/components/ui/spinner';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 
-interface UserProfile { id: string; email: string; firstName: string; lastName: string; phone: string | null; }
+interface UserProfile {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  phoneVerified: boolean;
+  whatsappPhone: string | null;
+}
 
 const baseCountryOptions = [
   { code: '+61', label: 'Australia (+61)' },
@@ -58,6 +66,36 @@ const cardAnim = (delay: number) => ({
   transition: { delay, duration: 0.5, ease: [0.16, 1, 0.3, 1] as const },
 });
 
+function splitPhoneNumber(value: string | null | undefined) {
+  if (!value) return { countryCode: '+61', localNumber: '', customCode: null as string | null };
+
+  const matching = baseCountryOptions.find((opt) => value.startsWith(opt.code));
+  if (matching) {
+    return {
+      countryCode: matching.code,
+      localNumber: value.slice(matching.code.length).trim(),
+      customCode: null,
+    };
+  }
+
+  if (value.startsWith('+')) {
+    const match = value.match(/^\+\d{1,3}/);
+    const countryCode = match ? match[0] : '+61';
+    return {
+      countryCode,
+      localNumber: value.slice(countryCode.length).trim(),
+      customCode: countryCode,
+    };
+  }
+
+  return { countryCode: '+61', localNumber: value, customCode: null };
+}
+
+function formatPhoneNumber(countryCode: string, localNumber: string) {
+  const trimmedLocal = localNumber.replace(/\s+/g, '').replace(/-/g, '');
+  return trimmedLocal ? `${countryCode}${trimmedLocal}` : null;
+}
+
 export default function SettingsPage() {
   const { user, logout, refreshUser } = useAuth();
   const router = useRouter();
@@ -67,6 +105,12 @@ export default function SettingsPage() {
   const [phoneCountryCode, setPhoneCountryCode] = useState('+61');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [customCountryCode, setCustomCountryCode] = useState<string | null>(null);
+  const [savedPhone, setSavedPhone] = useState<string | null>(null);
+  const [savedPhoneVerified, setSavedPhoneVerified] = useState(false);
+  const [whatsAppSameAsPhone, setWhatsAppSameAsPhone] = useState(true);
+  const [whatsAppCountryCode, setWhatsAppCountryCode] = useState('+61');
+  const [whatsAppNumber, setWhatsAppNumber] = useState('');
+  const [customWhatsAppCountryCode, setCustomWhatsAppCountryCode] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
@@ -100,25 +144,19 @@ export default function SettingsPage() {
           const p = result.data;
           setFirstName(p.firstName || '');
           setLastName(p.lastName || '');
-          if (p.phone) {
-            const matching = baseCountryOptions.find((opt) => p.phone?.startsWith(opt.code));
-            if (matching) {
-              setPhoneCountryCode(matching.code);
-              setPhoneNumber(p.phone.slice(matching.code.length).trim());
-            } else if (p.phone.startsWith('+')) {
-              const match = p.phone.match(/^\+\d{1,3}/);
-              const code = match ? match[0] : '+61';
-              setCustomCountryCode(code);
-              setPhoneCountryCode(code);
-              setPhoneNumber(p.phone.slice(code.length).trim());
-            } else {
-              setPhoneCountryCode('+61');
-              setPhoneNumber(p.phone);
-            }
-          } else {
-            setPhoneCountryCode('+61');
-            setPhoneNumber('');
-          }
+          setSavedPhone(p.phone);
+          setSavedPhoneVerified(p.phoneVerified);
+
+          const phoneParts = splitPhoneNumber(p.phone);
+          setPhoneCountryCode(phoneParts.countryCode);
+          setPhoneNumber(phoneParts.localNumber);
+          setCustomCountryCode(phoneParts.customCode);
+
+          setWhatsAppSameAsPhone(!p.whatsappPhone);
+          const whatsAppParts = splitPhoneNumber(p.whatsappPhone);
+          setWhatsAppCountryCode(whatsAppParts.countryCode);
+          setWhatsAppNumber(whatsAppParts.localNumber);
+          setCustomWhatsAppCountryCode(whatsAppParts.customCode);
         }
       } catch {
         if (!cancelled && user) { setFirstName(user.firstName || ''); setLastName(user.lastName || ''); }
@@ -132,13 +170,24 @@ export default function SettingsPage() {
   const handleProfileSave = useCallback(async (e: React.FormEvent) => {
     e.preventDefault(); setProfileSaving(true); setProfileError(null); setProfileSuccess(false);
     try {
-      const trimmedLocal = phoneNumber.replace(/\s+/g, '').replace(/-/g, '');
-      const formattedPhone = trimmedLocal ? `${phoneCountryCode}${trimmedLocal}` : null;
-      await apiClient.patch('/users/me', { firstName: firstName.trim(), lastName: lastName.trim(), phone: formattedPhone });
+      const formattedPhone = formatPhoneNumber(phoneCountryCode, phoneNumber);
+      const formattedWhatsAppPhone = whatsAppSameAsPhone ? null : formatPhoneNumber(whatsAppCountryCode, whatsAppNumber);
+      const result = await apiClient.patch<{
+        data: { phone: string | null; phoneVerified: boolean; whatsappPhone: string | null };
+      }>('/users/me', {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: formattedPhone,
+        whatsappPhone: formattedWhatsAppPhone,
+      });
+      setSavedPhone(result.data.phone);
+      setSavedPhoneVerified(result.data.phoneVerified);
+      setPhoneOtpSent(false);
+      setPhoneOtpCode('');
       setProfileSuccess(true); await refreshUser(); setTimeout(() => setProfileSuccess(false), 3000);
     } catch (err) { setProfileError(err instanceof ApiError ? err.message : 'Failed to update profile.'); }
     finally { setProfileSaving(false); }
-  }, [firstName, lastName, phoneCountryCode, phoneNumber, refreshUser]);
+  }, [firstName, lastName, phoneCountryCode, phoneNumber, refreshUser, whatsAppCountryCode, whatsAppNumber, whatsAppSameAsPhone]);
 
   const handlePasswordChange = useCallback(async (e: React.FormEvent) => {
     e.preventDefault(); setPasswordError(null); setPasswordSuccess(false);
@@ -165,7 +214,7 @@ export default function SettingsPage() {
     setPhoneVerifying(true); setPhoneVerifyError(null);
     try {
       await apiClient.post('/auth/verify-phone', { code: phoneOtpCode });
-      setPhoneVerifySuccess(true); setPhoneOtpSent(false); setPhoneOtpCode(''); await refreshUser();
+      setPhoneVerifySuccess(true); setSavedPhoneVerified(true); setPhoneOtpSent(false); setPhoneOtpCode(''); await refreshUser();
       setTimeout(() => setPhoneVerifySuccess(false), 5000);
     } catch (err) { setPhoneVerifyError(err instanceof ApiError ? err.message : 'Invalid verification code.'); }
     finally { setPhoneVerifying(false); }
@@ -178,11 +227,15 @@ export default function SettingsPage() {
     catch (err) { setDeleteError(err instanceof ApiError ? err.message : 'Failed to delete account.'); setDeleting(false); }
   }, [deleteConfirmText, logout, router]);
 
+  const formattedPhoneInput = formatPhoneNumber(phoneCountryCode, phoneNumber);
+  const phoneHasUnsavedChanges = formattedPhoneInput !== savedPhone;
+  const canVerifySavedPhone = !!savedPhone && !savedPhoneVerified && !phoneHasUnsavedChanges;
+
   return (
     <div>
       <PageHeader title="Settings" description="Manage your account and preferences." />
 
-      {user && !user.phoneVerified && (
+      {savedPhone && !savedPhoneVerified && (
         <a
           href="#phone-section"
           className="mt-6 flex items-center gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 transition-colors hover:bg-amber-400/15"
@@ -226,29 +279,43 @@ export default function SettingsPage() {
                     <select
                       id="phoneCountryCode"
                       value={phoneCountryCode}
-                      onChange={(e) => setPhoneCountryCode(e.target.value)}
+                      onChange={(e) => {
+                        setPhoneCountryCode(e.target.value);
+                        setPhoneOtpSent(false);
+                        setPhoneOtpCode('');
+                        setPhoneVerifyError(null);
+                        setPhoneVerifySuccess(false);
+                      }}
                       className="h-10 rounded-xl border border-border bg-surface-raised px-3 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                     >
                       {customCountryCode && !baseCountryOptions.some((opt) => opt.code === customCountryCode) && (
                         <option value={customCountryCode}>{customCountryCode} (Custom)</option>
                       )}
                       {baseCountryOptions.map((opt) => (
-                        <option key={opt.code} value={opt.code}>{opt.label}</option>
+                        <option key={`phone-${opt.label}`} value={opt.code}>{opt.label}</option>
                       ))}
                     </select>
                     <input
                       type="tel"
                       id="phoneNumber"
                       value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      onChange={(e) => {
+                        setPhoneNumber(e.target.value);
+                        setPhoneOtpSent(false);
+                        setPhoneOtpCode('');
+                        setPhoneVerifyError(null);
+                        setPhoneVerifySuccess(false);
+                      }}
                       placeholder="4XX XXX XXX"
                       className="block w-full rounded-xl border border-border bg-surface-raised px-4 py-2 text-sm text-text placeholder:text-text-dim focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                   </div>
                   <p className="mt-1 text-xs text-text-dim">Used for SMS notifications and anonymous call relay.</p>
-                  {user?.phoneVerified ? (
+                  {formattedPhoneInput && phoneHasUnsavedChanges ? (
+                    <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">Save changes to verify this number.</p>
+                  ) : savedPhoneVerified ? (
                     <Badge variant="success" className="mt-2 gap-1"><CheckCircle className="h-3 w-3" />Verified</Badge>
-                  ) : phoneNumber ? (
+                  ) : canVerifySavedPhone ? (
                     <div className="mt-2">
                       <Badge variant="warning" className="gap-1"><AlertCircle className="h-3 w-3" />Not Verified</Badge>
                       {!phoneOtpSent ? (
@@ -264,6 +331,54 @@ export default function SettingsPage() {
                       {phoneVerifyError && <p className="mt-2 text-xs text-error">{phoneVerifyError}</p>}
                     </div>
                   ) : null}
+                </div>
+                <div>
+                  <div className="flex items-start gap-3 rounded-xl border border-border bg-surface-raised p-4">
+                    <input
+                      id="whatsAppSameAsPhone"
+                      type="checkbox"
+                      checked={whatsAppSameAsPhone}
+                      onChange={(e) => setWhatsAppSameAsPhone(e.target.checked)}
+                      className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <label htmlFor="whatsAppSameAsPhone" className="block text-sm font-medium text-text">
+                        Use the same number for WhatsApp
+                      </label>
+                      <p className="mt-1 text-xs text-text-dim">
+                        Turn this off if your WhatsApp account uses a different number.
+                      </p>
+                    </div>
+                  </div>
+                  {!whatsAppSameAsPhone && (
+                    <div className="mt-3">
+                      <label htmlFor="whatsAppNumber" className="block text-sm font-medium text-text-muted">WhatsApp number</label>
+                      <div className="mt-1 flex items-center gap-2">
+                        <select
+                          id="whatsAppCountryCode"
+                          value={whatsAppCountryCode}
+                          onChange={(e) => setWhatsAppCountryCode(e.target.value)}
+                          className="h-10 rounded-xl border border-border bg-surface-raised px-3 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        >
+                          {customWhatsAppCountryCode && !baseCountryOptions.some((opt) => opt.code === customWhatsAppCountryCode) && (
+                            <option value={customWhatsAppCountryCode}>{customWhatsAppCountryCode} (Custom)</option>
+                          )}
+                          {baseCountryOptions.map((opt) => (
+                            <option key={`whatsapp-${opt.label}`} value={opt.code}>{opt.label}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="tel"
+                          id="whatsAppNumber"
+                          value={whatsAppNumber}
+                          onChange={(e) => setWhatsAppNumber(e.target.value)}
+                          placeholder="4XX XXX XXX"
+                          className="block w-full rounded-xl border border-border bg-surface-raised px-4 py-2 text-sm text-text placeholder:text-text-dim focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                      <p className="mt-1 text-xs text-text-dim">Used only for anonymous WhatsApp messages from scan pages.</p>
+                    </div>
+                  )}
                 </div>
                 {profileError && <p className="text-sm text-error">{profileError}</p>}
                 {profileSuccess && <p className="text-sm text-success">Profile updated successfully.</p>}

@@ -84,8 +84,10 @@ export class CommunicationService {
       throw new BadRequestException('WhatsApp is not enabled for this tag.');
     }
 
-    if (!tag.owner.phone || !tag.owner.phoneVerified) {
-      throw new BadRequestException('Tag owner has not set up a verified phone number.');
+    const whatsappDestination = tag.owner.whatsappPhone || tag.owner.phone;
+
+    if (!whatsappDestination) {
+      throw new BadRequestException('Tag owner has not set up a WhatsApp number.');
     }
 
     // Compose a privacy-safe message - never reveal finder's real number
@@ -96,7 +98,7 @@ export class CommunicationService {
       : `Scan2Call: Someone found your item "${tagLabel}" and they might contact you Soon.`;
 
     const messageSid = await this.twilioService.sendWhatsAppMessage(
-      tag.owner.phone,
+      whatsappDestination,
       messageBody,
       {
         1: tagLabel,
@@ -305,6 +307,7 @@ export class CommunicationService {
             id: true,
             phone: true,
             phoneVerified: true,
+            whatsappPhone: true,
             firstName: true,
           },
         },
