@@ -41,11 +41,25 @@ const QR_LAYOUTS = [
     value: 'STANDARD',
     label: 'Current size',
     description: 'Use the existing QR frame size and settings',
+    tagTypes: ['CAR_STICKER'],
   },
   {
     value: 'WINDSHIELD_CARD',
     label: 'Windshield card',
     description: 'Landscape car windshield sticker with QR on the left',
+    tagTypes: ['CAR_STICKER'],
+  },
+  {
+    value: 'PASSPORT_STICKER_HORIZONTAL',
+    label: 'Passport Sticker - Horizontal',
+    description: 'Horizontal passport sticker with QR on the left',
+    tagTypes: ['GENERIC'],
+  },
+  {
+    value: 'PASSPORT_STICKER_VERTICAL',
+    label: 'Passport Sticker - Vertical',
+    description: 'Vertical passport sticker using the portrait QR frame',
+    tagTypes: ['GENERIC'],
   },
 ];
 
@@ -75,10 +89,20 @@ export default function AdminGenerateTagsPage() {
   const [copied, setCopied] = useState(false);
 
   const isCarSticker = tagType === 'CAR_STICKER';
-  const resolvedQrLayout: QrLayout = isCarSticker ? qrLayout : 'STANDARD';
+  const isGenericTag = tagType === 'GENERIC';
+  const supportsStickerLayout = isCarSticker || isGenericTag;
+  const availableQrLayouts = QR_LAYOUTS.filter((layout) => layout.tagTypes.includes(tagType));
+  const resolvedQrLayout: QrLayout = supportsStickerLayout ? qrLayout : 'STANDARD';
+  const isHorizontalLayout = resolvedQrLayout === 'WINDSHIELD_CARD' || resolvedQrLayout === 'PASSPORT_STICKER_HORIZONTAL';
 
   useEffect(() => {
-    setQrLayout(tagType === 'CAR_STICKER' ? 'WINDSHIELD_CARD' : 'STANDARD');
+    if (tagType === 'CAR_STICKER') {
+      setQrLayout('WINDSHIELD_CARD');
+    } else if (tagType === 'GENERIC') {
+      setQrLayout('PASSPORT_STICKER_HORIZONTAL');
+    } else {
+      setQrLayout('STANDARD');
+    }
   }, [tagType]);
 
   useEffect(() => {
@@ -247,7 +271,7 @@ export default function AdminGenerateTagsPage() {
           </p>
         </div>
 
-        {isCarSticker && (
+        {supportsStickerLayout && (
           <div>
             <label htmlFor="qrLayout" className="block text-sm font-medium text-text-muted">
               Sticker Layout
@@ -258,7 +282,7 @@ export default function AdminGenerateTagsPage() {
               onChange={(e) => setQrLayout(e.target.value as QrLayout)}
               className="mt-1 block w-full rounded-md border border-border bg-surface px-4 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             >
-              {QR_LAYOUTS.map((layout) => (
+              {availableQrLayouts.map((layout) => (
                 <option key={layout.value} value={layout.value}>
                   {layout.label}
                 </option>
@@ -276,7 +300,7 @@ export default function AdminGenerateTagsPage() {
             <img
               src={framePreviewUrl}
               alt="QR frame preview"
-              className={resolvedQrLayout === 'WINDSHIELD_CARD' ? 'mt-2 w-full rounded bg-white p-2' : 'mt-2 w-44 rounded bg-white p-2'}
+              className={isHorizontalLayout ? 'mt-2 w-full rounded bg-white p-2' : 'mt-2 w-44 rounded bg-white p-2'}
             />
           </div>
         )}

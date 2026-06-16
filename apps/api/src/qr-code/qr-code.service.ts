@@ -5,6 +5,14 @@ import { AppConfigService } from '../config/config.service';
 import { QrFrameStyle } from './qr-frame-style';
 import { QrLayout } from './qr-layout';
 
+const QR_DESIGN_COLORS = {
+  brandAccent: '#FACC15',
+  qrBackground: '#000000',
+  tagBackground: '#FFFFFF',
+  text: '#111111',
+  subtleBorder: '#E2E8F0',
+} as const;
+
 export interface QrRenderOptions {
   size?: number;
   margin?: number;
@@ -39,7 +47,7 @@ export class QrCodeService {
   }
 
   async generatePngWithOptions(url: string, options: QrRenderOptions = {}): Promise<Buffer> {
-    if (options.qrLayout === QrLayout.WINDSHIELD_CARD) {
+    if (this.isHorizontalCardLayout(options.qrLayout)) {
       return this.generateWindshieldCardPng(url, options);
     }
     if (options.frameStyle && options.frameStyle !== QrFrameStyle.NONE) {
@@ -57,7 +65,7 @@ export class QrCodeService {
   }
 
   async generateSvgWithOptions(url: string, options: QrRenderOptions = {}): Promise<string> {
-    if (options.qrLayout === QrLayout.WINDSHIELD_CARD) {
+    if (this.isHorizontalCardLayout(options.qrLayout)) {
       return this.generateWindshieldCardSvg(url, options);
     }
     if (options.frameStyle && options.frameStyle !== QrFrameStyle.NONE) {
@@ -80,6 +88,11 @@ export class QrCodeService {
       errorCorrectionLevel: 'H',
       margin: 2,
     });
+  }
+
+  private isHorizontalCardLayout(qrLayout?: QrLayout): boolean {
+    return qrLayout === QrLayout.WINDSHIELD_CARD
+      || qrLayout === QrLayout.PASSPORT_STICKER_HORIZONTAL;
   }
 
   private getFrameLayout(options: QrRenderOptions) {
@@ -131,10 +144,12 @@ export class QrCodeService {
     frameStyle: QrFrameStyle,
   ) {
     const fontFamily = "Space Grotesk, 'Space Grotesk Fallback', 'DejaVu Sans', system-ui, sans-serif";
-    const textColor = '#111111';
-    const accent = '#FACC15';
-    const borderColor = '#E2E8F0';
-    const background = '#FFFFFF';
+    const textColor = QR_DESIGN_COLORS.text;
+    const accent = QR_DESIGN_COLORS.brandAccent;
+    const borderColor = QR_DESIGN_COLORS.subtleBorder;
+    const background = QR_DESIGN_COLORS.tagBackground;
+    const insetBorder = Math.max(8, Math.round(layout.padding * 0.4));
+    const insetRadius = Math.max(4, layout.radius - Math.round(insetBorder * 0.5));
 
     const escapeSvg = (value: string) =>
       value
@@ -174,6 +189,7 @@ export class QrCodeService {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${layout.frameWidth}" height="${layout.frameHeight}" viewBox="0 0 ${layout.frameWidth} ${layout.frameHeight}" xmlns="http://www.w3.org/2000/svg">
   <rect x="0" y="0" width="${layout.frameWidth}" height="${layout.frameHeight}" rx="${layout.radius}" fill="${background}" stroke="${borderColor}" stroke-width="2" />
+  <rect x="${insetBorder}" y="${insetBorder}" width="${layout.frameWidth - insetBorder * 2}" height="${layout.frameHeight - insetBorder * 2}" rx="${insetRadius}" fill="none" stroke="${accent}" stroke-width="2" />
   ${topText}
   ${bottomText}
 </svg>`;
@@ -190,8 +206,8 @@ export class QrCodeService {
       errorCorrectionLevel: 'H',
       margin: options.margin ?? 2,
       color: {
-        dark: options.foregroundColor ?? '#111111',
-        light: options.backgroundColor ?? '#FFFFFF',
+        dark: options.foregroundColor ?? QR_DESIGN_COLORS.brandAccent,
+        light: options.backgroundColor ?? QR_DESIGN_COLORS.qrBackground,
       },
     });
 
@@ -226,8 +242,8 @@ export class QrCodeService {
       errorCorrectionLevel: 'H',
       margin: options.margin ?? 2,
       color: {
-        dark: options.foregroundColor ?? '#111111',
-        light: options.backgroundColor ?? '#FFFFFF',
+        dark: options.foregroundColor ?? QR_DESIGN_COLORS.brandAccent,
+        light: options.backgroundColor ?? QR_DESIGN_COLORS.qrBackground,
       },
     });
 
@@ -243,10 +259,11 @@ export class QrCodeService {
 
   private buildWindshieldTextSvg(layout: ReturnType<QrCodeService['getWindshieldLayout']>) {
     const fontFamily = "'Arial', 'Liberation Sans', 'DejaVu Sans', Helvetica, sans-serif";
-    const textColor = '#111111';
-    const qrColor = '#0B1424';
-    const accent = '#FACC15';
-    const background = '#FFFFFF';
+    const textColor = QR_DESIGN_COLORS.text;
+    const accent = QR_DESIGN_COLORS.brandAccent;
+    const background = QR_DESIGN_COLORS.tagBackground;
+    const insetBorder = 18;
+    const insetRadius = 28;
 
     const escapeSvg = (value: string) =>
       value
@@ -261,12 +278,13 @@ export class QrCodeService {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${layout.frameWidth}" height="${layout.frameHeight}" viewBox="0 0 ${layout.frameWidth} ${layout.frameHeight}" xmlns="http://www.w3.org/2000/svg">
   <rect x="0" y="0" width="${layout.frameWidth}" height="${layout.frameHeight}" fill="${background}" />
+  <rect x="${insetBorder}" y="${insetBorder}" width="${layout.frameWidth - insetBorder * 2}" height="${layout.frameHeight - insetBorder * 2}" rx="${insetRadius}" fill="none" stroke="${accent}" stroke-width="2" />
   <text x="${layout.brandScanX}" y="${layout.brandY}" font-family="${safeFontFamily}" font-size="${layout.brandFontSize}" font-weight="700" fill="${textColor}">Scan</text>
   <text x="${layout.brandTwoX}" y="${layout.brandY}" font-family="${safeFontFamily}" font-size="${layout.brandFontSize}" font-weight="700" fill="${accent}">2</text>
   <text x="${layout.brandCallX}" y="${layout.brandY}" font-family="${safeFontFamily}" font-size="${layout.brandFontSize}" font-weight="700" fill="${textColor}">Call</text>
   <text x="${layout.detailX}" y="${layout.detailLineOneY}" font-family="${safeFontFamily}" font-size="${layout.detailFontSize}" font-weight="400" fill="${textColor}">Scan The QR Code To</text>
   <text x="${layout.detailX}" y="${layout.detailLineTwoY}" font-family="${safeFontFamily}" font-size="${layout.detailFontSize}" font-weight="400" fill="${textColor}">Contact The Owner</text>
-  <rect x="-1" y="-1" width="1" height="1" fill="${qrColor}" opacity="0" />
+  <rect x="-1" y="-1" width="1" height="1" fill="${QR_DESIGN_COLORS.qrBackground}" opacity="0" />
 </svg>`;
   }
 
@@ -280,8 +298,8 @@ export class QrCodeService {
       errorCorrectionLevel: 'H',
       margin: options.margin ?? 1,
       color: {
-        dark: options.foregroundColor ?? '#0B1424',
-        light: options.backgroundColor ?? '#FFFFFF',
+        dark: options.foregroundColor ?? QR_DESIGN_COLORS.brandAccent,
+        light: options.backgroundColor ?? QR_DESIGN_COLORS.qrBackground,
       },
     });
 
@@ -315,8 +333,8 @@ export class QrCodeService {
       errorCorrectionLevel: 'H',
       margin: options.margin ?? 1,
       color: {
-        dark: options.foregroundColor ?? '#0B1424',
-        light: options.backgroundColor ?? '#FFFFFF',
+        dark: options.foregroundColor ?? QR_DESIGN_COLORS.brandAccent,
+        light: options.backgroundColor ?? QR_DESIGN_COLORS.qrBackground,
       },
     });
     const overlaySvg = this.buildWindshieldTextSvg(layout);

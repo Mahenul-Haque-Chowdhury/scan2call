@@ -74,5 +74,22 @@
     "ts-loader": "^9.5.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.1"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/$1",
+      "^@prisma/client$": "<rootDir>/generated/prisma/client"
+    },
+    "testEnvironment": "node"
   }
 }

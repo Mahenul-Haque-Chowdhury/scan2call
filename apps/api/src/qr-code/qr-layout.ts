@@ -1,6 +1,8 @@
 export const QrLayout = {
   STANDARD: 'STANDARD',
   WINDSHIELD_CARD: 'WINDSHIELD_CARD',
+  PASSPORT_STICKER_HORIZONTAL: 'PASSPORT_STICKER_HORIZONTAL',
+  PASSPORT_STICKER_VERTICAL: 'PASSPORT_STICKER_VERTICAL',
 } as const;
 
 export type QrLayout = (typeof QrLayout)[keyof typeof QrLayout];
