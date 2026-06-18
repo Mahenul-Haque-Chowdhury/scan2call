@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { PUBLIC_SITE_LINKS } from '@/lib/seo';
 
 const BASE_URL = process.env.APP_URL || 'https://scan2call.com.au';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3003';
@@ -22,49 +23,24 @@ async function fetchProducts(): Promise<Product[]> {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const priorityByPath: Record<string, number> = {
+    '/': 1,
+    '/store': 0.9,
+    '/pricing': 0.9,
+    '/how-it-works': 0.8,
+    '/about': 0.8,
+    '/blog': 0.7,
+    '/faq': 0.7,
+    '/contact': 0.5,
+  };
+  const weeklyPages = new Set(['/', '/store', '/blog']);
   const staticPages: MetadataRoute.Sitemap = [
-    {
-      url: BASE_URL,
+    ...PUBLIC_SITE_LINKS.map((link) => ({
+      url: link.path === '/' ? BASE_URL : `${BASE_URL}${link.path}`,
       lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 1,
-    },
-    {
-      url: `${BASE_URL}/about`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: `${BASE_URL}/how-it-works`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: `${BASE_URL}/pricing`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.9,
-    },
-    {
-      url: `${BASE_URL}/store`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.9,
-    },
-    {
-      url: `${BASE_URL}/faq`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-    {
-      url: `${BASE_URL}/contact`,
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 0.5,
-    },
+      changeFrequency: weeklyPages.has(link.path) ? 'weekly' as const : 'monthly' as const,
+      priority: priorityByPath[link.path] ?? 0.5,
+    })),
     {
       url: `${BASE_URL}/privacy`,
       lastModified: new Date(),

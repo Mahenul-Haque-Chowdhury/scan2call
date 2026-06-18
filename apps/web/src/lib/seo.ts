@@ -11,6 +11,16 @@ export const SITE_NAME = 'Scan2Call';
 export const SITE_DESCRIPTION =
   'Protect your valuables with anonymous QR tags. When someone finds your lost item, they can contact you without ever seeing your personal details.';
 export const DEFAULT_OG_IMAGE = '/images/sca2callhero.png';
+export const PUBLIC_SITE_LINKS = [
+  { path: '/', name: 'Home' },
+  { path: '/how-it-works', name: 'How It Works' },
+  { path: '/pricing', name: 'Pricing' },
+  { path: '/store', name: 'Store' },
+  { path: '/blog', name: 'Blog' },
+  { path: '/faq', name: 'FAQ' },
+  { path: '/about', name: 'About' },
+  { path: '/contact', name: 'Contact' },
+] as const;
 
 export function getSiteUrl(): string {
   return process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://scan2call.com.au';
@@ -18,6 +28,20 @@ export function getSiteUrl(): string {
 
 export function absoluteUrl(path = '/'): string {
   return new URL(path, getSiteUrl()).toString();
+}
+
+export function createSiteNavigationSchema() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: `${SITE_NAME} primary navigation`,
+    itemListElement: PUBLIC_SITE_LINKS.map((link, index) => ({
+      '@type': 'SiteNavigationElement',
+      position: index + 1,
+      name: link.name,
+      url: absoluteUrl(link.path),
+    })),
+  };
 }
 
 export function createMetadata(input: {

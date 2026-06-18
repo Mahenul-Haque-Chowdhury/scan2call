@@ -1,5 +1,11 @@
 import HomePageClient from './_components/home-page-client';
-import { SITE_DESCRIPTION, SITE_NAME, absoluteUrl, createMetadata } from '@/lib/seo';
+import {
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  absoluteUrl,
+  createMetadata,
+  createSiteNavigationSchema,
+} from '@/lib/seo';
 
 export const metadata = createMetadata({
   title: 'Scan2Call - Privacy-First QR Identity Tags',
@@ -67,6 +73,7 @@ export default function HomePage() {
       'query-input': 'required name=search_term_string',
     },
   };
+  const siteNavigationSchema = createSiteNavigationSchema();
 
   return (
     <>
@@ -85,6 +92,10 @@ export default function HomePage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(siteNavigationSchema) }}
       />
       <HomePageClient />
     </>

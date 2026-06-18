@@ -26,7 +26,7 @@ export default function ScanLayout({ children }: { children: React.ReactNode }) 
           - Privacy-first QR identity tags
         </p>
         <p className="mt-2">
-          3/13 Lena Street, Beckenham, Perth WA 6107, Australia
+          1 Silas Street, East Fremantle, Perth WA 6158, Australia
         </p>
         <a href="mailto:contact@scan2call.com.au" className="mt-1 inline-flex text-yellow-700 hover:underline">
           contact@scan2call.com.au
