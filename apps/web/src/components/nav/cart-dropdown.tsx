@@ -79,7 +79,7 @@ export function CartDropdown() {
     >
       {/* Cart trigger */}
       <Link
-        href="/store/cart"
+        href="/cart"
         className="relative inline-flex items-center justify-center h-9 w-9 rounded-lg text-text-secondary hover:text-text hover:bg-surface-raised transition-colors"
         aria-label="Shopping cart"
         onFocus={handleEnter}
@@ -119,7 +119,7 @@ export function CartDropdown() {
               </h3>
               {itemCount > 0 && (
                 <Link
-                  href="/store/cart"
+                  href="/cart"
                   className="text-xs font-medium text-primary hover:text-primary-hover transition-colors"
                   onClick={() => setOpen(false)}
                 >
@@ -169,7 +169,7 @@ export function CartDropdown() {
                     </span>
                   </div>
                   <Link
-                    href="/store/cart"
+                    href="/cart"
                     onClick={() => setOpen(false)}
                     className="flex items-center justify-center w-full py-2.5 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:bg-primary-hover transition-colors glow-sm"
                   >

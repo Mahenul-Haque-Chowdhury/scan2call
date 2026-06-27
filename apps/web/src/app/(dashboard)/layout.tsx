@@ -35,7 +35,7 @@ const sidebarLinks = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/tags', label: 'Tags', icon: Tag },
   { href: '/orders', label: 'Orders', icon: Package },
-  { href: '/store/cart', label: 'Store', icon: ShoppingCart },
+  { href: '/store', label: 'Store', icon: ShoppingCart },
   { href: '/saved-addresses', label: 'Saved Addresses', icon: MapPin },
   { href: '/redeem-gifts', label: 'Redeem Gifts', icon: Gift },
   { href: '/settings', label: 'Settings', icon: Settings },

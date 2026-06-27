@@ -84,7 +84,7 @@ export default function OrdersPage() {
             icon={<ShoppingBag className="h-6 w-6" />}
             title="No orders yet"
             description="Browse our store to get started."
-            action={<Link href="/store/cart"><Button>Browse Store</Button></Link>}
+            action={<Link href="/store"><Button>Browse Store</Button></Link>}
           />
         </Card>
       ) : (

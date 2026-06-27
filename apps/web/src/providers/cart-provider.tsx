@@ -37,6 +37,8 @@ export interface CartItem {
   /** Whether to auto-renew the QR before it expires. */
   autoRenew: boolean;
   image?: string;
+  tagLabel?: string;
+  tagDescription?: string;
 }
 
 /** New items default to the minimum duration with auto-renew off. */
@@ -50,6 +52,7 @@ interface CartContextValue {
   updateQuantity: (productId: string, quantity: number) => void;
   updateDuration: (productId: string, durationYears: number) => void;
   updateAutoRenew: (productId: string, autoRenew: boolean) => void;
+  updateTagDetails: (productId: string, tagLabel: string, tagDescription: string) => void;
   clearCart: () => void;
   /** Total for a single line (unit price for the chosen duration x quantity). */
   getLineTotal: (item: CartItem) => number;
@@ -206,6 +209,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const updateTagDetails = useCallback((productId: string, tagLabel: string, tagDescription: string) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.productId === productId ? { ...item, tagLabel, tagDescription } : item,
+      ),
+    );
+  }, []);
+
   const clearCart = useCallback(() => {
     setItems([]);
   }, []);
@@ -237,6 +248,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       updateQuantity,
       updateDuration,
       updateAutoRenew,
+      updateTagDetails,
       clearCart,
       getLineTotal,
       getTotal,
@@ -249,6 +261,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       updateQuantity,
       updateDuration,
       updateAutoRenew,
+      updateTagDetails,
       clearCart,
       getLineTotal,
       getTotal,

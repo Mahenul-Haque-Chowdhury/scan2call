@@ -387,7 +387,7 @@ export default function ProductDetailClient({
                 animate={{ opacity: 1, y: 0 }}
               >
                 <Link
-                  href="/store/cart"
+                  href="/cart"
                   className="block text-center text-sm font-medium text-text-muted transition-colors hover:text-primary"
                 >
                   View Cart -{'>'}
