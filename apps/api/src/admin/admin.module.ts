@@ -7,19 +7,16 @@ import { AdminAnalyticsController } from './admin-analytics.controller';
 import { AdminAuditLogController } from './admin-audit-log.controller';
 import { AdminSystemController } from './admin-system.controller';
 import { AdminContactMessagesController } from './admin-contact-messages.controller';
-import { AdminGiftCodesController } from './admin-gift-codes.controller';
 import { AdminTagGiftCodesController } from './admin-tag-gift-codes.controller';
 import { AdminBlogPostsController } from './admin-blog-posts.controller';
-import { AdminSubscribersController } from './admin-subscribers.controller';
 import { AdminService } from './admin.service';
 import { AdminSystemService } from './admin-system.service';
 import { QrCodeModule } from '../qr-code/qr-code.module';
-import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { GiftsModule } from '../gifts/gifts.module';
 import { MediaModule } from '../media/media.module';
 
 @Module({
-  imports: [QrCodeModule, SubscriptionsModule, GiftsModule, MediaModule],
+  imports: [QrCodeModule, GiftsModule, MediaModule],
   controllers: [
     AdminUsersController,
     AdminTagsController,
@@ -29,10 +26,8 @@ import { MediaModule } from '../media/media.module';
     AdminAuditLogController,
     AdminSystemController,
     AdminContactMessagesController,
-    AdminGiftCodesController,
     AdminTagGiftCodesController,
     AdminBlogPostsController,
-    AdminSubscribersController,
   ],
   providers: [AdminService, AdminSystemService],
   exports: [AdminService],

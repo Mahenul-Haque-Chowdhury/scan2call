@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ImageIcon, Star, ShoppingCart, Check, Package } from 'lucide-react';
-import { useAuth } from '@/providers/auth-provider';
 import { useCart } from '@/providers/cart-provider';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert } from '@/components/ui/alert';
@@ -26,6 +25,8 @@ interface Product {
   shortDescription: string;
   priceInCents: number;
   compareAtPrice: number | null;
+  devicePriceInCents: number | null;
+  hasFindMy: boolean;
   sku: string;
   stockQuantity: number;
   isInStock: boolean;
@@ -52,7 +53,6 @@ export default function StorePageClient() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user, isAuthenticated } = useAuth();
   const { addItem } = useCart();
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
 
@@ -65,6 +65,8 @@ export default function StorePageClient() {
         name: product.name,
         slug: product.slug,
         priceInCents: product.priceInCents,
+        devicePriceInCents: product.devicePriceInCents,
+        hasFindMy: product.hasFindMy,
         image: product.images[0]?.url,
       },
       1,
@@ -159,8 +161,6 @@ export default function StorePageClient() {
     return () => { cancelled = true; };
   }, []);
 
-  const canPurchase = isAuthenticated && !!user?.hasActiveSubscription;
-
   return (
     <>
       {/* Header */}
@@ -172,21 +172,9 @@ export default function StorePageClient() {
             </span>
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">Tag Store</h1>
             <p className="mt-3 text-lg text-text-muted max-w-xl">
-              Browse our range of QR identity tags. Attach them to anything you want to protect.
+              Browse our range of QR identity tags. Choose how long you want each QR active (1 to 5 years) at checkout.
             </p>
           </FadeIn>
-
-          {!canPurchase && !isLoading && (
-            <FadeIn delay={0.1} className="mt-5">
-              <div className="inline-flex items-center gap-2.5 rounded-xl border border-primary/25 bg-primary-muted px-4 py-2.5 text-sm">
-                <Package className="h-4 w-4 text-primary shrink-0" />
-                <span className="text-text-secondary">
-                  <Link href="/pricing" className="text-primary font-medium hover:underline">Subscribe</Link>
-                  {' '}to purchase tags from the store.
-                </span>
-              </div>
-            </FadeIn>
-          )}
         </div>
       </section>
 
@@ -281,15 +269,23 @@ export default function StorePageClient() {
                         {/* Price + tag type */}
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-baseline gap-1">
-                            <span className="text-lg font-bold text-primary">
-                              ${formatPrice(product.priceInCents)}
-                            </span>
-                            {product.compareAtPrice && (
-                              <span className="text-xs text-text-dim line-through">
-                                ${formatPrice(product.compareAtPrice)}
-                              </span>
+                            {product.hasFindMy ? (
+                              <>
+                                <span className="text-lg font-bold text-primary">
+                                  ${formatPrice(product.devicePriceInCents ?? 0)}
+                                </span>
+                                <span className="text-xs text-text-dim">
+                                  + ${formatPrice(product.priceInCents)}/yr
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-lg font-bold text-primary">
+                                  ${formatPrice(product.priceInCents)}
+                                </span>
+                                <span className="text-xs text-text-dim">/yr</span>
+                              </>
                             )}
-                            <span className="text-xs text-text-dim">AUD</span>
                           </div>
                           <Badge variant="neutral" className="hidden shrink-0 text-[10px] sm:inline-flex">
                             {product.tagType}
@@ -307,15 +303,8 @@ export default function StorePageClient() {
                           <button disabled className="w-full h-10 px-4 text-xs font-medium rounded-xl bg-surface-raised text-text-dim cursor-not-allowed opacity-50 border border-border">
                             Out of Stock
                           </button>
-                        ) : canPurchase ? (
-                          <AddToCartButton product={product} />
                         ) : (
-                          <Link
-                            href="/subscription"
-                            className="flex items-center justify-center w-full h-10 px-4 text-xs font-medium rounded-xl bg-surface-raised text-text-secondary border border-border hover:bg-surface-overlay hover:border-border-hover transition-colors"
-                          >
-                            Subscribe to Purchase
-                          </Link>
+                          <AddToCartButton product={product} />
                         )}
                       </div>
                     </motion.div>

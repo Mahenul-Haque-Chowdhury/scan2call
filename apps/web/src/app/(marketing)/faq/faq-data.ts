@@ -50,22 +50,27 @@ export const faqCategories = [
     ],
   },
   {
-    title: 'Billing & Subscription',
+    title: 'Pricing & Renewals',
     faqs: [
       {
         question: 'Do I need a subscription?',
         answer:
-          'Yes. A subscription unlocks all features including unlimited tags, unlimited scans, WhatsApp relay, location tracking, and access to the tag store. Plans are $2.99/mo AUD, $14.49/yr AUD, or $43.47/3 yrs AUD.',
+          'No. There is no subscription. The QR tag is the product: you buy a tag and choose how long you want it active, from 1 to 5 years. Stickers and tags are $7.25/year, the Medical ID Band is $14.49/year, and Find My devices are $29.99 (including the first year) plus $7.25/year after that.',
       },
       {
-        question: 'Can I cancel anytime?',
+        question: 'How does auto-renewal work?',
         answer:
-          'Yes, with no penalty. Cancel from your account settings and your access continues until the end of your current billing period.',
+          'It is optional. Turn it on at checkout and we renew your QR for one more year before it expires, charging your saved card. We email you about a month before expiry, and you can turn auto-renewal off anytime.',
       },
       {
-        question: 'What happens to my tags if I cancel?',
+        question: 'What happens when my QR expires?',
         answer:
-          'Your tags will stop relaying contacts until you resubscribe. Your tag data is retained for 30 days after cancellation so you can easily resume.',
+          'When a QR expires it stops relaying contact and scanning it shows a friendly message. Renew it (or have auto-renewal on) to bring it straight back. Your tag data is kept so renewing is instant.',
+      },
+      {
+        question: 'I bought a tag in a supermarket. How do I use it?',
+        answer:
+          'Scan it and follow the prompts to claim it to your free account. It activates with the QR period included on the packaging. After that you can renew it like any other tag.',
       },
     ],
   },

@@ -18,7 +18,9 @@ import { ToggleLostModeDto } from './dto/toggle-lost-mode.dto';
 import { ReportFoundDto } from './dto/report-found.dto';
 import { GenerateReportImageUploadUrlDto } from './dto/generate-report-image-upload-url.dto';
 import { TurnstileService } from './turnstile.service';
+import { TAG_DEFAULT_DURATION_YEARS } from '@scan2call/shared';
 import type { PublicTagInfo, TagDetail, TagSummary } from '@scan2call/shared';
+import { addYears } from '../common/utils/date.util';
 
 type TagWithScanCount = Prisma.TagGetPayload<{
   include: { _count: { select: { scans: true } } };
@@ -159,6 +161,7 @@ export class TagsService {
   async activate(userId: string, dto: ActivateTagDto): Promise<TagDetail> {
     const tag = await this.prisma.tag.findUnique({
       where: { token: dto.token },
+      include: { batch: { select: { bundledDurationYears: true } } },
     });
 
     if (!tag) {
@@ -177,6 +180,12 @@ export class TagsService {
       throw new ForbiddenException('This tag belongs to another user.');
     }
 
+    const now = new Date();
+    // Retail free claim: stamp expiry from the batch's bundled duration. Preserve an
+    // expiry already set (e.g. a gift tag that came with its own period).
+    const bundledYears = tag.batch?.bundledDurationYears ?? TAG_DEFAULT_DURATION_YEARS;
+    const expiresAt = tag.expiresAt ?? addYears(now, bundledYears);
+
     const updated = await this.prisma.tag.update({
       where: { id: tag.id },
       data: {
@@ -184,9 +193,10 @@ export class TagsService {
         status: 'LOST',
         label: dto.label,
         isLostMode: true,
-        lostModeAt: new Date(),
+        lostModeAt: now,
         lostModeMessage: dto.lostModeMessage ?? null,
-        activatedAt: new Date(),
+        activatedAt: now,
+        expiresAt,
       },
       include: {
         _count: { select: { scans: true } },
@@ -257,6 +267,10 @@ export class TagsService {
 
     if (tag.status === 'DEACTIVATED') {
       throw new BadRequestException('This tag has been deactivated by its owner.');
+    }
+
+    if (tag.expiresAt && tag.expiresAt < new Date()) {
+      throw new BadRequestException('This tag has expired. The owner needs to renew it.');
     }
 
     // Determine contact options based on tag preferences and owner setup
@@ -474,6 +488,8 @@ export class TagsService {
       allowWhatsApp: tag.allowWhatsApp,
       allowSendLocation: tag.allowSendLocation,
       activatedAt: tag.activatedAt?.toISOString() ?? null,
+      expiresAt: tag.expiresAt?.toISOString() ?? null,
+      autoRenew: tag.autoRenew,
       updatedAt: tag.updatedAt.toISOString(),
     };
   }

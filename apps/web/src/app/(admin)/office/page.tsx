@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert } from '@/components/ui/alert';
-import { Users, Tag, ScanLine, ShoppingCart, DollarSign, Crown, ArrowRight } from 'lucide-react';
+import { Users, Tag, ScanLine, ShoppingCart, DollarSign, Clock, ArrowRight } from 'lucide-react';
 
 interface OverviewStats {
   totalUsers: number;
@@ -13,7 +13,8 @@ interface OverviewStats {
   totalScans: number;
   totalOrders: number;
   totalRevenueCents: number;
-  activeSubscriptions: number;
+  activeTags: number;
+  expiringSoon: number;
 }
 
 export default function AdminDashboardPage() {
@@ -67,7 +68,8 @@ export default function AdminDashboardPage() {
       value: `$${((stats?.totalRevenueCents ?? 0) / 100).toFixed(2)}`,
       icon: DollarSign,
     },
-    { label: 'Active Subscriptions', value: stats?.activeSubscriptions ?? 0, icon: Crown },
+    { label: 'Active Tags', value: stats?.activeTags ?? 0, icon: Tag },
+    { label: 'Expiring (30d)', value: stats?.expiringSoon ?? 0, icon: Clock },
   ];
 
   const quickLinks = [

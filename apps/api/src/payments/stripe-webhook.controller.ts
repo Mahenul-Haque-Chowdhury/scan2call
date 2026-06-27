@@ -13,11 +13,9 @@ import type { Request } from 'express';
 import { Public } from '../common/decorators/public.decorator';
 import { PrismaService } from '../database/prisma.service';
 import { PaymentsService } from './payments.service';
-import { OrderStatus, SubscriptionStatus } from '@/generated/prisma/client';
+import { OrderStatus } from '@/generated/prisma/client';
 import { Prisma } from '@/generated/prisma/client';
 import Stripe from 'stripe';
-
-type SubscriptionPlanId = 'monthly' | 'yearly' | 'three_year';
 
 @ApiTags('webhooks')
 @Controller('webhooks')
@@ -80,28 +78,6 @@ export class StripeWebhookController {
         );
         break;
 
-      case 'invoice.paid':
-        await this.handleInvoicePaid(event.data.object as Stripe.Invoice);
-        break;
-
-      case 'invoice.payment_failed':
-        await this.handleInvoicePaymentFailed(
-          event.data.object as Stripe.Invoice,
-        );
-        break;
-
-      case 'customer.subscription.updated':
-        await this.handleSubscriptionUpdated(
-          event.data.object as Stripe.Subscription,
-        );
-        break;
-
-      case 'customer.subscription.deleted':
-        await this.handleSubscriptionDeleted(
-          event.data.object as Stripe.Subscription,
-        );
-        break;
-
       case 'charge.refunded':
         await this.handleChargeRefunded(event.data.object as Stripe.Charge);
         break;
@@ -137,299 +113,105 @@ export class StripeWebhookController {
   }
 
   /**
-   * Handles both one-time payment checkouts (orders) and subscription checkouts.
+   * Handles one-time product order checkouts. Marks the order PAID, decrements
+   * stock, records the payment, and saves the card for auto-renewal when the
+   * order opted in.
    */
   private async handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
     const userId = session.metadata?.userId;
+    const orderId = session.metadata?.orderId;
 
-    if (session.mode === 'payment') {
-      // One-time product order
-      const orderId = session.metadata?.orderId;
-      if (!orderId) {
-        this.logger.warn('checkout.session.completed (payment) missing orderId in metadata');
-        return;
+    if (session.mode !== 'payment' || !orderId) {
+      this.logger.warn('checkout.session.completed missing orderId or not a payment session');
+      return;
+    }
+
+    const stripeCustomerId =
+      typeof session.customer === 'string'
+        ? session.customer
+        : session.customer?.id;
+
+    const stripePaymentIntentId =
+      typeof session.payment_intent === 'string'
+        ? session.payment_intent
+        : session.payment_intent?.id;
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const existingOrder = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { items: true },
+      });
+
+      if (!existingOrder) {
+        this.logger.warn(`checkout.session.completed: order ${orderId} not found`);
+        return null;
       }
 
-      const stripeCustomerId =
-        typeof session.customer === 'string'
-          ? session.customer
-          : session.customer?.id;
+      const wasAlreadyPaid = existingOrder.status === OrderStatus.PAID;
 
-      if (userId && stripeCustomerId) {
+      const updatedOrder = await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: OrderStatus.PAID,
+          stripePaymentIntentId,
+        },
+      });
+
+      if (!wasAlreadyPaid) {
+        for (const item of existingOrder.items) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: {
+              stockQuantity: { decrement: item.quantity },
+            },
+          });
+        }
+      }
+
+      const hasAutoRenew = existingOrder.items.some((item) => item.autoRenew);
+      return { updatedOrder, hasAutoRenew };
+    });
+
+    if (!result) return;
+
+    // Persist the Stripe customer and (when auto-renew was requested) the saved
+    // off-session payment method so the renewal cron can charge it later.
+    if (userId) {
+      let stripeDefaultPaymentMethodId: string | undefined;
+      if (result.hasAutoRenew && stripePaymentIntentId) {
+        try {
+          const pi = await this.stripeClient.paymentIntents.retrieve(stripePaymentIntentId);
+          stripeDefaultPaymentMethodId =
+            typeof pi.payment_method === 'string'
+              ? pi.payment_method
+              : pi.payment_method?.id;
+        } catch (err) {
+          this.logger.warn(
+            `Could not retrieve payment method for ${stripePaymentIntentId}: ${(err as Error).message}`,
+          );
+        }
+      }
+
+      if (stripeCustomerId || stripeDefaultPaymentMethodId) {
         await this.prisma.user.update({
           where: { id: userId },
-          data: { stripeCustomerId },
-        });
-      }
-
-      const stripePaymentIntentId =
-        typeof session.payment_intent === 'string'
-          ? session.payment_intent
-          : session.payment_intent?.id;
-
-      const order = await this.prisma.$transaction(async (tx) => {
-        const existingOrder = await tx.order.findUnique({
-          where: { id: orderId },
-          include: { items: true },
-        });
-
-        if (!existingOrder) {
-          this.logger.warn(`checkout.session.completed: order ${orderId} not found`);
-          return null;
-        }
-
-        const wasAlreadyPaid = existingOrder.status === OrderStatus.PAID;
-
-        const updatedOrder = await tx.order.update({
-          where: { id: orderId },
           data: {
-            status: OrderStatus.PAID,
-            stripePaymentIntentId,
+            ...(stripeCustomerId ? { stripeCustomerId } : {}),
+            ...(stripeDefaultPaymentMethodId ? { stripeDefaultPaymentMethodId } : {}),
           },
         });
+      }
 
-        if (!wasAlreadyPaid) {
-          for (const item of existingOrder.items) {
-            await tx.product.update({
-              where: { id: item.productId },
-              data: {
-                stockQuantity: { decrement: item.quantity },
-              },
-            });
-          }
-        }
-
-        return updatedOrder;
+      await this.paymentsService.recordPayment({
+        userId,
+        orderId,
+        amountInCents: session.amount_total ?? 0,
+        currency: session.currency?.toUpperCase() ?? 'AUD',
+        stripePaymentIntentId,
       });
-
-      if (!order) return;
-
-      // Record the payment
-      if (userId) {
-        await this.paymentsService.recordPayment({
-          userId,
-          orderId,
-          amountInCents: session.amount_total ?? 0,
-          currency: session.currency?.toUpperCase() ?? 'AUD',
-          stripePaymentIntentId:
-            typeof session.payment_intent === 'string'
-              ? session.payment_intent
-              : session.payment_intent?.id,
-        });
-      }
-
-      this.logger.log(`Order ${orderId} marked as PAID`);
-    } else if (session.mode === 'subscription') {
-      // Subscription checkout
-      if (!userId) {
-        this.logger.warn('checkout.session.completed (subscription) missing userId in metadata');
-        return;
-      }
-
-      const stripeSubscriptionId =
-        typeof session.subscription === 'string'
-          ? session.subscription
-          : session.subscription?.id;
-
-      if (!stripeSubscriptionId) {
-        this.logger.warn('checkout.session.completed missing subscription ID');
-        return;
-      }
-
-      // Fetch the subscription from Stripe for period info
-      const stripeSub = await this.stripeClient.subscriptions.retrieve(stripeSubscriptionId);
-      const stripePriceId = stripeSub.items.data[0]?.price.id;
-      const planId =
-        this.getPlanIdForPriceId(stripePriceId) ??
-        this.getValidPlanId(session.metadata?.planId) ??
-        'monthly';
-
-      // Ensure Stripe customer ID is saved on user
-      const stripeCustomerId =
-        typeof session.customer === 'string'
-          ? session.customer
-          : session.customer?.id;
-
-      if (stripeCustomerId) {
-        await this.prisma.user.update({
-          where: { id: userId },
-          data: { stripeCustomerId },
-        });
-      }
-
-      // Upsert subscription record
-      await this.prisma.subscription.upsert({
-        where: { userId },
-        create: {
-          userId,
-          status: SubscriptionStatus.ACTIVE,
-          source: 'STRIPE',
-          plan: planId,
-          stripeSubscriptionId,
-          stripePriceId,
-          currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
-          currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
-          cancelAtPeriodEnd: false,
-        },
-        update: {
-          status: SubscriptionStatus.ACTIVE,
-          source: 'STRIPE',
-          plan: planId,
-          stripeSubscriptionId,
-          stripePriceId,
-          currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
-          currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
-          cancelAtPeriodEnd: false,
-        },
-      });
-
-      this.logger.log(`Subscription activated for user ${userId}`);
-    }
-  }
-
-  /**
-   * Handles successful invoice payments (recurring subscription renewals).
-   */
-  private async handleInvoicePaid(invoice: Stripe.Invoice) {
-    const stripeSubscriptionId =
-      typeof invoice.subscription === 'string'
-        ? invoice.subscription
-        : invoice.subscription?.id;
-
-    if (!stripeSubscriptionId) return;
-
-    const subscription = await this.prisma.subscription.findUnique({
-      where: { stripeSubscriptionId },
-    });
-
-    if (!subscription) {
-      this.logger.warn(
-        `invoice.paid: No subscription found for ${stripeSubscriptionId}`,
-      );
-      return;
     }
 
-    // Fetch fresh period data from Stripe
-    const stripeSub = await this.stripeClient.subscriptions.retrieve(stripeSubscriptionId);
-
-    await this.prisma.subscription.update({
-      where: { id: subscription.id },
-      data: {
-        status: SubscriptionStatus.ACTIVE,
-        currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
-        currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
-      },
-    });
-
-    // Record the payment
-    await this.paymentsService.recordPayment({
-      userId: subscription.userId,
-      amountInCents: invoice.amount_paid ?? 0,
-      currency: invoice.currency?.toUpperCase() ?? 'AUD',
-      stripeInvoiceId: invoice.id,
-      stripePaymentIntentId:
-        typeof invoice.payment_intent === 'string'
-          ? invoice.payment_intent
-          : invoice.payment_intent?.id ?? undefined,
-    });
-
-    this.logger.log(
-      `Invoice paid for subscription ${stripeSubscriptionId}`,
-    );
-  }
-
-  /**
-   * Handles failed invoice payments (subscription renewal failures).
-   */
-  private async handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
-    const stripeSubscriptionId =
-      typeof invoice.subscription === 'string'
-        ? invoice.subscription
-        : invoice.subscription?.id;
-
-    if (!stripeSubscriptionId) return;
-
-    const subscription = await this.prisma.subscription.findUnique({
-      where: { stripeSubscriptionId },
-    });
-
-    if (!subscription) return;
-
-    await this.prisma.subscription.update({
-      where: { id: subscription.id },
-      data: { status: SubscriptionStatus.PAST_DUE },
-    });
-
-    this.logger.warn(
-      `Invoice payment failed for subscription ${stripeSubscriptionId}, status set to PAST_DUE`,
-    );
-  }
-
-  /**
-   * Handles subscription updates from Stripe (e.g. plan changes, period updates).
-   */
-  private async handleSubscriptionUpdated(stripeSub: Stripe.Subscription) {
-    const subscription = await this.prisma.subscription.findUnique({
-      where: { stripeSubscriptionId: stripeSub.id },
-    });
-
-    if (!subscription) {
-      this.logger.warn(
-        `customer.subscription.updated: No local subscription found for ${stripeSub.id}`,
-      );
-      return;
-    }
-
-    const statusMap: Record<string, SubscriptionStatus> = {
-      active: SubscriptionStatus.ACTIVE,
-      past_due: SubscriptionStatus.PAST_DUE,
-      canceled: SubscriptionStatus.CANCELLED,
-      unpaid: SubscriptionStatus.UNPAID,
-      incomplete: SubscriptionStatus.INCOMPLETE,
-    };
-
-    await this.prisma.subscription.update({
-      where: { id: subscription.id },
-      data: {
-        status: statusMap[stripeSub.status] ?? SubscriptionStatus.ACTIVE,
-        cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
-        currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
-        currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
-        stripePriceId: stripeSub.items.data[0]?.price.id,
-        ...(this.getPlanIdForPriceId(stripeSub.items.data[0]?.price.id)
-          ? { plan: this.getPlanIdForPriceId(stripeSub.items.data[0]?.price.id)! }
-          : {}),
-      },
-    });
-
-    this.logger.log(
-      `Subscription ${stripeSub.id} updated: status=${stripeSub.status}, cancel_at_period_end=${stripeSub.cancel_at_period_end}`,
-    );
-  }
-
-  /**
-   * Handles subscription deletion (final cancellation).
-   */
-  private async handleSubscriptionDeleted(stripeSub: Stripe.Subscription) {
-    const subscription = await this.prisma.subscription.findUnique({
-      where: { stripeSubscriptionId: stripeSub.id },
-    });
-
-    if (!subscription) {
-      this.logger.warn(
-        `customer.subscription.deleted: No local subscription found for ${stripeSub.id}`,
-      );
-      return;
-    }
-
-    await this.prisma.subscription.update({
-      where: { id: subscription.id },
-      data: { status: SubscriptionStatus.CANCELLED },
-    });
-
-    this.logger.log(
-      `Subscription ${stripeSub.id} deleted / cancelled for user ${subscription.userId}`,
-    );
+    this.logger.log(`Order ${orderId} marked as PAID`);
   }
 
   /**
@@ -443,24 +225,5 @@ export class StripeWebhookController {
     this.logger.log(
       `Charge ${charge.id} refunded: ${refundedAmount} cents`,
     );
-  }
-
-  private getValidPlanId(planId: string | undefined): SubscriptionPlanId | null {
-    if (planId === 'monthly' || planId === 'yearly' || planId === 'three_year') {
-      return planId;
-    }
-    return null;
-  }
-
-  private getPlanIdForPriceId(priceId: string | undefined): SubscriptionPlanId | null {
-    if (!priceId) return null;
-
-    const planEntries: Array<[string | undefined, SubscriptionPlanId]> = [
-      [this.config.get<string>('STRIPE_SUBSCRIPTION_MONTHLY_PRICE_ID'), 'monthly'],
-      [this.config.get<string>('STRIPE_SUBSCRIPTION_YEARLY_PRICE_ID'), 'yearly'],
-      [this.config.get<string>('STRIPE_SUBSCRIPTION_THREE_YEAR_PRICE_ID'), 'three_year'],
-    ];
-
-    return planEntries.find(([configuredPriceId]) => configuredPriceId === priceId)?.[1] ?? null;
   }
 }

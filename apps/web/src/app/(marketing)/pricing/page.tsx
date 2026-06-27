@@ -4,9 +4,9 @@ import { createMetadata } from '@/lib/seo';
 export const metadata = createMetadata({
   title: 'Pricing',
   description:
-    'Scan2Call pricing: $2.99/month, $14.49/year, $43.47 for 3 years, plus enterprise and bulk order proposals for businesses.',
+    'Scan2Call pricing: QR tags from $7.25/year, Medical ID Band $14.49/year, Find My devices $29.99 plus $7.25/year. Choose 1 to 5 years, no subscription.',
   path: '/pricing',
-  keywords: ['scan2call pricing', 'qr tag subscription', 'lost item protection plans'],
+  keywords: ['scan2call pricing', 'qr tag price', 'lost item protection', 'find my tag'],
 });
 
 export default function PricingPage() {

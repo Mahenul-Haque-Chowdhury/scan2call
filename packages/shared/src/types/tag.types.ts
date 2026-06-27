@@ -21,6 +21,8 @@ export interface TagDetail extends TagSummary {
   allowWhatsApp: boolean;
   allowSendLocation: boolean;
   activatedAt: string | null;
+  expiresAt: string | null;
+  autoRenew: boolean;
   updatedAt: string;
 }
 

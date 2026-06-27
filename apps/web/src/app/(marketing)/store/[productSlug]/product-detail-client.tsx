@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ImageIcon, Minus, Plus, ShoppingCart, Check } from 'lucide-react';
-import { useAuth } from '@/providers/auth-provider';
 import { useCart } from '@/providers/cart-provider';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert } from '@/components/ui/alert';
@@ -27,6 +26,8 @@ export interface Product {
   shortDescription: string;
   priceInCents: number;
   compareAtPrice: number | null;
+  devicePriceInCents: number | null;
+  hasFindMy: boolean;
   sku: string;
   stockQuantity: number;
   isInStock: boolean;
@@ -61,7 +62,6 @@ export default function ProductDetailClient({
   const [quantity, setQuantity] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
 
-  const { user, isAuthenticated } = useAuth();
   const { addItem } = useCart();
 
   useEffect(() => {
@@ -101,8 +101,6 @@ export default function ProductDetailClient({
     };
   }, [productSlug, initialProduct, initialError]);
 
-  const canPurchase = isAuthenticated && !!user?.hasActiveSubscription;
-
   function handleAddToCart() {
     if (!product) return;
     if (!product.isInStock || product.stockQuantity <= 0) return;
@@ -113,6 +111,8 @@ export default function ProductDetailClient({
         name: product.name,
         slug: product.slug,
         priceInCents: product.priceInCents,
+        devicePriceInCents: product.devicePriceInCents,
+        hasFindMy: product.hasFindMy,
         image: product.images[0]?.url,
       },
       quantity,
@@ -247,15 +247,33 @@ export default function ProductDetailClient({
             transition={{ delay: 0.2 }}
             className="mt-3 flex items-baseline gap-3"
           >
-            <span className="text-2xl font-bold text-primary">
-              ${formatPrice(product.priceInCents)} AUD
-            </span>
+            {product.hasFindMy ? (
+              <span className="text-2xl font-bold text-primary">
+                ${formatPrice(product.devicePriceInCents ?? 0)}
+                <span className="ml-2 text-sm font-normal text-text-dim">
+                  + ${formatPrice(product.priceInCents)}/yr QR
+                </span>
+              </span>
+            ) : (
+              <span className="text-2xl font-bold text-primary">
+                ${formatPrice(product.priceInCents)}
+                <span className="ml-1 text-sm font-normal text-text-dim">/year</span>
+              </span>
+            )}
             {product.compareAtPrice && (
               <span className="text-lg text-text-dim line-through">
                 ${formatPrice(product.compareAtPrice)}
               </span>
             )}
           </motion.div>
+
+          <p className="mt-2 text-sm text-text-dim">
+            {product.hasFindMy
+              ? 'Includes the first year of QR service. Choose 1 to 5 years at checkout; renewals are $' +
+                formatPrice(product.priceInCents) +
+                '/yr.'
+              : 'Choose how long you want the QR active (1 to 5 years) at checkout.'}
+          </p>
 
           <p className="mt-4 leading-relaxed text-text-muted">{product.description}</p>
 
@@ -301,7 +319,7 @@ export default function ProductDetailClient({
             transition={{ delay: 0.4, duration: 0.4 }}
             className="mt-8 space-y-3"
           >
-            {available && canPurchase && (
+            {available && (
               <div className="flex items-center gap-3">
                 <label
                   htmlFor="quantity"
@@ -337,7 +355,7 @@ export default function ProductDetailClient({
               <Button disabled className="w-full">
                 Out of Stock
               </Button>
-            ) : canPurchase ? (
+            ) : (
               <Button onClick={handleAddToCart} className="w-full">
                 {addedToCart ? (
                   <>
@@ -351,22 +369,9 @@ export default function ProductDetailClient({
                   </>
                 )}
               </Button>
-            ) : (
-              <Link
-                href="/subscription"
-                className="inline-flex w-full items-center justify-center h-10 px-4 text-sm gap-2 rounded-lg font-medium transition-all duration-200 bg-surface-raised text-text border border-border hover:bg-surface-overlay hover:border-border-hover"
-              >
-                Subscribe to Purchase
-              </Link>
             )}
 
-            {!canPurchase && available && (
-              <p className="text-center text-xs text-text-dim">
-                Active subscription required to purchase
-              </p>
-            )}
-
-            {canPurchase && addedToCart && (
+            {addedToCart && (
               <motion.div
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}

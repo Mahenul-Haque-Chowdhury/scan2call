@@ -18,26 +18,22 @@ import {
   FileText,
   Newspaper,
   Mail,
-  Gift,
   Ticket,
   ArrowLeft,
   Menu,
   X,
-  Crown,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 const adminLinks = [
   { href: '/office', label: 'Overview', icon: LayoutGrid },
   { href: '/office/users', label: 'Users', icon: Users },
-  { href: '/office/active-subscribers', label: 'Active Subscribers', icon: Crown },
   { href: '/office/tags', label: 'Tags', icon: Tag },
   { href: '/office/orders', label: 'Orders', icon: Package },
   { href: '/office/products', label: 'Products', icon: Store },
   { href: '/office/blog', label: 'Blog', icon: Newspaper },
   { href: '/office/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/office/contact-messages', label: 'Contact Inbox', icon: Mail },
-  { href: '/office/subscription-gifts', label: 'Subscription Gifts', icon: Gift },
   { href: '/office/tag-gifts', label: 'Tag Gifts', icon: Ticket },
   { href: '/office/audit-log', label: 'Audit Log', icon: FileText },
   { href: '/office/system-status', label: 'System Status', icon: Activity },

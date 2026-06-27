@@ -35,7 +35,7 @@ export class CreateProductDto {
   @MaxLength(500)
   shortDescription?: string;
 
-  @ApiProperty({ description: 'Price in AUD cents' })
+  @ApiProperty({ description: 'Per-year (QR yearly) price in AUD cents' })
   @IsInt()
   @Min(0)
   priceInCents: number;
@@ -45,6 +45,22 @@ export class CreateProductDto {
   @IsInt()
   @Min(0)
   compareAtPrice?: number;
+
+  @ApiPropertyOptional({
+    description: 'Find My device flat price (AUD cents), includes year 1. Required when hasFindMy.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  devicePriceInCents?: number;
+
+  @ApiPropertyOptional({
+    description: 'Whether this product is a Find My device (Pet Collar, Keychain)',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  hasFindMy?: boolean;
 
   @ApiProperty()
   @IsString()
@@ -134,7 +150,7 @@ export class UpdateProductDto {
   @MaxLength(500)
   shortDescription?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Per-year (QR yearly) price in AUD cents' })
   @IsOptional()
   @IsInt()
   @Min(0)
@@ -145,6 +161,17 @@ export class UpdateProductDto {
   @IsInt()
   @Min(0)
   compareAtPrice?: number;
+
+  @ApiPropertyOptional({ description: 'Find My device flat price (AUD cents), includes year 1' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  devicePriceInCents?: number;
+
+  @ApiPropertyOptional({ description: 'Whether this product is a Find My device' })
+  @IsOptional()
+  @IsBoolean()
+  hasFindMy?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()

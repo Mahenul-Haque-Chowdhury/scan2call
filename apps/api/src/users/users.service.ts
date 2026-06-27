@@ -34,16 +34,6 @@ export class UsersService {
         notifyViaPush: true,
         stripeCustomerId: true,
         createdAt: true,
-        subscription: {
-          select: {
-            id: true,
-            status: true,
-            currentPeriodEnd: true,
-            cancelAtPeriodEnd: true,
-            giftExpiresAt: true,
-            isLifetime: true,
-          },
-        },
       },
     });
 
@@ -51,21 +41,14 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const isGiftActive = user.subscription
-      ? this.isGiftActive(user.subscription.giftExpiresAt, user.subscription.isLifetime)
-      : false;
-
+    // Subscriptions were removed; the store is open to everyone. These flags are
+    // retained (always true) for backward compatibility with the current frontend
+    // until the subscription UI is removed in a later round. @deprecated
     return {
       ...user,
-      isSubscribed: (user.subscription?.status === 'ACTIVE') || isGiftActive,
-      hasActiveSubscription: (user.subscription?.status === 'ACTIVE') || isGiftActive,
+      isSubscribed: true,
+      hasActiveSubscription: true,
     };
-  }
-
-  private isGiftActive(giftExpiresAt: Date | null, isLifetime: boolean) {
-    if (isLifetime) return true;
-    if (!giftExpiresAt) return false;
-    return giftExpiresAt.getTime() > Date.now();
   }
 
   /**

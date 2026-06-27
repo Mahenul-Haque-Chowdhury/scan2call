@@ -76,19 +76,4 @@ export class ProductsService {
 
     return product;
   }
-
-  /**
-   * Checks whether a user has an active subscription.
-   * Returns false if userId is null/undefined (unauthenticated visitor).
-   */
-  async canUserPurchase(userId: string | undefined): Promise<boolean> {
-    if (!userId) return false;
-
-    const subscription = await this.prisma.subscription.findUnique({
-      where: { userId },
-      select: { status: true },
-    });
-
-    return subscription?.status === 'ACTIVE';
-  }
 }

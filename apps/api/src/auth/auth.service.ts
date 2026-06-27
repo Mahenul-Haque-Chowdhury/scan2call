@@ -134,7 +134,6 @@ export class AuthService {
 
     const user = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
-      include: { subscription: { select: { status: true } } },
     });
 
     if (!user) {
@@ -188,7 +187,8 @@ export class AuthService {
         role: user.role,
         emailVerified: user.emailVerified,
         phoneVerified: user.phoneVerified,
-        hasActiveSubscription: user.subscription?.status === 'ACTIVE',
+        // Store is open to everyone now; flag retained for frontend compat. @deprecated
+        hasActiveSubscription: true,
       },
     };
   }

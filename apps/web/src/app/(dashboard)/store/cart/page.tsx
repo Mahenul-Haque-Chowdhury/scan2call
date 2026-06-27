@@ -16,7 +16,8 @@ function formatPrice(cents: number): string {
 
 export default function CartPage() {
   const router = useRouter();
-  const { items, removeItem, updateQuantity, getTotal, itemCount } = useCart();
+  const { items, removeItem, updateQuantity, getTotal, getLineTotal, itemCount } =
+    useCart();
 
   const total = getTotal();
 
@@ -87,11 +88,17 @@ export default function CartPage() {
                         {item.name}
                       </Link>
                       <p className="mt-0.5 text-sm text-text-muted">
-                        ${formatPrice(item.priceInCents)} AUD each
+                        {item.hasFindMy
+                          ? `$${formatPrice(item.devicePriceInCents ?? 0)} device + $${formatPrice(item.priceInCents)}/yr QR`
+                          : `$${formatPrice(item.priceInCents)}/yr`}
+                      </p>
+                      <p className="mt-0.5 text-xs text-text-dim">
+                        {item.durationYears} {item.durationYears === 1 ? 'year' : 'years'}
+                        {item.autoRenew ? ' · auto-renew on' : ''} · adjust at checkout
                       </p>
                     </div>
                     <p className="font-semibold text-text">
-                      ${formatPrice(item.priceInCents * item.quantity)} AUD
+                      ${formatPrice(getLineTotal(item))} AUD
                     </p>
                   </div>
 

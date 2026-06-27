@@ -326,6 +326,10 @@ export class CommunicationService {
       throw new BadRequestException('This tag has been deactivated.');
     }
 
+    if (tag.expiresAt && tag.expiresAt < new Date()) {
+      throw new BadRequestException('This tag has expired.');
+    }
+
     if (!tag.owner) {
       throw new BadRequestException('This tag has no owner assigned.');
     }

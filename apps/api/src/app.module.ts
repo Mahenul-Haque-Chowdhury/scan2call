@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { DatabaseModule } from './database/database.module';
 import { AppConfigModule } from './config/config.module';
@@ -14,9 +15,9 @@ import { CommunicationModule } from './communication/communication.module';
 import { StoreModule } from './store/store.module';
 import { BlogModule } from './blog/blog.module';
 import { OrdersModule } from './orders/orders.module';
-import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { GiftsModule } from './gifts/gifts.module';
 import { PaymentsModule } from './payments/payments.module';
+import { RenewalsModule } from './renewals/renewals.module';
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MediaModule } from './media/media.module';
@@ -26,6 +27,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 @Module({
   imports: [
     AppConfigModule,
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
@@ -42,9 +44,9 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     StoreModule,
     BlogModule,
     OrdersModule,
-    SubscriptionsModule,
     GiftsModule,
     PaymentsModule,
+    RenewalsModule,
     AdminModule,
     NotificationsModule,
     MediaModule,

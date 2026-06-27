@@ -16,6 +16,5 @@ export interface UserProfile {
   notifyViaSms: boolean;
   notifyViaEmail: boolean;
   notifyViaPush: boolean;
-  isSubscribed: boolean;
   createdAt: string;
 }

@@ -8,7 +8,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, JwtPayload } from '../common/decorators/current-user.decorator';
 import { TagGiftService } from '../gifts/tag-gift.service';
 import { CreateTagGiftCodeDto } from './dto/create-tag-gift-code.dto';
-import { AssignGiftCodeDto } from './dto/assign-gift-code.dto';
+import { AssignTagGiftCodeDto } from './dto/assign-tag-gift-code.dto';
 import { ReserveTagGiftCodeDto } from './dto/reserve-tag-gift-code.dto';
 
 @ApiTags('admin/tag-gift-codes')
@@ -54,7 +54,7 @@ export class AdminTagGiftCodesController {
   async assignGiftCode(
     @CurrentUser() admin: JwtPayload,
     @Param('id') id: string,
-    @Body() dto: AssignGiftCodeDto,
+    @Body() dto: AssignTagGiftCodeDto,
   ) {
     return this.tagGiftService.assignTagGiftCode(admin.id, id, dto.userId, dto.note);
   }

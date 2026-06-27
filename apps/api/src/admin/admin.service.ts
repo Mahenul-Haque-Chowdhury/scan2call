@@ -18,6 +18,8 @@ import { MediaService } from '../media/media.service';
 import { QrCodeService, QrRenderOptions } from '../qr-code/qr-code.service';
 import { DEFAULT_QR_FRAME_STYLE, QrFrameStyle } from '../qr-code/qr-frame-style';
 import { DEFAULT_QR_LAYOUT, QrLayout } from '../qr-code/qr-layout';
+import { addDays, addYears } from '../common/utils/date.util';
+import { TAG_DEFAULT_DURATION_YEARS } from '@scan2call/shared';
 import * as crypto from 'crypto';
 import Stripe from 'stripe';
 
@@ -105,97 +107,6 @@ export class AdminService {
     };
   }
 
-  async listActiveSubscribers(params: {
-    page?: number;
-    pageSize?: number;
-    search?: string;
-  }) {
-    const page = params.page || 1;
-    const pageSize = Math.min(params.pageSize || 20, 100);
-    const skip = (page - 1) * pageSize;
-    const now = new Date();
-
-    const where: Prisma.UserWhereInput = {
-      deletedAt: null,
-      subscription: {
-        is: {
-          OR: [
-            { status: 'ACTIVE' },
-            { isLifetime: true },
-            { giftExpiresAt: { gt: now } },
-          ],
-        },
-      },
-    };
-
-    if (params.search) {
-      where.OR = [
-        { email: { contains: params.search, mode: 'insensitive' } },
-        { firstName: { contains: params.search, mode: 'insensitive' } },
-        { lastName: { contains: params.search, mode: 'insensitive' } },
-      ];
-    }
-
-    const [users, total] = await Promise.all([
-      this.prisma.user.findMany({
-        where,
-        skip,
-        take: pageSize,
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          isSuspended: true,
-          subscription: {
-            select: {
-              id: true,
-              status: true,
-              source: true,
-              plan: true,
-              currentPeriodEnd: true,
-              giftExpiresAt: true,
-              isLifetime: true,
-              cancelAtPeriodEnd: true,
-              stripeSubscriptionId: true,
-            },
-          },
-        },
-      }),
-      this.prisma.user.count({ where }),
-    ]);
-
-    return {
-      data: users.map((user) => {
-        const subscription = user.subscription!;
-        const accessType = subscription.isLifetime
-          ? 'Lifetime'
-          : subscription.source === 'GIFT' || subscription.giftExpiresAt
-            ? 'Gift'
-            : 'Stripe';
-
-        return {
-          userId: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          isSuspended: user.isSuspended,
-          subscriptionId: subscription.id,
-          status: subscription.status,
-          source: subscription.source,
-          plan: subscription.plan,
-          currentPeriodEnd: subscription.currentPeriodEnd,
-          giftExpiresAt: subscription.giftExpiresAt,
-          isLifetime: subscription.isLifetime,
-          cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
-          accessType,
-        };
-      }),
-      meta: { page, pageSize, total },
-    };
-  }
-
   /**
    * Get a single user's detailed profile by ID.
    */
@@ -203,7 +114,6 @@ export class AdminService {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
       include: {
-        subscription: true,
         tags: {
           where: { deletedAt: null },
           orderBy: { createdAt: 'desc' },
@@ -711,6 +621,9 @@ export class AdminService {
       throw new BadRequestException('This tag is already assigned to another user');
     }
 
+    const now = new Date();
+    const durationYears = dto.durationYears ?? TAG_DEFAULT_DURATION_YEARS;
+
     const updated = await this.prisma.tag.update({
       where: { id: tag.id },
       data: {
@@ -719,7 +632,8 @@ export class AdminService {
         isLostMode: false,
         lostModeAt: null,
         lostModeMessage: null,
-        activatedAt: tag.activatedAt ?? new Date(),
+        activatedAt: tag.activatedAt ?? now,
+        expiresAt: addYears(now, durationYears),
         deletedAt: null,
         deactivatedAt: null,
       },
@@ -757,7 +671,8 @@ export class AdminService {
       );
     }
 
-    // Create the batch record
+    // Create the batch record. bundledDurationYears is the QR period applied when
+    // a blank tag from this batch is later claimed (retail packaging duration).
     const batch = await this.prisma.tagBatch.create({
       data: {
         name: batchName,
@@ -767,6 +682,7 @@ export class AdminService {
         notes: dto.notes,
         qrFrameStyle: frameStyle,
         qrLayout,
+        bundledDurationYears: dto.bundledDurationYears ?? TAG_DEFAULT_DURATION_YEARS,
       },
     });
 
@@ -1298,39 +1214,49 @@ export class AdminService {
         updateData.shippedAt = new Date();
       }
       if (data.status === 'DELIVERED') {
-        updateData.deliveredAt = new Date();
+        const deliveredAt = new Date();
+        updateData.deliveredAt = deliveredAt;
 
-        // Auto-activate all tags linked to this order's items
+        // Auto-activate this order's tags, stamping expiry per item's chosen duration.
         const orderItems = await this.prisma.orderItem.findMany({
           where: { orderId },
-          select: { id: true },
+          select: {
+            id: true,
+            durationYears: true,
+            autoRenew: true,
+            renewalPriceInCents: true,
+          },
         });
-        const itemIds = orderItems.map(i => i.id);
 
-        if (itemIds.length > 0) {
-          const activatedCount = await this.prisma.tag.updateMany({
+        let activatedTotal = 0;
+        for (const item of orderItems) {
+          const result = await this.prisma.tag.updateMany({
             where: {
-              orderItemId: { in: itemIds },
+              orderItemId: item.id,
               status: 'INACTIVE',
             },
             data: {
               status: 'ACTIVE',
-              activatedAt: new Date(),
+              activatedAt: deliveredAt,
+              expiresAt: addYears(deliveredAt, item.durationYears),
+              autoRenew: item.autoRenew,
+              renewalPriceInCents: item.renewalPriceInCents,
             },
           });
+          activatedTotal += result.count;
+        }
 
-          if (activatedCount.count > 0) {
-            await this.prisma.adminAuditLog.create({
-              data: {
-                adminId,
-                action: 'ORDER_TAGS_ACTIVATED',
-                targetType: 'Order',
-                targetId: orderId,
-                metadata: { activatedCount: activatedCount.count },
-              },
-            });
-            this.logger.log(`Auto-activated ${activatedCount.count} tags for delivered order ${orderId}`);
-          }
+        if (activatedTotal > 0) {
+          await this.prisma.adminAuditLog.create({
+            data: {
+              adminId,
+              action: 'ORDER_TAGS_ACTIVATED',
+              targetType: 'Order',
+              targetId: orderId,
+              metadata: { activatedCount: activatedTotal },
+            },
+          });
+          this.logger.log(`Auto-activated ${activatedTotal} tags for delivered order ${orderId}`);
         }
       }
     }
@@ -1455,16 +1381,27 @@ export class AdminService {
       }),
     ]);
 
-    const activeSubscriptions = await this.prisma.subscription.count({
-      where: { status: 'ACTIVE' },
-    });
+    const now = new Date();
+    const [activeTags, expiringSoon] = await Promise.all([
+      this.prisma.tag.count({
+        where: { deletedAt: null, status: 'ACTIVE', expiresAt: { gt: now } },
+      }),
+      this.prisma.tag.count({
+        where: {
+          deletedAt: null,
+          status: 'ACTIVE',
+          expiresAt: { gt: now, lte: addDays(now, 30) },
+        },
+      }),
+    ]);
 
     return {
       totalUsers,
       totalTags,
       totalScans,
       totalOrders,
-      activeSubscriptions,
+      activeTags,
+      expiringSoon,
       totalRevenueInCents: revenueResult._sum.amountInCents || 0,
     };
   }
@@ -1833,6 +1770,8 @@ export class AdminService {
         shortDescription: dto.shortDescription,
         priceInCents: dto.priceInCents,
         compareAtPrice: dto.compareAtPrice,
+        devicePriceInCents: dto.devicePriceInCents,
+        hasFindMy: dto.hasFindMy ?? false,
         sku: dto.sku,
         stockQuantity: dto.stockQuantity ?? 0,
         tagType: dto.tagType,

@@ -37,6 +37,8 @@ interface ProductData {
   shortDescription: string | null;
   priceInCents: number;
   compareAtPrice: number | null;
+  devicePriceInCents: number | null;
+  hasFindMy: boolean;
   sku: string;
   stockQuantity: number;
   tagType: string | null;
@@ -58,6 +60,8 @@ interface FormState {
   shortDescription: string;
   priceInCents: string;
   compareAtPrice: string;
+  devicePriceInCents: string;
+  hasFindMy: boolean;
   sku: string;
   stockQuantity: string;
   tagType: string;
@@ -78,6 +82,8 @@ const EMPTY_FORM: FormState = {
   shortDescription: '',
   priceInCents: '',
   compareAtPrice: '',
+  devicePriceInCents: '',
+  hasFindMy: false,
   sku: '',
   stockQuantity: '0',
   tagType: '',
@@ -139,6 +145,8 @@ export default function ProductForm({ productId }: ProductFormProps) {
           shortDescription: product.shortDescription || '',
           priceInCents: String(product.priceInCents),
           compareAtPrice: product.compareAtPrice ? String(product.compareAtPrice) : '',
+          devicePriceInCents: product.devicePriceInCents ? String(product.devicePriceInCents) : '',
+          hasFindMy: product.hasFindMy ?? false,
           sku: product.sku,
           stockQuantity: String(product.stockQuantity),
           tagType: product.tagType || '',
@@ -307,6 +315,7 @@ export default function ProductForm({ productId }: ProductFormProps) {
       description: form.description.trim(),
       sku: form.sku.trim(),
       priceInCents: parseInt(form.priceInCents, 10),
+      hasFindMy: form.hasFindMy,
       stockQuantity: parseInt(form.stockQuantity, 10),
       includesTagCount: parseInt(form.includesTagCount, 10),
       isActive: form.isActive,
@@ -316,6 +325,8 @@ export default function ProductForm({ productId }: ProductFormProps) {
 
     if (form.shortDescription.trim()) payload.shortDescription = form.shortDescription.trim();
     if (form.compareAtPrice) payload.compareAtPrice = parseInt(form.compareAtPrice, 10);
+    payload.devicePriceInCents =
+      form.hasFindMy && form.devicePriceInCents ? parseInt(form.devicePriceInCents, 10) : null;
     if (form.tagType) payload.tagType = form.tagType;
     if (form.metaTitle.trim()) payload.metaTitle = form.metaTitle.trim();
     if (form.metaDescription.trim()) payload.metaDescription = form.metaDescription.trim();
@@ -459,13 +470,13 @@ export default function ProductForm({ productId }: ProductFormProps) {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Input
-              label="Price (cents AUD)"
+              label="Per-year price (cents AUD)"
               type="number"
               value={form.priceInCents}
               onChange={(e) => setField('priceInCents', e.target.value)}
-              placeholder="1999"
+              placeholder="725"
               error={errors.priceInCents}
-              hint={form.priceInCents ? `$${(parseInt(form.priceInCents) / 100).toFixed(2)} AUD` : 'Enter price in cents'}
+              hint={form.priceInCents ? `$${(parseInt(form.priceInCents) / 100).toFixed(2)}/yr AUD` : 'QR yearly price, in cents'}
               required
             />
             <Input
@@ -485,6 +496,39 @@ export default function ProductForm({ productId }: ProductFormProps) {
               error={errors.stockQuantity}
               min={0}
             />
+          </div>
+
+          {/* Find My device pricing */}
+          <div className="mt-5 rounded-lg border border-border bg-surface-raised p-4">
+            <label className="flex items-center gap-3 text-sm font-medium text-text">
+              <input
+                type="checkbox"
+                checked={form.hasFindMy}
+                onChange={(e) => setField('hasFindMy', e.target.checked)}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+              />
+              Find My device (Pet Collar, Keychain)
+            </label>
+            <p className="mt-1 text-xs text-text-dim">
+              Devices have a flat price that includes the first year of QR service. Each additional year
+              adds the per-year price above.
+            </p>
+            {form.hasFindMy && (
+              <div className="mt-4 max-w-xs">
+                <Input
+                  label="Device price (cents AUD)"
+                  type="number"
+                  value={form.devicePriceInCents}
+                  onChange={(e) => setField('devicePriceInCents', e.target.value)}
+                  placeholder="2999"
+                  hint={
+                    form.devicePriceInCents
+                      ? `$${(parseInt(form.devicePriceInCents) / 100).toFixed(2)} incl. year 1`
+                      : 'Flat device price, includes year 1'
+                  }
+                />
+              </div>
+            )}
           </div>
         </section>
 

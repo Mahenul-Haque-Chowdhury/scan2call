@@ -1,11 +1,11 @@
 import {
   Injectable,
   NotFoundException,
-  ForbiddenException,
   BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { calculateTagUnitPriceInCents } from '@scan2call/shared';
 import { PrismaService } from '../database/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto } from './dto/order-query.dto';
@@ -36,23 +36,14 @@ export class OrdersService {
 
   /**
    * Creates a Stripe Checkout session for a product order.
-   * Only active subscribers may create orders.
+   * Open to any authenticated user; the QR is the product and is priced per year
+   * for the duration the buyer selects (1-5 years).
    */
   async createCheckoutSession(userId: string, dto: CreateOrderDto): Promise<{ sessionUrl: string }> {
-    // Verify user is an active subscriber
-    const subscription = await this.prisma.subscription.findUnique({
-      where: { userId },
-      select: { status: true },
-    });
-
-    if (subscription?.status !== 'ACTIVE') {
-      throw new ForbiddenException('An active subscription is required to place orders');
-    }
-
     // Fetch user for Stripe customer ID
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
-      select: { stripeCustomerId: true, email: true },
+      select: { id: true, stripeCustomerId: true, email: true },
     });
 
     // Validate and fetch all products
@@ -78,22 +69,39 @@ export class OrdersService {
       }
     }
 
+    // Price each line by the chosen duration (per-year pricing + Find My device formula)
+    const priced = dto.items.map((item) => {
+      const product = productMap.get(item.productId)!;
+      const years = item.durationYears;
+      const unitPriceInCents = calculateTagUnitPriceInCents({
+        priceInCents: product.priceInCents,
+        hasFindMy: product.hasFindMy,
+        devicePriceInCents: product.devicePriceInCents,
+        years,
+      });
+      return { item, product, years, unitPriceInCents };
+    });
+
+    const anyAutoRenew = dto.items.some((item) => item.autoRenew);
+
     // Generate order number: SC-YYYYMMDD-XXXX
     const orderNumber = await this.generateOrderNumber();
 
-    // Calculate totals
     let subtotalInCents = 0;
-    const orderItems = dto.items.map((item) => {
-      const product = productMap.get(item.productId)!;
-      const totalPrice = product.priceInCents * item.quantity;
+    const orderItems = priced.map(({ item, product, years, unitPriceInCents }) => {
+      const totalPrice = unitPriceInCents * item.quantity;
       subtotalInCents += totalPrice;
       return {
         productId: product.id,
         productName: product.name,
         productSku: product.sku,
         quantity: item.quantity,
-        unitPriceInCents: product.priceInCents,
+        unitPriceInCents,
         totalPriceInCents: totalPrice,
+        durationYears: years,
+        autoRenew: item.autoRenew ?? false,
+        // Snapshot the per-year price so future renewals are unaffected by price changes.
+        renewalPriceInCents: product.priceInCents,
         tagLabel: item.tagLabel || null,
         tagDescription: item.tagDescription || null,
       };
@@ -124,43 +132,49 @@ export class OrdersService {
       },
     });
 
-    // Build Stripe Checkout line items
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = dto.items.map(
-      (item) => {
-        const product = productMap.get(item.productId)!;
-        if (product.stripePriceId) {
-          return {
-            price: product.stripePriceId,
-            quantity: item.quantity,
-          };
-        }
+    // Ensure a persistent Stripe customer when we need to save a card for auto-renewal.
+    let stripeCustomerId = user.stripeCustomerId ?? undefined;
+    if (anyAutoRenew && !stripeCustomerId) {
+      const customer = await this.stripeClient.customers.create({ email: user.email });
+      stripeCustomerId = customer.id;
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { stripeCustomerId: customer.id },
+      });
+    }
 
-        return {
-          price_data: {
-            currency: 'aud',
-            product_data: {
-              name: product.name,
-              tax_code: STRIPE_DIGITAL_PRODUCT_TAX_CODE,
-              ...(product.shortDescription
-                ? { description: product.shortDescription }
-                : {}),
-            },
-            unit_amount: product.priceInCents,
+    // Build Stripe Checkout line items. Price varies by duration, so we always send
+    // computed price_data (a static product.stripePriceId cannot represent it).
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = priced.map(
+      ({ item, product, years, unitPriceInCents }) => ({
+        price_data: {
+          currency: 'aud',
+          product_data: {
+            name: `${product.name} (${years} year${years > 1 ? 's' : ''})`,
+            tax_code: STRIPE_DIGITAL_PRODUCT_TAX_CODE,
+            ...(product.shortDescription
+              ? { description: product.shortDescription }
+              : {}),
           },
-          quantity: item.quantity,
-        };
-      },
+          unit_amount: unitPriceInCents,
+        },
+        quantity: item.quantity,
+      }),
     );
 
     // Create Stripe Checkout session
     const session = await this.stripeClient.checkout.sessions.create({
       mode: 'payment',
-      customer: user.stripeCustomerId ?? undefined,
-      customer_email: user.stripeCustomerId ? undefined : user.email,
+      customer: stripeCustomerId,
+      customer_email: stripeCustomerId ? undefined : user.email,
       managed_payments: {
         enabled: true,
       },
       line_items: lineItems,
+      // Save the card off-session so the renewal cron can charge it later.
+      ...(anyAutoRenew
+        ? { payment_intent_data: { setup_future_usage: 'off_session' } }
+        : {}),
       metadata: {
         orderId: order.id,
         orderNumber: order.orderNumber,

@@ -6,7 +6,11 @@ import { motion } from 'framer-motion';
 import { useCart } from '@/providers/cart-provider';
 import { useAuth } from '@/providers/auth-provider';
 import { apiClient } from '@/lib/api-client';
-import { MapPin, Package } from 'lucide-react';
+import { MapPin, Package, RefreshCw } from 'lucide-react';
+import {
+  TAG_MAX_DURATION_YEARS,
+  TAG_MIN_DURATION_YEARS,
+} from '@scan2call/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
@@ -26,6 +30,11 @@ const AU_STATES = [
 function formatPrice(cents: number): string {
   return (cents / 100).toFixed(2);
 }
+
+const DURATION_OPTIONS = Array.from(
+  { length: TAG_MAX_DURATION_YEARS - TAG_MIN_DURATION_YEARS + 1 },
+  (_, i) => TAG_MIN_DURATION_YEARS + i,
+);
 
 interface CheckoutSessionResponse {
   data: {
@@ -68,7 +77,8 @@ interface FormErrors {
 }
 
 export default function CheckoutPage() {
-  const { items, getTotal, itemCount } = useCart();
+  const { items, getTotal, getLineTotal, updateDuration, updateAutoRenew, itemCount } =
+    useCart();
   const { user } = useAuth();
 
   const [form, setForm] = useState<ShippingForm>({
@@ -258,6 +268,8 @@ export default function CheckoutPage() {
         items: items.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
+          durationYears: item.durationYears,
+          autoRenew: item.autoRenew,
           tagLabel:
             tagCustomizations[item.productId]?.tagLabel || undefined,
           tagDescription:
@@ -588,15 +600,63 @@ export default function CheckoutPage() {
                             <p className="text-sm font-medium text-text">{item.name}</p>
                             <p className="text-xs text-text-muted">
                               Qty: {item.quantity}
+                              {item.hasFindMy && (
+                                <span className="ml-1 text-text-dim">
+                                  &middot; device + QR
+                                </span>
+                              )}
                             </p>
                           </div>
                         </div>
                         <span className="shrink-0 text-sm font-medium text-text">
-                          ${formatPrice(item.priceInCents * item.quantity)}
+                          ${formatPrice(getLineTotal(item))}
                         </span>
                       </div>
 
-                      <div className="mt-2 space-y-2">
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <label
+                            htmlFor={`duration-${item.productId}`}
+                            className="block text-xs font-medium text-text-muted"
+                          >
+                            QR duration
+                          </label>
+                          <select
+                            id={`duration-${item.productId}`}
+                            value={item.durationYears}
+                            onChange={(e) =>
+                              updateDuration(item.productId, Number(e.target.value))
+                            }
+                            className="mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-xs text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                          >
+                            {DURATION_OPTIONS.map((years) => (
+                              <option key={years} value={years}>
+                                {years} {years === 1 ? 'year' : 'years'}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <label
+                          htmlFor={`autorenew-${item.productId}`}
+                          className="flex items-end gap-2 pb-1 text-xs text-text-muted"
+                        >
+                          <input
+                            id={`autorenew-${item.productId}`}
+                            type="checkbox"
+                            checked={item.autoRenew}
+                            onChange={(e) =>
+                              updateAutoRenew(item.productId, e.target.checked)
+                            }
+                            className="h-4 w-4 rounded border-border bg-surface text-primary focus:ring-primary"
+                          />
+                          <span className="inline-flex items-center gap-1">
+                            <RefreshCw className="h-3 w-3 text-primary" />
+                            Auto-renew (+1 yr)
+                          </span>
+                        </label>
+                      </div>
+
+                      <div className="mt-3 space-y-2">
                         <p className="text-xs text-text-muted">
                           Tag customization (optional)
                         </p>

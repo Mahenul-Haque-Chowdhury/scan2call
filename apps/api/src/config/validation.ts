@@ -40,9 +40,6 @@ export const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string().optional().default(''),
   STRIPE_PUBLISHABLE_KEY: z.string().optional().default(''),
   STRIPE_WEBHOOK_SECRET: z.string().optional().default(''),
-  STRIPE_SUBSCRIPTION_MONTHLY_PRICE_ID: z.string().optional().default(''),
-  STRIPE_SUBSCRIPTION_YEARLY_PRICE_ID: z.string().optional().default(''),
-  STRIPE_SUBSCRIPTION_THREE_YEAR_PRICE_ID: z.string().optional().default(''),
 
   // S3-Compatible Storage (optional in dev)
   S3_BUCKET: z.string().optional().default('scan2call-media'),

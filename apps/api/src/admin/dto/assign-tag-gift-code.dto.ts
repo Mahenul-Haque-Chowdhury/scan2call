@@ -1,8 +1,8 @@
-import { IsString, IsOptional, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
-export class AssignGiftCodeDto {
-  @ApiProperty({ description: 'User ID to assign the gift code to' })
+export class AssignTagGiftCodeDto {
+  @ApiProperty({ description: 'User ID to assign / redeem the tag gift for' })
   @IsString()
   userId: string;
 

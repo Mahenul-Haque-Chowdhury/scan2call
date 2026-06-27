@@ -11,7 +11,8 @@ interface OverviewStats {
   totalScans: number;
   totalOrders: number;
   totalRevenueCents: number;
-  activeSubscriptions: number;
+  activeTags: number;
+  expiringSoon: number;
 }
 
 interface TimeSeriesEntry {
@@ -104,7 +105,8 @@ export default function AdminAnalyticsPage() {
       value: `$${((overview?.totalRevenueCents ?? 0) / 100).toFixed(2)}`,
       isRevenue: true,
     },
-    { label: 'Active Subscriptions', value: overview?.activeSubscriptions ?? 0 },
+    { label: 'Active Tags', value: overview?.activeTags ?? 0 },
+    { label: 'Expiring (30d)', value: overview?.expiringSoon ?? 0 },
   ];
 
   return (

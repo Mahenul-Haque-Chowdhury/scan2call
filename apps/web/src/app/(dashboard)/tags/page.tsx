@@ -29,6 +29,8 @@ interface TagItem {
   photoUrl: string | null;
   createdAt: string;
   activatedAt: string | null;
+  expiresAt: string | null;
+  autoRenew: boolean;
   scanCount: number;
 }
 
@@ -56,6 +58,27 @@ const STATUS_BADGE_VARIANT: Record<string, 'success' | 'error' | 'neutral' | 'in
 
 function formatTagType(type: string): string {
   return TAG_TYPE_LABELS[type] || type;
+}
+
+const DAY_MS = 1000 * 60 * 60 * 24;
+
+function formatExpiry(
+  expiresAt: string | null,
+): { label: string; variant: 'success' | 'error' | 'warning' | 'neutral' } | null {
+  if (!expiresAt) return null;
+  const expiry = new Date(expiresAt);
+  if (Number.isNaN(expiry.getTime())) return null;
+
+  const dateStr = expiry.toLocaleDateString('en-AU', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+  const daysLeft = Math.ceil((expiry.getTime() - Date.now()) / DAY_MS);
+
+  if (daysLeft < 0) return { label: 'Expired', variant: 'error' };
+  if (daysLeft <= 30) return { label: `Expires in ${daysLeft}d`, variant: 'warning' };
+  return { label: `Expires ${dateStr}`, variant: 'neutral' };
 }
 
 type BarcodeDetectorLike = {
@@ -501,11 +524,17 @@ export default function TagsPage() {
                 <span className="font-mono text-xs tracking-wide">{tag.token.slice(0, 4)}...{tag.token.slice(-4)}</span>
                 <span>{tag.scanCount} {tag.scanCount === 1 ? 'scan' : 'scans'}</span>
               </div>
-              {tag.isLostMode && (
-                <div className="mt-3">
-                  <Badge variant="error">Lost Mode Active</Badge>
-                </div>
-              )}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {tag.isLostMode && <Badge variant="error">Lost Mode Active</Badge>}
+                {(() => {
+                  const exp = formatExpiry(tag.expiresAt);
+                  if (!exp) return null;
+                  return <Badge variant={exp.variant}>{exp.label}</Badge>;
+                })()}
+                {tag.autoRenew && tag.expiresAt && (
+                  <Badge variant="neutral">Auto-renew on</Badge>
+                )}
+              </div>
             </motion.button>
           ))}
         </div>

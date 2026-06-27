@@ -1,8 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { GiftCodeStatus, TagType } from '@/generated/prisma/client';
 import { randomBytes } from 'crypto';
+import { TAG_DEFAULT_DURATION_YEARS } from '@scan2call/shared';
 import { PrismaService } from '../database/prisma.service';
-import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { addYears } from '../common/utils/date.util';
 
 const GIFT_CODE_PREFIX = 'Scan2Call-Gift-';
 const GIFT_CODE_LENGTH = 8;
@@ -25,10 +26,7 @@ interface TagGiftCodeState {
 
 @Injectable()
 export class TagGiftService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly subscriptionsService: SubscriptionsService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async createTagGiftCode(adminId: string, input: CreateTagGiftCodeInput) {
     const expiresAt = input.expiresAt ?? null;
@@ -196,11 +194,6 @@ export class TagGiftService {
     const code = rawCode.trim();
     if (!code) throw new BadRequestException('Redeem code is required');
 
-    const isSubscribed = await this.subscriptionsService.isUserSubscribed(userId);
-    if (!isSubscribed) {
-      throw new BadRequestException('An active subscription is required to redeem tag gifts.');
-    }
-
     let giftCode = await this.prisma.tagGiftCode.findUnique({ where: { code } });
     if (!giftCode) throw new NotFoundException('Gift code not found');
 
@@ -237,10 +230,13 @@ export class TagGiftService {
         throw new ConflictException('Reserved tag is already assigned');
       }
 
+      // Gift tags get a default QR period. Expiry starts now so the gate is consistent.
+      const giftExpiresAt = addYears(new Date(), TAG_DEFAULT_DURATION_YEARS);
+
       const tag = existingReservation
         ? await tx.tag.update({
             where: { id: existingReservation.id },
-            data: { ownerId: userId },
+            data: { ownerId: userId, expiresAt: giftExpiresAt },
           })
         : await tx.tag.create({
             data: {
@@ -248,6 +244,7 @@ export class TagGiftService {
               type: giftCode.tagType,
               status: 'INACTIVE',
               ownerId: userId,
+              expiresAt: giftExpiresAt,
             },
           });
 
@@ -336,8 +333,6 @@ export class TagGiftService {
   private async generateUniqueCode(): Promise<string> {
     for (let i = 0; i < 6; i += 1) {
       const code = `${GIFT_CODE_PREFIX}${this.randomToken(GIFT_CODE_LENGTH)}`;
-      const existingSubscription = await this.prisma.subscriptionGiftCode.findUnique({ where: { code } });
-      if (existingSubscription) continue;
       const existingTag = await this.prisma.tagGiftCode.findUnique({ where: { code } });
       if (!existingTag) return code;
     }

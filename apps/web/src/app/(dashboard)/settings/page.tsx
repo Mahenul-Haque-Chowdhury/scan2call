@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/providers/auth-provider';
 import { apiClient, ApiError } from '@/lib/api-client';
-import { CheckCircle, AlertCircle, Bell, CreditCard, ShieldAlert } from 'lucide-react';
+import { CheckCircle, AlertCircle, Bell, Package, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
@@ -392,7 +392,7 @@ export default function SettingsPage() {
       <motion.div {...cardAnim(0.08)} className="mt-6 grid gap-4 sm:grid-cols-2">
         {[
           { href: '/settings/notifications', icon: Bell, label: 'Notifications', desc: 'Configure scan alerts, email, and push preferences.' },
-          { href: '/settings/billing', icon: CreditCard, label: 'Billing', desc: 'Manage payment methods and view invoices.' },
+          { href: '/orders', icon: Package, label: 'Orders & Receipts', desc: 'View your orders, tag durations, and payment history.' },
         ].map((item) => (
           <motion.div key={item.href} whileHover={{ y: -3, transition: { duration: 0.2 } }}>
             <Link href={item.href} className="group block rounded-2xl border border-border bg-surface p-6 transition-all hover:border-border-hover hover:shadow-lg hover:shadow-shadow">

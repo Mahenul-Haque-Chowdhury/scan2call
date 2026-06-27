@@ -79,19 +79,6 @@ enum OrderStatus {
   REFUNDED
 }
 
-enum SubscriptionStatus {
-  ACTIVE
-  PAST_DUE
-  CANCELLED
-  UNPAID
-  INCOMPLETE
-}
-
-enum SubscriptionSource {
-  STRIPE
-  GIFT
-}
-
 enum GiftCodeStatus {
   ACTIVE
   REDEEMED
@@ -105,6 +92,11 @@ enum PaymentStatus {
   FAILED
   REFUNDED
   PARTIALLY_REFUNDED
+}
+
+enum PaymentType {
+  PURCHASE
+  RENEWAL
 }
 
 enum AdminActionType {
@@ -153,19 +145,21 @@ model User {
   timezone        String    @default("Australia/Sydney")
 
   // Notification preferences
-  notifyOnScan  Boolean @default(true)
-  notifyViaSms  Boolean @default(true)
+  notifyOnScan   Boolean @default(true)
+  notifyViaSms   Boolean @default(true)
   notifyViaEmail Boolean @default(true)
-  notifyViaPush Boolean @default(false)
+  notifyViaPush  Boolean @default(false)
 
   // Stripe link
-  stripeCustomerId String? @unique
+  stripeCustomerId             String? @unique
+  // Saved off-session payment method for tag auto-renewal charges
+  stripeDefaultPaymentMethodId String?
 
   // Account state
-  isSuspended    Boolean   @default(false)
-  suspendedAt    DateTime?
+  isSuspended     Boolean   @default(false)
+  suspendedAt     DateTime?
   suspendedReason String?
-  lastLoginAt    DateTime?
+  lastLoginAt     DateTime?
 
   // Soft delete
   deletedAt DateTime?
@@ -175,32 +169,29 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  tags              Tag[]
-  savedAddresses    SavedAddress[]
-  scans             Scan[]
-  orders            Order[]
-  subscription      Subscription?
-  payments          Payment[]
-  communicationLogs CommunicationLog[]
-  refreshTokens     RefreshToken[]
-  adminAuditLogs    AdminAuditLog[]
-  tagBatchesGenerated TagBatch[] @relation("tagBatchesGenerated")
-  contactMessagesReplied ContactMessage[] @relation("contactMessageRepliedBy")
-  contactRepliesSent ContactReply[] @relation("contactReplySentBy")
-  giftCodesCreated SubscriptionGiftCode[] @relation("giftCodeCreatedBy")
-  giftRedemptions SubscriptionGiftRedemption[] @relation("giftRedemptions")
-  tagGiftCodesCreated TagGiftCode[] @relation("tagGiftCodeCreatedBy")
-  tagGiftRedemptions TagGiftRedemption[] @relation("tagGiftRedemptions")
-  blogPostsAuthored BlogPost[] @relation("blogPostsAuthored")
+  tags                   Tag[]
+  savedAddresses         SavedAddress[]
+  scans                  Scan[]
+  orders                 Order[]
+  payments               Payment[]
+  communicationLogs      CommunicationLog[]
+  refreshTokens          RefreshToken[]
+  adminAuditLogs         AdminAuditLog[]
+  tagBatchesGenerated    TagBatch[]          @relation("tagBatchesGenerated")
+  contactMessagesReplied ContactMessage[]    @relation("contactMessageRepliedBy")
+  contactRepliesSent     ContactReply[]      @relation("contactReplySentBy")
+  tagGiftCodesCreated    TagGiftCode[]       @relation("tagGiftCodeCreatedBy")
+  tagGiftRedemptions     TagGiftRedemption[] @relation("tagGiftRedemptions")
+  blogPostsAuthored      BlogPost[]          @relation("blogPostsAuthored")
 
   @@index([deletedAt])
   @@map("users")
 }
 
 model SavedAddress {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   firstName String
   lastName  String
@@ -209,8 +200,8 @@ model SavedAddress {
   city      String
   state     String
   postcode  String
-  country   String   @default("AU")
-  isDefault Boolean  @default(false)
+  country   String  @default("AU")
+  isDefault Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -239,7 +230,7 @@ model VerificationToken {
   id         String    @id @default(cuid())
   identifier String
   token      String    @unique
-  type       String    // EMAIL_VERIFY | PHONE_VERIFY | PASSWORD_RESET
+  type       String // EMAIL_VERIFY | PHONE_VERIFY | PASSWORD_RESET
   expiresAt  DateTime
   usedAt     DateTime?
   createdAt  DateTime  @default(now())
@@ -284,14 +275,14 @@ model BlogPost {
 // ──────────────────────────────────────────────
 
 model ContactMessage {
-  id         String               @id @default(cuid())
-  name       String
-  email      String
-  message    String
-  status     ContactMessageStatus @default(NEW)
-  repliedAt  DateTime?
+  id          String               @id @default(cuid())
+  name        String
+  email       String
+  message     String
+  status      ContactMessageStatus @default(NEW)
+  repliedAt   DateTime?
   repliedById String?
-  repliedBy  User?                @relation("contactMessageRepliedBy", fields: [repliedById], references: [id])
+  repliedBy   User?                @relation("contactMessageRepliedBy", fields: [repliedById], references: [id])
 
   replies ContactReply[]
 
@@ -304,14 +295,14 @@ model ContactMessage {
 }
 
 model ContactReply {
-  id        String   @id @default(cuid())
+  id        String         @id @default(cuid())
   messageId String
   message   ContactMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
   subject   String
   body      String
   sentById  String?
-  sentBy    User?    @relation("contactReplySentBy", fields: [sentById], references: [id])
-  sentAt    DateTime @default(now())
+  sentBy    User?          @relation("contactReplySentBy", fields: [sentById], references: [id])
+  sentAt    DateTime       @default(now())
 
   @@index([messageId])
   @@map("contact_replies")
@@ -337,7 +328,7 @@ model Tag {
   photoUrl    String?
 
   // Lost mode
-  isLostMode      Boolean  @default(true)
+  isLostMode      Boolean   @default(true)
   lostModeAt      DateTime?
   lostModeMessage String?
 
@@ -351,15 +342,21 @@ model Tag {
   activatedAt   DateTime?
   deactivatedAt DateTime?
 
+  // Expiry / renewal (the QR is the paid product and expires)
+  expiresAt             DateTime?
+  autoRenew             Boolean   @default(false)
+  renewalPriceInCents   Int?
+  renewalReminderSentAt DateTime?
+
   // Batch tracking (admin-generated tags)
   batchId String?
   batch   TagBatch? @relation(fields: [batchId], references: [id])
 
   // QR asset storage
-  qrPngUrl       String?
-  qrSvgUrl       String?
-  qrFrameStyle   QrFrameStyle @default(SCAN2CALL_TOP)
-  qrLayout       QrLayout     @default(STANDARD)
+  qrPngUrl     String?
+  qrSvgUrl     String?
+  qrFrameStyle QrFrameStyle @default(SCAN2CALL_TOP)
+  qrLayout     QrLayout     @default(STANDARD)
 
   // Order item link (tag created from order)
   orderItemId String?
@@ -373,10 +370,11 @@ model Tag {
   updatedAt DateTime @updatedAt
 
   // Relations
-  scans             Scan[]
-  communicationLogs CommunicationLog[]
-  tagGiftRedemptions TagGiftRedemption[]
-  reservedForGiftCode TagGiftCode? @relation("ReservedTagGiftCode")
+  scans               Scan[]
+  communicationLogs   CommunicationLog[]
+  tagGiftRedemptions  TagGiftRedemption[]
+  reservedForGiftCode TagGiftCode?        @relation("ReservedTagGiftCode")
+  payments            Payment[]
 
   @@index([ownerId])
   @@index([status])
@@ -384,6 +382,7 @@ model Tag {
   @@index([batchId])
   @@index([orderItemId])
   @@index([deletedAt])
+  @@index([expiresAt])
   @@map("tags")
 }
 
@@ -399,16 +398,18 @@ model SystemSetting {
 }
 
 model TagBatch {
-  id          String   @id @default(cuid())
-  name        String
-  quantity    Int
-  tagType     TagType
-  generatedBy String
-  generatedByUser User @relation("tagBatchesGenerated", fields: [generatedBy], references: [id])
-  notes       String?
-  qrFrameStyle QrFrameStyle @default(SCAN2CALL_TOP)
-  qrLayout     QrLayout     @default(STANDARD)
-  createdAt   DateTime @default(now())
+  id                   String       @id @default(cuid())
+  name                 String
+  quantity             Int
+  tagType              TagType
+  generatedBy          String
+  generatedByUser      User         @relation("tagBatchesGenerated", fields: [generatedBy], references: [id])
+  notes                String?
+  qrFrameStyle         QrFrameStyle @default(SCAN2CALL_TOP)
+  qrLayout             QrLayout     @default(STANDARD)
+  // QR period (years) bundled with retail packaging; applied as expiry when a blank tag is claimed
+  bundledDurationYears Int          @default(1)
+  createdAt            DateTime     @default(now())
 
   tags Tag[]
 
@@ -451,11 +452,11 @@ model Scan {
 // ──────────────────────────────────────────────
 
 model CommunicationLog {
-  id      String @id @default(cuid())
+  id      String  @id @default(cuid())
   tagId   String
-  tag     Tag    @relation(fields: [tagId], references: [id])
+  tag     Tag     @relation(fields: [tagId], references: [id])
   ownerId String
-  owner   User   @relation(fields: [ownerId], references: [id])
+  owner   User    @relation(fields: [ownerId], references: [id])
   scanId  String?
 
   type   CommunicationType
@@ -498,12 +499,17 @@ model Product {
   shortDescription String?
 
   // Pricing (AUD cents)
-  priceInCents   Int
-  compareAtPrice Int?
+  // priceInCents is the PER-YEAR (QR yearly) price. Total scales with the duration chosen at checkout.
+  priceInCents       Int
+  compareAtPrice     Int?
+  // Find My devices (Pet Collar, Keychain): flat device price that INCLUDES year 1.
+  // Each additional year adds priceInCents. null/0 for sticker/band products.
+  devicePriceInCents Int?
+  hasFindMy          Boolean @default(false)
 
   // Inventory
-  sku           String @unique
-  stockQuantity Int    @default(0)
+  sku           String  @unique
+  stockQuantity Int     @default(0)
   isInStock     Boolean @default(true)
 
   // Product details
@@ -542,12 +548,12 @@ model Product {
 }
 
 model ProductImage {
-  id        String  @id @default(cuid())
+  id        String   @id @default(cuid())
   productId String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   url       String
   altText   String?
-  sortOrder Int     @default(0)
+  sortOrder Int      @default(0)
   createdAt DateTime @default(now())
 
   @@index([productId])
@@ -581,7 +587,7 @@ model Order {
   shippingCity      String
   shippingState     String
   shippingPostcode  String
-  shippingCountry   String @default("AU")
+  shippingCountry   String  @default("AU")
 
   // Tracking
   trackingNumber  String?
@@ -618,11 +624,16 @@ model OrderItem {
   product   Product @relation(fields: [productId], references: [id])
 
   // Snapshot at order time
-  productName      String
-  productSku       String
-  quantity         Int
-  unitPriceInCents Int
+  productName       String
+  productSku        String
+  quantity          Int
+  unitPriceInCents  Int
   totalPriceInCents Int
+
+  // QR duration / renewal (chosen at checkout)
+  durationYears       Int     @default(1)
+  autoRenew           Boolean @default(false)
+  renewalPriceInCents Int     @default(0)
 
   // Tag customization (set by user at checkout)
   tagLabel       String?
@@ -638,79 +649,8 @@ model OrderItem {
 }
 
 // ──────────────────────────────────────────────
-// SUBSCRIPTIONS
+// TAG GIFTING
 // ──────────────────────────────────────────────
-
-model Subscription {
-  id     String             @id @default(cuid())
-  userId String             @unique
-  user   User               @relation(fields: [userId], references: [id])
-  status SubscriptionStatus @default(ACTIVE)
-  source SubscriptionSource @default(STRIPE)
-  plan   String             @default("monthly")
-
-  // Stripe
-  stripeSubscriptionId String? @unique
-  stripePriceId        String?
-
-  // Billing period
-  currentPeriodStart DateTime?
-  currentPeriodEnd   DateTime?
-  cancelAtPeriodEnd  Boolean   @default(false)
-
-  // Gift subscription details
-  giftExpiresAt DateTime?
-  isLifetime    Boolean   @default(false)
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("subscriptions")
-}
-
-// ──────────────────────────────────────────────
-// SUBSCRIPTION GIFTING
-// ──────────────────────────────────────────────
-
-model SubscriptionGiftCode {
-  id            String         @id @default(cuid())
-  code          String         @unique
-  status        GiftCodeStatus @default(ACTIVE)
-  durationMonths Int?
-  lifetime      Boolean        @default(false)
-  expiresAt     DateTime?
-  maxRedemptions Int           @default(1)
-  redeemedCount  Int           @default(0)
-
-  createdById String
-  createdBy   User @relation("giftCodeCreatedBy", fields: [createdById], references: [id])
-
-  redemptions SubscriptionGiftRedemption[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([status])
-  @@index([expiresAt])
-  @@map("subscription_gift_codes")
-}
-
-model SubscriptionGiftRedemption {
-  id        String   @id @default(cuid())
-  giftCodeId String
-  userId    String
-  redeemedAt DateTime @default(now())
-  note      String?
-
-  giftCode SubscriptionGiftCode @relation(fields: [giftCodeId], references: [id], onDelete: Cascade)
-  user     User                 @relation("giftRedemptions", fields: [userId], references: [id])
-
-  @@unique([giftCodeId, userId])
-  @@index([giftCodeId])
-  @@index([userId])
-  @@map("subscription_gift_redemptions")
-}
 
 model TagGiftCode {
   id             String         @id @default(cuid())
@@ -723,8 +663,8 @@ model TagGiftCode {
   reservedTagId  String?        @unique
 
   createdById String
-  createdBy   User @relation("tagGiftCodeCreatedBy", fields: [createdById], references: [id])
-  reservedTag Tag? @relation("ReservedTagGiftCode", fields: [reservedTagId], references: [id])
+  createdBy   User   @relation("tagGiftCodeCreatedBy", fields: [createdById], references: [id])
+  reservedTag Tag?   @relation("ReservedTagGiftCode", fields: [reservedTagId], references: [id])
 
   redemptions TagGiftRedemption[]
 
@@ -765,6 +705,10 @@ model Payment {
   user    User          @relation(fields: [userId], references: [id])
   orderId String?       @unique
   order   Order?        @relation(fields: [orderId], references: [id])
+  // Tag link for renewal charges (no order)
+  tagId   String?
+  tag     Tag?          @relation(fields: [tagId], references: [id])
+  type    PaymentType   @default(PURCHASE)
   status  PaymentStatus @default(PENDING)
 
   amountInCents Int
@@ -791,6 +735,7 @@ model Payment {
   updatedAt DateTime  @updatedAt
 
   @@index([userId])
+  @@index([tagId])
   @@map("payments")
 }
 

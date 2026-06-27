@@ -253,9 +253,6 @@ export class AdminSystemService {
           details: {
             currency: available?.currency?.toUpperCase() || 'N/A',
             webhookSecret: this.config.get('STRIPE_WEBHOOK_SECRET') ? 'set' : 'not set',
-            monthlyPriceId: this.config.get('STRIPE_SUBSCRIPTION_MONTHLY_PRICE_ID') ? 'set' : 'not set',
-            yearlyPriceId: this.config.get('STRIPE_SUBSCRIPTION_YEARLY_PRICE_ID') ? 'set' : 'not set',
-            threeYearPriceId: this.config.get('STRIPE_SUBSCRIPTION_THREE_YEAR_PRICE_ID') ? 'set' : 'not set',
           },
         };
       }
@@ -430,13 +427,15 @@ export class AdminSystemService {
 
   private async getDatabaseStats() {
     try {
-      const [userCount, tagCount, scanCount, orderCount, activeSubscriptions] =
+      const [userCount, tagCount, scanCount, orderCount, activeTags] =
         await Promise.all([
           this.prisma.user.count({ where: { deletedAt: null } }),
           this.prisma.tag.count({ where: { deletedAt: null } }),
           this.prisma.scan.count(),
           this.prisma.order.count(),
-          this.prisma.subscription.count({ where: { status: 'ACTIVE' } }),
+          this.prisma.tag.count({
+            where: { deletedAt: null, status: 'ACTIVE', expiresAt: { gt: new Date() } },
+          }),
         ]);
 
       return {
@@ -444,7 +443,7 @@ export class AdminSystemService {
         tags: tagCount,
         scans: scanCount,
         orders: orderCount,
-        activeSubscriptions,
+        activeTags,
       };
     } catch {
       return null;

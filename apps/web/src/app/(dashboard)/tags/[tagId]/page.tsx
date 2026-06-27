@@ -55,6 +55,8 @@ interface Tag {
   photoUrl: string | null;
   createdAt: string;
   activatedAt: string | null;
+  expiresAt: string | null;
+  autoRenew: boolean;
   scans: Scan[];
   scanCount: number;
 }
@@ -766,6 +768,30 @@ export default function TagDetailPage() {
                         <span className="text-text-muted">Activated</span>
                         <span className="font-medium text-text">
                           {formatDate(tag.activatedAt)}
+                        </span>
+                      </div>
+                    )}
+                    {tag.expiresAt && (
+                      <div className="flex justify-between">
+                        <span className="text-text-muted">QR expires</span>
+                        <span
+                          className={`font-medium ${
+                            new Date(tag.expiresAt).getTime() < Date.now()
+                              ? 'text-error'
+                              : 'text-text'
+                          }`}
+                        >
+                          {new Date(tag.expiresAt).getTime() < Date.now()
+                            ? `Expired ${formatDate(tag.expiresAt)}`
+                            : formatDate(tag.expiresAt)}
+                        </span>
+                      </div>
+                    )}
+                    {tag.expiresAt && (
+                      <div className="flex justify-between">
+                        <span className="text-text-muted">Auto-renew</span>
+                        <span className="font-medium text-text">
+                          {tag.autoRenew ? 'On' : 'Off'}
                         </span>
                       </div>
                     )}

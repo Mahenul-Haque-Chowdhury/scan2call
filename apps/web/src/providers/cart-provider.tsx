@@ -9,6 +9,12 @@ import {
   useState,
 } from 'react';
 import type { ReactNode } from 'react';
+import {
+  calculateTagUnitPriceInCents,
+  TAG_DEFAULT_DURATION_YEARS,
+  TAG_MAX_DURATION_YEARS,
+  TAG_MIN_DURATION_YEARS,
+} from '@scan2call/shared';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -20,19 +26,50 @@ export interface CartItem {
   productId: string;
   name: string;
   slug: string;
+  /** Per-year (QR yearly) price in AUD cents. */
   priceInCents: number;
+  /** Find My device flat price (includes year 1), AUD cents. */
+  devicePriceInCents?: number | null;
+  hasFindMy?: boolean;
   quantity: number;
+  /** QR duration the buyer selected (1-5 years). */
+  durationYears: number;
+  /** Whether to auto-renew the QR before it expires. */
+  autoRenew: boolean;
   image?: string;
 }
 
+/** New items default to the minimum duration with auto-renew off. */
+type NewCartItem = Omit<CartItem, 'quantity' | 'durationYears' | 'autoRenew'> &
+  Partial<Pick<CartItem, 'durationYears' | 'autoRenew'>>;
+
 interface CartContextValue {
   items: CartItem[];
-  addItem: (product: Omit<CartItem, 'quantity'>, quantity?: number) => void;
+  addItem: (product: NewCartItem, quantity?: number) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
+  updateDuration: (productId: string, durationYears: number) => void;
+  updateAutoRenew: (productId: string, autoRenew: boolean) => void;
   clearCart: () => void;
+  /** Total for a single line (unit price for the chosen duration x quantity). */
+  getLineTotal: (item: CartItem) => number;
   getTotal: () => number;
   itemCount: number;
+}
+
+/** Unit price for a cart item given its product shape and chosen duration. */
+export function getUnitPriceInCents(item: CartItem): number {
+  return calculateTagUnitPriceInCents({
+    priceInCents: item.priceInCents,
+    hasFindMy: item.hasFindMy ?? false,
+    devicePriceInCents: item.devicePriceInCents ?? null,
+    years: item.durationYears,
+  });
+}
+
+function clampDuration(years: number): number {
+  if (!Number.isFinite(years)) return TAG_DEFAULT_DURATION_YEARS;
+  return Math.max(TAG_MIN_DURATION_YEARS, Math.min(TAG_MAX_DURATION_YEARS, Math.round(years)));
 }
 
 // ---------------------------------------------------------------------------
@@ -50,7 +87,16 @@ function loadCartFromStorage(): CartItem[] {
   try {
     const stored = localStorage.getItem(CART_STORAGE_KEY);
     if (stored) {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored) as Partial<CartItem>[];
+      // Backfill fields added after the per-year pricing change.
+      return parsed
+        .filter((item): item is CartItem => !!item && typeof item.productId === 'string')
+        .map((item) => ({
+          ...item,
+          quantity: item.quantity ?? 1,
+          durationYears: clampDuration(item.durationYears ?? TAG_DEFAULT_DURATION_YEARS),
+          autoRenew: item.autoRenew ?? false,
+        }));
     }
   } catch {
     // Corrupted storage - start fresh
@@ -93,7 +139,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // --------------------------------------------------
 
   const addItem = useCallback(
-    (product: Omit<CartItem, 'quantity'>, quantity: number = 1) => {
+    (product: NewCartItem, quantity: number = 1) => {
       setItems((prev) => {
         const existing = prev.find(
           (item) => item.productId === product.productId,
@@ -105,7 +151,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
               : item,
           );
         }
-        return [...prev, { ...product, quantity }];
+        return [
+          ...prev,
+          {
+            ...product,
+            quantity,
+            durationYears: clampDuration(
+              product.durationYears ?? TAG_DEFAULT_DURATION_YEARS,
+            ),
+            autoRenew: product.autoRenew ?? false,
+          },
+        ];
       });
     },
     [],
@@ -132,13 +188,35 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const updateDuration = useCallback((productId: string, durationYears: number) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.productId === productId
+          ? { ...item, durationYears: clampDuration(durationYears) }
+          : item,
+      ),
+    );
+  }, []);
+
+  const updateAutoRenew = useCallback((productId: string, autoRenew: boolean) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.productId === productId ? { ...item, autoRenew } : item,
+      ),
+    );
+  }, []);
+
   const clearCart = useCallback(() => {
     setItems([]);
   }, []);
 
+  const getLineTotal = useCallback((item: CartItem) => {
+    return getUnitPriceInCents(item) * item.quantity;
+  }, []);
+
   const getTotal = useCallback(() => {
     return items.reduce(
-      (sum, item) => sum + item.priceInCents * item.quantity,
+      (sum, item) => sum + getUnitPriceInCents(item) * item.quantity,
       0,
     );
   }, [items]);
@@ -157,11 +235,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
       addItem,
       removeItem,
       updateQuantity,
+      updateDuration,
+      updateAutoRenew,
       clearCart,
+      getLineTotal,
       getTotal,
       itemCount,
     }),
-    [items, addItem, removeItem, updateQuantity, clearCart, getTotal, itemCount],
+    [
+      items,
+      addItem,
+      removeItem,
+      updateQuantity,
+      updateDuration,
+      updateAutoRenew,
+      clearCart,
+      getLineTotal,
+      getTotal,
+      itemCount,
+    ],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

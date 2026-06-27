@@ -1,72 +1,72 @@
 "use client";
 
 import Link from 'next/link';
-import { Check, Zap, Globe, HeadphonesIcon, Building2, Sparkles, ShieldCheck } from 'lucide-react';
+import {
+  Check,
+  Zap,
+  Globe,
+  HeadphonesIcon,
+  Building2,
+  Sparkles,
+  ShieldCheck,
+  RefreshCw,
+} from 'lucide-react';
 import { FadeIn, StaggerContainer, StaggerItem } from '@/components/ui/motion';
-import { useAuth } from '@/providers/auth-provider';
 
-const features = [
-  'Unlimited QR identity tags',
-  'Unlimited scans and relay contacts',
+const includedFeatures = [
   'Anonymous call, SMS & WhatsApp relay',
   'Real-time scan notifications with location',
   'Scan history and analytics',
-  'Full access to the tag store',
   'Instant tag disable / block any contact',
-  'Priority support',
+  'Choose 1 to 5 years at checkout',
+  'Optional auto-renewal before expiry',
 ];
 
 const plans = [
   {
-    name: 'Monthly',
-    price: '$2.99',
-    cadence: '/mo AUD',
-    summary: 'Best for trying Scan2Call with zero long-term commitment.',
-    badge: 'Most flexible',
-    note: 'Cancel anytime. Perfect for getting started fast.',
-    cta: 'Start Monthly',
-    ctaHref: '/register',
+    name: 'Stickers & Tags',
+    price: '$7.25',
+    cadence: '/year AUD',
+    summary: 'Car windshield, luggage, passport and standard QR stickers.',
+    badge: 'Most popular',
+    note: 'Pay only for the years you want, from 1 to 5.',
+    highlight: true,
+    savings: 'From $7.25/yr - the everyday choice',
+  },
+  {
+    name: 'Medical ID Band',
+    price: '$14.49',
+    cadence: '/year AUD',
+    summary: 'Adjustable QR wristband for medical, dementia, or child safety.',
+    badge: 'For people',
+    note: 'Built for fast, reliable contact in an emergency.',
     highlight: false,
     savings: null,
   },
   {
-    name: 'Yearly',
-    price: '$14.49',
-    cadence: '/yr AUD',
-    summary: 'The best value for most customers - lock in the lowest ongoing rate.',
-    badge: 'Best value',
-    note: 'One payment, full access for the year.',
-    cta: 'Get Yearly Access',
-    ctaHref: '/register',
-    highlight: true,
-    savings: 'Save with the annual plan',
-  },
-  {
-    name: '3 Years',
-    price: '$43.47',
-    cadence: '/3 yrs AUD',
-    summary: 'Maximum savings for long-term users, families, and power sellers.',
-    badge: 'Long term access',
-    note: 'A strong long-term choice with the most predictable pricing.',
-    cta: 'Choose Long Term Access',
-    ctaHref: '/register',
+    name: 'Find My Devices',
+    price: '$29.99',
+    cadence: 'device + $7.25/yr',
+    summary: 'Pet Collar and Keychain trackers with Apple Find My and Google Find My Device.',
+    badge: 'Smart tracking',
+    note: 'Device price includes the first year of QR service.',
     highlight: false,
-    savings: 'Best for long-term peace of mind',
+    savings: 'Renews at $7.25/yr',
   },
 ];
 
 const faqs = [
   {
-    q: 'Can I cancel anytime?',
-    a: 'Yes. Cancel from your account settings at any time with no penalty.',
+    q: 'How does pricing work now?',
+    a: 'The QR is the product. You buy a tag and choose how long you want it active, from 1 to 5 years. Stickers and tags are $7.25/year, the Medical ID Band is $14.49/year, and Find My devices are $29.99 (which includes the first year) plus $7.25/year after that.',
   },
   {
-    q: 'Do tags work without a subscription?',
-    a: 'Tags require an active subscription to relay contacts. Without one, scanning your tag shows a friendly "contact unavailable" message.',
+    q: 'What happens when my QR expires?',
+    a: 'When a QR expires it stops relaying contact. Turn on auto-renewal at checkout and we will renew it for another year before it lapses, or renew it yourself anytime. We email you about a month before expiry.',
   },
   {
-    q: 'Are there limits on tags or scans?',
-    a: 'No. Both plans include unlimited active tags and unlimited relay contacts.',
+    q: 'Do I need an account or subscription?',
+    a: 'No subscription. Create a free account to manage your tags, then buy exactly what you need from the store. Supermarket tags can be activated for free for their included period.',
   },
   {
     q: 'Do you offer business or bulk pricing?',
@@ -81,9 +81,6 @@ const highlights = [
 ];
 
 export default function PricingClient() {
-  const { user } = useAuth();
-  const ctaHref = user ? '/subscription' : '/register';
-
   return (
     <>
       {/* Header */}
@@ -98,10 +95,10 @@ export default function PricingClient() {
               Pricing
             </span>
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
-              Simple pricing that makes sense
+              Pay per year, only for what you protect
             </h1>
             <p className="mt-4 text-lg text-text-muted">
-              Choose a plan that fits how you protect your tags today, then scale when you’re ready.
+              No subscription. Buy a QR tag, choose 1 to 5 years at checkout, and turn on auto-renewal if you want it to never lapse.
             </p>
           </FadeIn>
 
@@ -132,7 +129,7 @@ export default function PricingClient() {
                 >
                   {plan.highlight && (
                     <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-1 text-xs font-bold text-primary-foreground whitespace-nowrap shadow-md shadow-primary/30">
-                      Most Popular
+                      Best Seller
                     </span>
                   )}
 
@@ -169,7 +166,7 @@ export default function PricingClient() {
                   )}
 
                   <ul className="space-y-3 flex-1">
-                    {features.map((f) => (
+                    {includedFeatures.map((f) => (
                       <li key={f} className="flex items-start gap-2.5">
                         <Check
                           className={`mt-0.5 h-4 w-4 shrink-0 ${
@@ -182,23 +179,36 @@ export default function PricingClient() {
                   </ul>
 
                   <Link
-                    href={ctaHref}
+                    href="/store"
                     className={`mt-8 block w-full rounded-xl py-3.5 text-center text-sm font-semibold transition-all ${
                       plan.highlight
                         ? 'bg-primary text-primary-foreground hover:bg-primary-hover glow-sm hover:glow-md'
                         : 'border border-primary/40 bg-transparent text-primary hover:bg-primary/10 hover:border-primary'
                     }`}
                   >
-                    {plan.cta}
+                    Browse the Store
                   </Link>
                 </div>
               </FadeIn>
             ))}
           </div>
 
+          {/* Auto-renew note */}
+          <FadeIn delay={0.3} className="mt-8">
+            <div className="flex items-start gap-3 rounded-2xl border border-border bg-surface/70 p-5">
+              <RefreshCw className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+              <p className="text-sm text-text-muted leading-relaxed">
+                <span className="font-semibold text-text">Auto-renewal</span> is optional. Turn it on at
+                checkout and we will renew your QR for one more year before it expires, charging your saved
+                card. We send a reminder about a month before, and you can turn it off anytime.
+              </p>
+            </div>
+          </FadeIn>
+
+          {/* Enterprise / bulk */}
           <FadeIn
             delay={0.35}
-            className="mt-8 rounded-3xl border border-border bg-surface/70 p-6 md:p-7 shadow-lg shadow-shadow"
+            className="mt-6 rounded-3xl border border-border bg-surface/70 p-6 md:p-7 shadow-lg shadow-shadow"
           >
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="max-w-2xl">
@@ -235,7 +245,7 @@ export default function PricingClient() {
           {/* Guarantee note */}
           <FadeIn delay={0.3} className="mt-6 text-center">
             <p className="text-sm text-text-dim">
-              No credit card required to browse. Cancel anytime with no penalty.
+              No credit card required to browse. No subscription, no lock-in.
             </p>
           </FadeIn>
         </div>

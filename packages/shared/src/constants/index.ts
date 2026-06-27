@@ -4,10 +4,9 @@ export { OrderStatus } from './order-status';
 export { AdminActionType } from './admin-action-types';
 export { ErrorCode } from './error-codes';
 export {
-  DEFAULT_SUBSCRIPTION_PLAN_ID,
-  SUBSCRIPTION_PLANS,
-  SUBSCRIPTION_PRICE_AUD_CENTS,
-  SUBSCRIPTION_ANNUAL_PRICE_AUD_CENTS,
-  SUBSCRIPTION_FEATURES,
-} from './subscription';
-export type { SubscriptionPlanId } from './subscription';
+  TAG_MIN_DURATION_YEARS,
+  TAG_MAX_DURATION_YEARS,
+  TAG_DEFAULT_DURATION_YEARS,
+  calculateTagUnitPriceInCents,
+} from './tag-pricing';
+export type { TagPriceInput } from './tag-pricing';

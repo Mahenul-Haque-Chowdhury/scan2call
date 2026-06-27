@@ -10,8 +10,8 @@ export const metadata = createMetadata({
 
 const sections = [
   { title: '1. Policy Provider', content: 'Scan2Call uses the Privacy Policy published by its parent company, ZTEC Group Pty Ltd (ABN: 82 697 931 445).' },
-  { title: '2. Information We Collect', content: 'We collect information you provide when creating an account, subscription, or contact request, along with service data generated through tag scans and relay sessions.' },
-  { title: '3. How We Use Your Information', content: 'Your information is used to operate Scan2Call, facilitate anonymous relay communication, manage subscriptions, respond to enquiries, and improve service reliability.' },
+  { title: '2. Information We Collect', content: 'We collect information you provide when creating an account, placing an order, or sending a contact request, along with service data generated through tag scans and relay sessions.' },
+  { title: '3. How We Use Your Information', content: 'Your information is used to operate Scan2Call, facilitate anonymous relay communication, process tag orders and renewals, respond to enquiries, and improve service reliability.' },
   { title: '4. Third-Party Services', content: 'Scan2Call may use providers such as Stripe, Twilio, and Cloudflare R2 to deliver payments, communication relay, and storage. Those providers maintain their own privacy practices.' },
   { title: '5. Full Privacy Policy', content: 'The full governing Privacy Policy is available at https://ztecgroup.au/privacy-policy.' },
 ];

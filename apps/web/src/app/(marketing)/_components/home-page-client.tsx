@@ -72,8 +72,8 @@ const products = [
 const steps = [
   {
     icon: QrCode,
-    title: 'Sign in & Subscribe',
-    description: 'Create your account and activate the one plan to protect every tag.',
+    title: 'Create your account',
+    description: 'Sign up free, then buy the tags you need. No subscription required.',
     number: '01',
   },
   {
@@ -162,7 +162,7 @@ const heroSlides = [
 
 export default function HomePageClient() {
   const { user } = useAuth();
-  const getStartedHref = user ? '/subscription' : '/register';
+  const getStartedHref = user ? '/store' : '/register';
   const heroRef = useRef<HTMLElement>(null);
   const [availableHeroSlides, setAvailableHeroSlides] = useState<string[]>([heroSlides[0]]);
   const [activeHeroSlide, setActiveHeroSlide] = useState(0);

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../database/prisma.service';
-import { PaymentStatus } from '@/generated/prisma/client';
+import { PaymentStatus, PaymentType } from '@/generated/prisma/client';
 import Stripe from 'stripe';
 
 @Injectable()
@@ -18,11 +18,13 @@ export class PaymentsService {
   }
 
   /**
-   * Records a new payment linked to an order or subscription invoice.
+   * Records a new payment linked to an order (PURCHASE) or a tag renewal (RENEWAL).
    */
   async recordPayment(params: {
     userId: string;
     orderId?: string;
+    tagId?: string;
+    type?: PaymentType;
     amountInCents: number;
     currency?: string;
     stripePaymentIntentId?: string;
@@ -37,6 +39,8 @@ export class PaymentsService {
       data: {
         userId: params.userId,
         orderId: params.orderId,
+        tagId: params.tagId,
+        type: params.type ?? PaymentType.PURCHASE,
         amountInCents: params.amountInCents,
         currency: params.currency ?? 'AUD',
         status: PaymentStatus.SUCCEEDED,

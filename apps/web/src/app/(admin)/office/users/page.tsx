@@ -80,7 +80,7 @@ export default function AdminUsersPage() {
   return (
     <div>
       <h1 className="text-3xl font-bold tracking-tight font-display">Users</h1>
-      <p className="mt-2 text-text-muted">Manage registered users and their subscriptions.</p>
+      <p className="mt-2 text-text-muted">Manage registered users and their tags.</p>
 
       {/* Search / Filters */}
       <div className="mt-8 flex gap-4">

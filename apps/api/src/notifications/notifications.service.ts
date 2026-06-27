@@ -22,6 +22,25 @@ interface OrderConfirmationPayload {
   items: { name: string; quantity: number; priceInCents: number }[];
 }
 
+interface TagExpiryReminderPayload {
+  email: string;
+  firstName: string;
+  tagLabel: string | null;
+  tagToken: string;
+  expiresAt: Date;
+  autoRenew: boolean;
+  renewalPriceInCents: number | null;
+}
+
+interface TagRenewalResultPayload {
+  email: string;
+  firstName: string;
+  tagLabel: string | null;
+  tagToken: string;
+  expiresAt: Date;
+  amountInCents?: number;
+}
+
 interface ContactFormPayload {
   name: string;
   email: string;
@@ -296,7 +315,7 @@ export class NotificationsService {
       eyebrow: `${provider} Sign-In`,
       title: `Welcome to Scan2Call, ${escapedFirstName}`,
       intro: `Your account is now active with ${provider} sign-in, and you can start managing your tags immediately.`,
-      body: 'Scan2Call helps people protect valuables with privacy-first QR identity tags, secure contact relay, and a clean dashboard for scans, subscriptions, and recovery actions.',
+      body: 'Scan2Call helps people protect valuables with privacy-first QR identity tags, secure contact relay, and a clean dashboard for scans, renewals, and recovery actions.',
       ctaLabel: 'Open Dashboard',
       ctaUrl: dashboardUrl,
       note: 'This is a welcome email for a new social sign-in account. You will not receive this email again on future logins.',
@@ -440,6 +459,91 @@ export class NotificationsService {
     `;
 
     await this.sendEmail(payload.email, `Scan2Call Order Confirmation - ${payload.orderNumber}`, html);
+  }
+
+  /**
+   * Remind the owner that a tag's QR is about to expire (sent ~1 month before).
+   */
+  async sendTagExpiryReminder(payload: TagExpiryReminderPayload): Promise<void> {
+    const tagName = payload.tagLabel || `Tag ${payload.tagToken}`;
+    const dateFormatted = payload.expiresAt.toLocaleDateString('en-AU', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    const manageUrl = `${this.configService.appUrl}/dashboard/tags`;
+    const priceFormatted =
+      payload.renewalPriceInCents != null
+        ? `$${(payload.renewalPriceInCents / 100).toFixed(2)} AUD`
+        : null;
+
+    const body = payload.autoRenew
+      ? `Your QR "${this.escapeHtml(tagName)}" expires on ${dateFormatted}. Auto-renewal is ON, so we will automatically extend it by 1 year${priceFormatted ? ` and charge ${priceFormatted} to your saved card` : ''}. No action is needed. To turn auto-renewal off, manage your tag below.`
+      : `Your QR "${this.escapeHtml(tagName)}" expires on ${dateFormatted}. After it expires it will stop relaying contact until you renew it${priceFormatted ? ` (${priceFormatted} per year)` : ''}. Renew or enable auto-renewal from your dashboard.`;
+
+    const html = this.renderEmailTemplate({
+      eyebrow: 'Tag Renewal',
+      title: 'Your QR tag is expiring soon',
+      intro: `Hi ${this.escapeHtml(payload.firstName)},`,
+      body,
+      ctaLabel: 'Manage Tag',
+      ctaUrl: manageUrl,
+    });
+
+    await this.sendEmail(payload.email, `Your Scan2Call tag expires on ${dateFormatted}`, html, {
+      context: 'tag expiry reminder',
+    });
+  }
+
+  /**
+   * Confirm a successful auto-renewal charge and new expiry.
+   */
+  async sendRenewalSuccess(payload: TagRenewalResultPayload): Promise<void> {
+    const tagName = payload.tagLabel || `Tag ${payload.tagToken}`;
+    const dateFormatted = payload.expiresAt.toLocaleDateString('en-AU', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    const manageUrl = `${this.configService.appUrl}/dashboard/tags`;
+    const amount =
+      payload.amountInCents != null
+        ? `$${(payload.amountInCents / 100).toFixed(2)} AUD`
+        : null;
+
+    const html = this.renderEmailTemplate({
+      eyebrow: 'Tag Renewal',
+      title: 'Your QR tag was renewed',
+      intro: `Hi ${this.escapeHtml(payload.firstName)},`,
+      body: `Your QR "${this.escapeHtml(tagName)}" was automatically renewed${amount ? ` for ${amount}` : ''}. It is now valid until ${dateFormatted}.`,
+      ctaLabel: 'Manage Tag',
+      ctaUrl: manageUrl,
+    });
+
+    await this.sendEmail(payload.email, 'Your Scan2Call tag was renewed', html, {
+      context: 'tag renewal success',
+    });
+  }
+
+  /**
+   * Notify the owner that an auto-renewal charge failed and the tag has expired.
+   */
+  async sendRenewalFailed(payload: TagRenewalResultPayload): Promise<void> {
+    const tagName = payload.tagLabel || `Tag ${payload.tagToken}`;
+    const manageUrl = `${this.configService.appUrl}/dashboard/tags`;
+
+    const html = this.renderEmailTemplate({
+      eyebrow: 'Tag Renewal',
+      title: 'We could not renew your QR tag',
+      intro: `Hi ${this.escapeHtml(payload.firstName)},`,
+      body: `We tried to auto-renew your QR "${this.escapeHtml(tagName)}" but the payment did not go through. Your tag has stopped relaying contact. Please renew it manually or update your payment method from your dashboard.`,
+      ctaLabel: 'Renew Tag',
+      ctaUrl: manageUrl,
+    });
+
+    await this.sendEmail(payload.email, 'Action needed: your Scan2Call tag renewal failed', html, {
+      context: 'tag renewal failure',
+    });
   }
 
   /**

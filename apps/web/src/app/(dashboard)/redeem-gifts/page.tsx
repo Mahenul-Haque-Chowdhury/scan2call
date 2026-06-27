@@ -12,32 +12,28 @@ export default function RedeemGiftsPage() {
   const [redeemCode, setRedeemCode] = useState('');
   const [redeeming, setRedeeming] = useState(false);
   const [redeemResult, setRedeemResult] = useState<string | null>(null);
-  const [redeemType, setRedeemType] = useState<'SUBSCRIPTION' | 'TAG' | null>(null);
+  const [redeemSuccess, setRedeemSuccess] = useState(false);
 
   const handleRedeem = useCallback(async () => {
     if (!redeemCode.trim()) {
       setRedeemResult('Please enter a redeem code.');
-      setRedeemType(null);
+      setRedeemSuccess(false);
       return;
     }
     setRedeeming(true);
     setRedeemResult(null);
-    setRedeemType(null);
+    setRedeemSuccess(false);
     try {
-      const result = await apiClient.post<{ data: { type: 'SUBSCRIPTION' | 'TAG' } }>(
+      await apiClient.post<{ data: { type: 'TAG' } }>(
         '/gifts/redeem',
         { code: redeemCode.trim() },
       );
-      if (result.data.type === 'TAG') {
-        setRedeemResult('Tag gift applied. Your new tag is ready in your Tags list.');
-      } else {
-        setRedeemResult('Subscription gift applied successfully.');
-      }
-      setRedeemType(result.data.type);
+      setRedeemResult('Tag gift applied. Your new tag is ready in your Tags list.');
+      setRedeemSuccess(true);
       setRedeemCode('');
     } catch (err) {
       setRedeemResult(err instanceof ApiError ? err.message : 'Failed to redeem code.');
-      setRedeemType(null);
+      setRedeemSuccess(false);
     } finally {
       setRedeeming(false);
     }
@@ -45,10 +41,10 @@ export default function RedeemGiftsPage() {
 
   return (
     <div>
-      <PageHeader title="Redeem Gifts" description="Apply a gift code to your account." />
+      <PageHeader title="Redeem Gifts" description="Apply a tag gift code to your account." />
 
       <Card className="mt-6 p-6">
-        <p className="text-sm text-text-muted">Have a gift code? Apply it here to unlock access.</p>
+        <p className="text-sm text-text-muted">Have a tag gift code? Apply it here to add the tag to your account.</p>
         <div className="mt-4 flex flex-wrap gap-3">
           <input
             value={redeemCode}
@@ -61,10 +57,10 @@ export default function RedeemGiftsPage() {
           </Button>
         </div>
         {redeemResult && (
-          <Alert variant={redeemResult.includes('Failed') ? 'error' : 'success'} className="mt-4">
+          <Alert variant={redeemSuccess ? 'success' : 'error'} className="mt-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span>{redeemResult}</span>
-              {redeemType === 'TAG' && (
+              {redeemSuccess && (
                 <Link href="/tags" className="text-sm font-medium text-primary hover:text-primary-hover">
                   View tags
                 </Link>

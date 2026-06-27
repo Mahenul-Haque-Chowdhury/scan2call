@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/auth-provider';
 import { apiClient } from '@/lib/api-client';
-import { Tag, ShoppingCart, Crown } from 'lucide-react';
+import { Tag, ShoppingCart, Package } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatCard } from '@/components/ui/stat-card';
 import { Alert } from '@/components/ui/alert';
@@ -197,8 +197,8 @@ export default function DashboardPage() {
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           {[
             { href: '/tags', icon: Tag, color: 'text-accent', label: 'Add New Tag', desc: 'Register a new tag to your account' },
-            { href: '/store/cart', icon: ShoppingCart, color: 'text-primary', label: 'Browse Store', desc: 'Purchase new tags and accessories' },
-            { href: '/subscription', icon: Crown, color: 'text-primary', label: 'Manage Subscription', desc: 'View or update your plan' },
+            { href: '/store/cart', icon: ShoppingCart, color: 'text-primary', label: 'Browse Store', desc: 'Buy new tags and accessories' },
+            { href: '/orders', icon: Package, color: 'text-primary', label: 'My Orders', desc: 'Track orders and tag renewals' },
           ].map((item, i) => (
             <motion.div key={item.href} custom={i} variants={quickActionVariants} initial="hidden" animate="visible">
               <Link

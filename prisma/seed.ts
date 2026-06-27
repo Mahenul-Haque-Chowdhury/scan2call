@@ -1,4 +1,4 @@
-import { PrismaClient, Role, TagType, TagStatus } from '@prisma/client';
+import { PrismaClient, Role, TagType, TagStatus } from '../apps/api/src/generated/prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -32,14 +32,18 @@ async function main() {
     },
   });
 
-  // Create sample products
+  // Create sample products.
+  // priceInCents is the PER-YEAR (QR yearly) price. Find My devices (Pet Collar,
+  // Keychain) also have devicePriceInCents (flat, includes year 1).
   const products = [
     {
       name: 'Pet Collar Tag',
       slug: 'pet-collar-tag',
-      description: 'Durable QR tag that attaches to any pet collar. Waterproof and UV-resistant.',
+      description: 'Durable Find My device that attaches to any pet collar. Waterproof and UV-resistant, with Apple Find My and Google Find My Device support.',
       shortDescription: 'For pets',
-      priceInCents: 949,
+      priceInCents: 725, // QR renewal per year
+      devicePriceInCents: 2999, // device incl. year 1
+      hasFindMy: true,
       sku: 'TAG-PET-001',
       stockQuantity: 100,
       isInStock: true,
@@ -54,7 +58,8 @@ async function main() {
       slug: 'car-windshield-sticker',
       description: 'Transparent QR sticker for your car windshield. Heat and weather resistant.',
       shortDescription: 'For vehicles',
-      priceInCents: 99,
+      priceInCents: 725,
+      hasFindMy: false,
       sku: 'TAG-CAR-001',
       stockQuantity: 200,
       isInStock: true,
@@ -69,7 +74,8 @@ async function main() {
       slug: 'luggage-tag',
       description: 'Sleek QR luggage tag with leather strap. Perfect for travel.',
       shortDescription: 'For bags & luggage',
-      priceInCents: 99,
+      priceInCents: 725,
+      hasFindMy: false,
       sku: 'TAG-LUG-001',
       stockQuantity: 150,
       isInStock: true,
@@ -82,9 +88,11 @@ async function main() {
     {
       name: 'Keychain Tag',
       slug: 'keychain-tag',
-      description: 'Compact QR keychain tag. Lightweight aluminium with split ring.',
+      description: 'Compact Find My keychain device. Lightweight aluminium with split ring, with Apple Find My and Google Find My Device support.',
       shortDescription: 'For keys',
-      priceInCents: 949,
+      priceInCents: 725, // QR renewal per year
+      devicePriceInCents: 2999, // device incl. year 1
+      hasFindMy: true,
       sku: 'TAG-KEY-001',
       stockQuantity: 300,
       isInStock: true,
@@ -100,6 +108,7 @@ async function main() {
       description: 'Adjustable silicone wristband with QR code. For medical, dementia, or child safety use.',
       shortDescription: 'For people',
       priceInCents: 1449,
+      hasFindMy: false,
       sku: 'TAG-MED-001',
       stockQuantity: 75,
       isInStock: true,
@@ -114,7 +123,8 @@ async function main() {
       slug: 'passport-sticker-standard-stickers',
       description: 'Low-profile QR stickers for passports, notebooks, and everyday gear.',
       shortDescription: 'For passports & gear',
-      priceInCents: 99,
+      priceInCents: 725,
+      hasFindMy: false,
       sku: 'TAG-PASS-001',
       stockQuantity: 300,
       isInStock: true,

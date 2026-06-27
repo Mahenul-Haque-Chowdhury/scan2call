@@ -79,6 +79,7 @@ export default function AdminGenerateTagsPage() {
   const [tagType, setTagType] = useState('KEYCHAIN');
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
+  const [bundledDurationYears, setBundledDurationYears] = useState(1);
   const [storeQrAssets, setStoreQrAssets] = useState(false);
   const [frameStyle, setFrameStyle] = useState<FrameStyle>('SCAN2CALL_TOP');
   const [qrLayout, setQrLayout] = useState<QrLayout>('STANDARD');
@@ -153,6 +154,7 @@ export default function AdminGenerateTagsPage() {
         storeQrAssets,
         qrFrameStyle: frameStyle,
         qrLayout: resolvedQrLayout,
+        bundledDurationYears,
       };
       if (name.trim()) body.batchName = name.trim();
       if (notes.trim()) body.notes = notes.trim();
@@ -234,6 +236,28 @@ export default function AdminGenerateTagsPage() {
               </option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label htmlFor="bundledDurationYears" className="block text-sm font-medium text-text-muted">
+            Bundled QR duration (years)
+          </label>
+          <select
+            id="bundledDurationYears"
+            value={bundledDurationYears}
+            onChange={(e) => setBundledDurationYears(Number(e.target.value))}
+            className="mt-1 block w-full rounded-md border border-border bg-surface px-4 py-2 text-sm text-text focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            {[1, 2, 3, 4, 5].map((years) => (
+              <option key={years} value={years}>
+                {years} {years === 1 ? 'year' : 'years'}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-text-dim">
+            Included QR period printed on retail packaging. Applied as the expiry when a customer claims a
+            tag from this batch.
+          </p>
         </div>
 
         <div>

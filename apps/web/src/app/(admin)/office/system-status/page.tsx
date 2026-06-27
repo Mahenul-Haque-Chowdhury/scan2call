@@ -31,7 +31,7 @@ interface DatabaseStats {
   tags: number;
   scans: number;
   orders: number;
-  activeSubscriptions: number;
+  activeTags: number;
 }
 
 interface SystemStatus {
@@ -259,7 +259,7 @@ export default function SystemStatusPage() {
             <StatCard label="Tags" value={status.database.tags} />
             <StatCard label="Scans" value={status.database.scans} />
             <StatCard label="Orders" value={status.database.orders} />
-            <StatCard label="Active Subs" value={status.database.activeSubscriptions} />
+            <StatCard label="Active Tags" value={status.database.activeTags} />
           </div>
         </div>
       )}

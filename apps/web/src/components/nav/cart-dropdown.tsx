@@ -220,7 +220,11 @@ function CartDropdownItem({
       <div className="min-w-0 flex-1">
         <p className="text-xs font-medium text-text truncate">{item.name}</p>
         <p className="text-xs text-primary font-semibold mt-0.5">
-          ${formatPrice(item.priceInCents)}
+          ${formatPrice(item.priceInCents)}<span className="font-normal text-text-dim">/yr</span>
+          <span className="ml-1 font-normal text-text-dim">
+            &middot; {item.durationYears}
+            {item.durationYears === 1 ? ' yr' : ' yrs'}
+          </span>
         </p>
       </div>
 
