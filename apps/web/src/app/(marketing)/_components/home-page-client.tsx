@@ -20,7 +20,7 @@ const products = [
     image: '/images/products/luggage-tag.png',
     iconColor: 'text-violet-400',
     badge: 'Most Popular',
-    price: '$0.99',
+    price: '$7.25/yr',
   },
   {
     name: 'Pet Collar Tag',
@@ -29,7 +29,7 @@ const products = [
     image: '/images/products/pet-collar-tag.png',
     iconColor: 'text-amber-400',
     badge: 'Most Popular',
-    price: '$9.49',
+    price: '$29.99',
   },
   {
     name: 'Keychain Tag',
@@ -38,7 +38,7 @@ const products = [
     image: '/images/products/keychain-tag.png',
     iconColor: 'text-emerald-400',
     badge: null,
-    price: '$9.49',
+    price: '$29.99',
   },
   {
     name: 'Car Windshield Sticker',
@@ -47,7 +47,7 @@ const products = [
     image: '/images/products/car-sticker.png',
     iconColor: 'text-blue-400',
     badge: null,
-    price: '$0.99',
+    price: '$7.25/yr',
   },
   {
     name: 'Passport Sticker & Standard Stickers',
@@ -56,7 +56,7 @@ const products = [
     image: '/images/products/passport.png',
     iconColor: 'text-yellow-400',
     badge: 'Featured',
-    price: '$0.99',
+    price: '$7.25/yr',
   },
   {
     name: 'Medical ID Band',
@@ -65,7 +65,7 @@ const products = [
     image: '/images/products/medical-band.png',
     iconColor: 'text-rose-400',
     badge: null,
-    price: '$14.49',
+    price: '$14.49/yr',
   },
 ];
 
@@ -317,7 +317,7 @@ export default function HomePageClient() {
                   href={getStartedHref}
                   className="group inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-4 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary-hover glow-md hover:glow-lg hover:scale-[1.03] active:scale-[0.98]"
                 >
-                  Get Started - $14.49/yr
+                  Get Started - from $7.25/yr
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>
                 <Link
@@ -628,6 +628,9 @@ function ProductCard({ product }: { product: Product }) {
                 <span className="text-lg font-bold text-primary">
                   {product.price}
                   <span className="text-xs font-normal text-text-dim"> AUD</span>
+                  {!product.price.includes('/yr') && (
+                    <span className="text-xs font-normal text-text-dim"> incl. yr 1</span>
+                  )}
                 </span>
                 <Link
                   href="/store"
