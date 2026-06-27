@@ -776,12 +776,12 @@ export default function TagDetailPage() {
                         <span className="text-text-muted">QR expires</span>
                         <span
                           className={`font-medium ${
-                            new Date(tag.expiresAt).getTime() < Date.now()
+                            new Date(tag.expiresAt) < new Date()
                               ? 'text-error'
                               : 'text-text'
                           }`}
                         >
-                          {new Date(tag.expiresAt).getTime() < Date.now()
+                          {new Date(tag.expiresAt) < new Date()
                             ? `Expired ${formatDate(tag.expiresAt)}`
                             : formatDate(tag.expiresAt)}
                         </span>
