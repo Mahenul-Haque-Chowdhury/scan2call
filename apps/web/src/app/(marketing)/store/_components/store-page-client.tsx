@@ -244,6 +244,18 @@ export default function StorePageClient() {
                             )}
                           </div>
 
+                          {/* Find My logos */}
+                          {product.hasFindMy && (
+                            <div className="absolute bottom-2 right-2 flex items-center gap-1">
+                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-black/70 backdrop-blur-sm border border-white/10 p-1">
+                                <img src="/images/products/apple_Find_My_logo.svg" alt="Apple Find My" className="h-full w-full object-contain" />
+                              </div>
+                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-black/70 backdrop-blur-sm border border-white/10 p-1">
+                                <img src="/images/products/Google_Find_My_Device_2023.svg.png" alt="Google Find My Device" className="h-full w-full object-contain" />
+                              </div>
+                            </div>
+                          )}
+
                           {/* Compare-at price ribbon */}
                           {product.compareAtPrice && available && (
                             <div className="absolute bottom-0 right-0 bg-primary/90 text-primary-foreground text-[10px] font-bold px-2 py-1 rounded-tl-lg">

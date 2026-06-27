@@ -24,21 +24,23 @@ const products = [
   },
   {
     name: 'Pet Collar Tag',
-    description: 'Keep your furry friends safe with scannable collar tags.',
+    description: 'Keep your furry friends safe with scannable collar tags. Works with Apple Find My and Google Find My Device.',
     icon: PawPrint,
     image: '/images/products/pet-collar-tag.png',
     iconColor: 'text-amber-400',
     badge: 'Most Popular',
     price: '$29.99',
+    hasFindMy: true,
   },
   {
     name: 'Keychain Tag',
-    description: 'Attach to keys, bags, or anything you carry daily.',
+    description: 'Attach to keys, bags, or anything you carry daily. Works with Apple Find My and Google Find My Device.',
     icon: KeyRound,
     image: '/images/products/keychain-tag.png',
     iconColor: 'text-emerald-400',
     badge: null,
     price: '$29.99',
+    hasFindMy: true,
   },
   {
     name: 'Car Windshield Sticker',
@@ -531,6 +533,7 @@ interface Product {
   iconColor: string;
   badge: string | null;
   price: string;
+  hasFindMy?: boolean;
 }
 
 function ProductCard({ product }: { product: Product }) {
@@ -584,6 +587,28 @@ function ProductCard({ product }: { product: Product }) {
                 <span className="absolute top-3 left-3 text-[10px] font-bold text-primary bg-primary/15 border border-primary/25 rounded-full px-2.5 py-1 backdrop-blur-sm">
                   {product.badge}
                 </span>
+              )}
+              {product.hasFindMy && (
+                <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-black/70 backdrop-blur-sm border border-white/10 p-1">
+                    <Image
+                      src="/images/products/apple_Find_My_logo.svg"
+                      alt="Apple Find My"
+                      width={20}
+                      height={20}
+                      className="object-contain"
+                    />
+                  </div>
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-black/70 backdrop-blur-sm border border-white/10 p-1">
+                    <Image
+                      src="/images/products/Google_Find_My_Device_2023.svg.png"
+                      alt="Google Find My Device"
+                      width={20}
+                      height={20}
+                      className="object-contain"
+                    />
+                  </div>
+                </div>
               )}
             </div>
 

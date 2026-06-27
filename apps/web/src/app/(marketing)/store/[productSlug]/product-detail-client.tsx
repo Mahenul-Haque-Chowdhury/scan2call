@@ -186,7 +186,7 @@ export default function ProductDetailClient({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         >
-          <div className="aspect-square overflow-hidden rounded-lg border border-border bg-surface-raised">
+          <div className="relative aspect-square overflow-hidden rounded-lg border border-border bg-surface-raised">
             {sortedImages.length > 0 ? (
               <AnimatePresence mode="wait">
                 <motion.img
@@ -203,6 +203,16 @@ export default function ProductDetailClient({
             ) : (
               <div className="flex h-full items-center justify-center text-text-dim">
                 <ImageIcon className="h-20 w-20" strokeWidth={1} />
+              </div>
+            )}
+            {product.hasFindMy && (
+              <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black/70 backdrop-blur-sm border border-white/10 p-1.5">
+                  <img src="/images/products/apple_Find_My_logo.svg" alt="Apple Find My" className="h-full w-full object-contain" />
+                </div>
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black/70 backdrop-blur-sm border border-white/10 p-1.5">
+                  <img src="/images/products/Google_Find_My_Device_2023.svg.png" alt="Google Find My Device" className="h-full w-full object-contain" />
+                </div>
               </div>
             )}
           </div>
