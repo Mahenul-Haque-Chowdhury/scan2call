@@ -535,11 +535,13 @@ interface StatItem {
   display?: string;
   label: string;
   sub: string;
+  /** Optional highlight pill shown beneath the sub-line (e.g. "Always free"). */
+  badge?: string;
 }
 
 const trustStats: StatItem[] = [
   { value: 100, suffix: '%', label: 'Anonymous relay', sub: 'Your details stay hidden' },
-  { value: 3, label: 'Ways to reach you', sub: 'Call · SMS · WhatsApp' },
+  { value: 3, label: 'Ways to reach you', sub: 'Call · SMS · WhatsApp', badge: 'Always free' },
   { prefix: '$', display: '7.25', label: 'Starting price / year', sub: 'No subscription required' },
   { display: '24/7', label: 'Always-on protection', sub: 'Relay never sleeps' },
 ];
@@ -554,7 +556,7 @@ function StatsBand() {
           className="grid grid-cols-2 gap-x-6 gap-y-10 lg:grid-cols-4"
         >
           {trustStats.map((stat) => (
-            <StaggerItem key={stat.label} className="text-center">
+            <StaggerItem key={stat.label} className="flex flex-col items-center text-center">
               <div className="font-display text-4xl sm:text-5xl font-bold tracking-tight text-gradient">
                 {stat.prefix}
                 {stat.value !== undefined ? <CountUp value={stat.value} duration={1.6} /> : stat.display}
@@ -562,6 +564,15 @@ function StatsBand() {
               </div>
               <div className="mt-2 text-sm font-semibold text-text">{stat.label}</div>
               <div className="mt-0.5 text-xs text-text-muted">{stat.sub}</div>
+              {stat.badge && (
+                <span className="mt-2 inline-flex items-center gap-1 rounded-full border border-success/30 bg-success-muted px-2.5 py-0.5 text-[11px] font-semibold text-success">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-70" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
+                  </span>
+                  {stat.badge}
+                </span>
+              )}
             </StaggerItem>
           ))}
         </StaggerContainer>
