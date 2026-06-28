@@ -17,11 +17,6 @@ import { OrderStatus } from '@/generated/prisma/client';
 import Stripe from 'stripe';
 import { randomBytes } from 'crypto';
 
-const STRIPE_MANAGED_PAYMENTS_API_VERSION = '2026-02-25.preview';
-const STRIPE_DIGITAL_PRODUCT_TAX_CODE = 'txcd_10103100';
-// Stripe tax code for shipping charges.
-const STRIPE_SHIPPING_TAX_CODE = 'txcd_92010001';
-
 @Injectable()
 export class OrdersService {
   private readonly stripe: Stripe | null;
@@ -160,7 +155,6 @@ export class OrdersService {
           currency: 'aud',
           product_data: {
             name: `${product.name} (${years} year${years > 1 ? 's' : ''})`,
-            tax_code: STRIPE_DIGITAL_PRODUCT_TAX_CODE,
             ...(product.shortDescription
               ? { description: product.shortDescription }
               : {}),
@@ -181,7 +175,6 @@ export class OrdersService {
               shippingInCents === SHIPPING_AUSTRALIA_IN_CENTS
                 ? 'Shipping (Australia)'
                 : 'Shipping (Worldwide)',
-            tax_code: STRIPE_SHIPPING_TAX_CODE,
           },
           unit_amount: shippingInCents,
         },
@@ -196,9 +189,6 @@ export class OrdersService {
         mode: 'payment',
         customer: stripeCustomerId,
         customer_email: stripeCustomerId ? undefined : user.email,
-        managed_payments: {
-          enabled: true,
-        },
         line_items: lineItems,
         // Save the card off-session so the renewal cron can charge it later.
         ...(anyAutoRenew
@@ -211,8 +201,6 @@ export class OrdersService {
         },
         success_url: `${this.config.getOrThrow<string>('APP_URL')}/checkout/success?orderId=${order.id}`,
         cancel_url: `${this.config.getOrThrow<string>('APP_URL')}/store?status=cancelled`,
-      } as Stripe.Checkout.SessionCreateParams, {
-        apiVersion: STRIPE_MANAGED_PAYMENTS_API_VERSION,
       });
     } catch (err) {
       const stripeErr = err as Stripe.errors.StripeError;
