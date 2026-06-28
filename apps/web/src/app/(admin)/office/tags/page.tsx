@@ -68,7 +68,7 @@ const TAG_TYPES = ['PET_COLLAR', 'CAR_STICKER', 'LUGGAGE_TAG', 'KEYCHAIN', 'MEDI
 const PAGE_SIZES = [20, 50, 100];
 
 const ROW_GRID =
-  'grid-cols-[0.3fr_1fr_0.85fr_0.8fr_1fr_0.6fr_1.3fr_0.8fr_0.5fr_1.5fr]';
+  'grid-cols-[0.3fr_1fr_0.85fr_0.75fr_1fr_0.7fr_1.5fr_0.8fr_0.5fr_1.1fr]';
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
@@ -561,7 +561,7 @@ export default function AdminTagsPage() {
           )}
 
           <div className="overflow-x-auto">
-            <div className="min-w-295">
+            <div className="min-w-275">
               {/* Header */}
               <div className={`grid ${ROW_GRID} border-b border-border px-6 py-3 text-sm font-medium text-text-dim`}>
                 <span>
@@ -646,7 +646,7 @@ export default function AdminTagsPage() {
                         <span className="flex justify-center">
                           <TagQrThumb tagId={tag.id} token={tag.token} apiOrigin={apiOrigin} onOpen={() => void openPreview(tag)} />
                         </span>
-                        <span className="flex justify-end gap-2">
+                        <span className="flex justify-end gap-1.5">
                           {(tag.status === 'DEACTIVATED' || tag.status === 'INACTIVE') ? (
                             <Button
                               variant="outline"
@@ -654,32 +654,38 @@ export default function AdminTagsPage() {
                               loading={togglingId === tag.id}
                               onClick={() => handleToggleStatus(tag)}
                               icon={<Power className="h-3.5 w-3.5" />}
-                            >
-                              Activate
-                            </Button>
+                              title="Activate tag"
+                              aria-label="Activate tag"
+                            />
                           ) : tag.status === 'ACTIVE' ? (
                             <Button
-                              variant="danger"
+                              variant="secondary"
                               size="sm"
                               loading={togglingId === tag.id}
                               onClick={() => handleToggleStatus(tag)}
                               icon={<PowerOff className="h-3.5 w-3.5" />}
-                            >
-                              Deactivate
-                            </Button>
+                              title="Deactivate tag"
+                              aria-label="Deactivate tag"
+                            />
                           ) : null}
-                          <Button variant="ghost" size="sm" onClick={() => handleRegenerateQr(tag)} loading={regeneratingId === tag.id}>
-                            Regenerate QR
-                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRegenerateQr(tag)}
+                            loading={regeneratingId === tag.id}
+                            icon={<RefreshCw className="h-3.5 w-3.5" />}
+                            title="Regenerate QR assets"
+                            aria-label="Regenerate QR assets"
+                          />
                           <Button
                             variant="danger"
                             size="sm"
                             onClick={() => setDeleteTarget(tag)}
                             loading={deletingId === tag.id}
                             icon={<Trash2 className="h-3.5 w-3.5" />}
-                          >
-                            Delete
-                          </Button>
+                            title="Delete tag"
+                            aria-label="Delete tag"
+                          />
                         </span>
                       </div>
                     );
