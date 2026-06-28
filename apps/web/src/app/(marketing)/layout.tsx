@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { motion, useScroll, useSpring } from 'framer-motion';
 import { Logo } from '@/components/nav/logo';
 import { SiteHeader } from '@/components/nav/site-header';
+import { SmoothScroll } from '@/components/smooth-scroll';
 import { SOCIAL_LINKS } from '@/lib/seo';
 
 function LinkedInIcon({ className }: { className?: string }) {
@@ -49,8 +51,20 @@ const footerColumns = [
 ];
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
+  const { scrollYProgress } = useScroll();
+  const progress = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.3 });
+
   return (
     <div className="flex min-h-screen flex-col">
+      <SmoothScroll />
+
+      {/* Scroll progress bar */}
+      <motion.div
+        style={{ scaleX: progress }}
+        className="fixed inset-x-0 top-0 z-60 h-0.5 origin-left bg-primary"
+        aria-hidden="true"
+      />
+
       <SiteHeader />
 
       {/* Main */}
