@@ -19,6 +19,8 @@ import { randomBytes } from 'crypto';
 
 const STRIPE_MANAGED_PAYMENTS_API_VERSION = '2026-02-25.preview';
 const STRIPE_DIGITAL_PRODUCT_TAX_CODE = 'txcd_10103100';
+// Stripe tax code for shipping charges.
+const STRIPE_SHIPPING_TAX_CODE = 'txcd_92010001';
 
 @Injectable()
 export class OrdersService {
@@ -179,6 +181,7 @@ export class OrdersService {
               shippingInCents === SHIPPING_AUSTRALIA_IN_CENTS
                 ? 'Shipping (Australia)'
                 : 'Shipping (Worldwide)',
+            tax_code: STRIPE_SHIPPING_TAX_CODE,
           },
           unit_amount: shippingInCents,
         },
