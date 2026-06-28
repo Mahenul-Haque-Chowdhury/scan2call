@@ -11,9 +11,11 @@ interface StatCardProps {
   trend?: { value: string; positive: boolean };
   className?: string;
   delay?: number;
+  /** Optional extra content rendered below the value (e.g. a sparkline). */
+  children?: React.ReactNode;
 }
 
-export function StatCard({ label, value, icon, trend, className, delay = 0 }: StatCardProps) {
+export function StatCard({ label, value, icon, trend, className, delay = 0, children }: StatCardProps) {
   const isNumber = typeof value === 'number';
 
   return (
@@ -48,6 +50,7 @@ export function StatCard({ label, value, icon, trend, className, delay = 0 }: St
           {trend.positive ? '+' : ''}{trend.value}
         </p>
       )}
+      {children}
     </motion.div>
   );
 }

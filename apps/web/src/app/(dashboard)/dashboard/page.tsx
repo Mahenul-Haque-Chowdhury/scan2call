@@ -1,18 +1,25 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/auth-provider';
 import { apiClient } from '@/lib/api-client';
-import { Tag, ShoppingCart, Package } from 'lucide-react';
+import { Tag, ShoppingCart, Package, Tags, CheckCircle2, AlertTriangle, ScanLine } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatCard } from '@/components/ui/stat-card';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
+import { ChartCard, ChartSkeleton, DonutChart } from '@/components/ui/charts';
+
+const AreaChart = dynamic(
+  () => import('@/components/ui/charts').then((m) => m.AreaChart),
+  { ssr: false, loading: () => <ChartSkeleton height={220} /> },
+);
 
 interface UserStats {
   totalTags: number;
@@ -92,7 +99,7 @@ export default function DashboardPage() {
       try {
         const [statsRes, scansRes] = await Promise.all([
           apiClient.get<{ data: UserStats }>('/users/me/stats'),
-          apiClient.get<{ data: ScanItem[]; meta: { page: number; pageSize: number; total: number } }>('/users/me/scans?page=1&pageSize=5'),
+          apiClient.get<{ data: ScanItem[]; meta: { page: number; pageSize: number; total: number } }>('/users/me/scans?page=1&pageSize=100'),
         ]);
         if (!cancelled) { setStats(statsRes.data); setScans(scansRes.data); }
       } catch (err) {
@@ -105,6 +112,29 @@ export default function DashboardPage() {
     return () => { cancelled = true; };
   }, []);
 
+  // Bucket scans into a daily series for the last 14 days (client-side, no extra API).
+  const scanSeries = useMemo(() => {
+    const days = 14;
+    const buckets = new Map<string, number>();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      buckets.set(d.toISOString().slice(0, 10), 0);
+    }
+    for (const scan of scans) {
+      const key = new Date(scan.createdAt).toISOString().slice(0, 10);
+      if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + 1);
+    }
+    return Array.from(buckets.entries()).map(([date, value]) => ({
+      label: new Date(date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }),
+      value,
+    }));
+  }, [scans]);
+
+  const hasScanActivity = scanSeries.some((d) => d.value > 0);
+
   if (loading) return <DashboardSkeleton />;
 
   if (error) {
@@ -116,11 +146,16 @@ export default function DashboardPage() {
     );
   }
 
+  const totalTags = stats?.totalTags ?? 0;
+  const activeTags = stats?.activeTags ?? 0;
+  const lostTags = stats?.lostTags ?? 0;
+  const otherTags = Math.max(totalTags - activeTags - lostTags, 0);
+
   const statItems = [
-    { label: 'Total Tags', value: stats?.totalTags ?? 0 },
-    { label: 'Active Tags', value: stats?.activeTags ?? 0 },
-    { label: 'Lost Tags', value: stats?.lostTags ?? 0 },
-    { label: 'Total Scans', value: stats?.totalScans ?? 0 },
+    { label: 'Total Tags', value: totalTags, icon: <Tags className="h-4.5 w-4.5" /> },
+    { label: 'Active Tags', value: activeTags, icon: <CheckCircle2 className="h-4.5 w-4.5" /> },
+    { label: 'Lost Tags', value: lostTags, icon: <AlertTriangle className="h-4.5 w-4.5" /> },
+    { label: 'Total Scans', value: stats?.totalScans ?? 0, icon: <ScanLine className="h-4.5 w-4.5" /> },
   ];
 
   return (
@@ -151,9 +186,42 @@ export default function DashboardPage() {
 
       <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {statItems.map((s, i) => (
-          <StatCard key={s.label} label={s.label} value={s.value} delay={i * 0.08} />
+          <StatCard key={s.label} label={s.label} value={s.value} icon={s.icon} delay={i * 0.08} />
         ))}
       </div>
+
+      {/* Visual overview: scan trend + tag status */}
+      {totalTags > 0 && (
+        <div className="mt-8 grid gap-6 lg:grid-cols-3">
+          <ChartCard
+            title="Scan Activity"
+            subtitle="Last 14 days"
+            className="lg:col-span-2"
+            delay={0.15}
+          >
+            {hasScanActivity ? (
+              <AreaChart data={scanSeries} height={220} color="primary" ariaLabel="Your scan activity over the last 14 days" />
+            ) : (
+              <div className="flex h-55 items-center justify-center rounded-lg border border-dashed border-border text-sm text-text-dim">
+                No scans in the last 14 days yet.
+              </div>
+            )}
+          </ChartCard>
+
+          <ChartCard title="Tag Status" subtitle="Current breakdown" delay={0.2}>
+            <DonutChart
+              segments={[
+                { label: 'Active', value: activeTags, color: 'success' },
+                { label: 'Lost', value: lostTags, color: 'error' },
+                { label: 'Other', value: otherTags, color: 'text-muted' },
+              ]}
+              size={160}
+              centerLabel={totalTags.toLocaleString()}
+              centerSublabel="tags"
+            />
+          </ChartCard>
+        </div>
+      )}
 
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -168,7 +236,7 @@ export default function DashboardPage() {
           </Card>
         ) : (
           <Card className="mt-4 divide-y divide-border">
-            {scans.map((scan, i) => (
+            {scans.slice(0, 5).map((scan, i) => (
               <motion.div
                 key={scan.id}
                 initial={{ opacity: 0, x: -12 }}

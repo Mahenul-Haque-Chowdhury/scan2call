@@ -1,9 +1,24 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import dynamic from 'next/dynamic';
+import { Users, Tags, ScanLine, ShoppingBag, DollarSign, CheckCircle2, Clock } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert } from '@/components/ui/alert';
+import { StatCard } from '@/components/ui/stat-card';
+import { ChartCard, ChartSkeleton, DonutChart, Sparkline } from '@/components/ui/charts';
+
+// Charts are code-split so the (heavier, interactive) SVG components only load
+// once analytics is opened, keeping the admin bundle lean.
+const AreaChart = dynamic(
+  () => import('@/components/ui/charts').then((m) => m.AreaChart),
+  { ssr: false, loading: () => <ChartSkeleton /> },
+);
+const BarChart = dynamic(
+  () => import('@/components/ui/charts').then((m) => m.BarChart),
+  { ssr: false, loading: () => <ChartSkeleton /> },
+);
 
 interface OverviewStats {
   totalUsers: number;
@@ -29,6 +44,13 @@ function getDefaultDateRange() {
     startDate: start.toISOString().split('T')[0],
     endDate: end.toISOString().split('T')[0],
   };
+}
+
+/** Shorten an ISO-ish date/bucket label for chart axes. */
+function formatLabel(raw: string): string {
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
 }
 
 export default function AdminAnalyticsPage() {
@@ -73,6 +95,23 @@ export default function AdminAnalyticsPage() {
     fetchAnalytics();
   }, [fetchAnalytics]);
 
+  const scanSeries = useMemo(
+    () => scansData.map((e) => ({ label: formatLabel(e.date), value: e.count ?? 0 })),
+    [scansData],
+  );
+  const revenueSeries = useMemo(
+    () => revenueData.map((e) => ({ label: formatLabel(e.date), value: (e.amountCents ?? 0) / 100 })),
+    [revenueData],
+  );
+  const tagSeries = useMemo(
+    () => tagsData.map((e) => ({ label: formatLabel(e.date), value: e.count ?? 0 })),
+    [tagsData],
+  );
+
+  const scanSpark = useMemo(() => scansData.map((e) => e.count ?? 0), [scansData]);
+  const revenueSpark = useMemo(() => revenueData.map((e) => (e.amountCents ?? 0) / 100), [revenueData]);
+  const tagSpark = useMemo(() => tagsData.map((e) => e.count ?? 0), [tagsData]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -85,28 +124,26 @@ export default function AdminAnalyticsPage() {
     return (
       <Alert variant="error">
         <p className="text-sm font-medium">{error}</p>
-        <button
-          onClick={fetchAnalytics}
-          className="mt-3 text-sm underline hover:opacity-80"
-        >
+        <button onClick={fetchAnalytics} className="mt-3 text-sm underline hover:opacity-80">
           Retry
         </button>
       </Alert>
     );
   }
 
-  const overviewCards = [
-    { label: 'Total Users', value: overview?.totalUsers ?? 0 },
-    { label: 'Total Tags', value: overview?.totalTags ?? 0 },
-    { label: 'Total Scans', value: overview?.totalScans ?? 0 },
-    { label: 'Total Orders', value: overview?.totalOrders ?? 0 },
-    {
-      label: 'Total Revenue (AUD)',
-      value: `$${((overview?.totalRevenueCents ?? 0) / 100).toFixed(2)}`,
-      isRevenue: true,
-    },
-    { label: 'Active Tags', value: overview?.activeTags ?? 0 },
-    { label: 'Expiring (30d)', value: overview?.expiringSoon ?? 0 },
+  const revenueDollars = (overview?.totalRevenueCents ?? 0) / 100;
+  const activeTags = overview?.activeTags ?? 0;
+  const expiringSoon = overview?.expiringSoon ?? 0;
+  const otherTags = Math.max((overview?.totalTags ?? 0) - activeTags - expiringSoon, 0);
+
+  const kpis = [
+    { label: 'Total Users', value: overview?.totalUsers ?? 0, icon: <Users className="h-4.5 w-4.5" />, spark: null, color: 'accent' as const },
+    { label: 'Total Scans', value: overview?.totalScans ?? 0, icon: <ScanLine className="h-4.5 w-4.5" />, spark: scanSpark, color: 'primary' as const },
+    { label: 'Revenue (AUD)', value: `$${revenueDollars.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, icon: <DollarSign className="h-4.5 w-4.5" />, spark: revenueSpark, color: 'success' as const },
+    { label: 'Total Orders', value: overview?.totalOrders ?? 0, icon: <ShoppingBag className="h-4.5 w-4.5" />, spark: null, color: 'accent' as const },
+    { label: 'Total Tags', value: overview?.totalTags ?? 0, icon: <Tags className="h-4.5 w-4.5" />, spark: tagSpark, color: 'primary' as const },
+    { label: 'Active Tags', value: activeTags, icon: <CheckCircle2 className="h-4.5 w-4.5" />, spark: null, color: 'success' as const },
+    { label: 'Expiring (30d)', value: expiringSoon, icon: <Clock className="h-4.5 w-4.5" />, spark: null, color: 'warning' as const },
   ];
 
   return (
@@ -114,15 +151,22 @@ export default function AdminAnalyticsPage() {
       <h1 className="text-3xl font-bold tracking-tight font-display text-text">Analytics</h1>
       <p className="mt-2 text-text-muted">Platform-wide analytics, trends, and reporting.</p>
 
-      {/* Overview Stats */}
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {overviewCards.map((card) => (
-          <div key={card.label} className="rounded-lg border border-border bg-surface p-6">
-            <p className="text-sm font-medium text-text-dim">{card.label}</p>
-            <p className={`mt-2 text-3xl font-bold ${'isRevenue' in card && card.isRevenue ? 'text-primary' : 'text-text'}`}>
-              {card.value}
-            </p>
-          </div>
+      {/* KPI cards with inline sparklines */}
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {kpis.map((kpi, i) => (
+          <StatCard
+            key={kpi.label}
+            label={kpi.label}
+            value={kpi.value}
+            icon={kpi.icon}
+            delay={i * 0.05}
+          >
+            {kpi.spark && kpi.spark.some((v) => v > 0) && (
+              <div className="mt-3">
+                <Sparkline data={kpi.spark} color={kpi.color} width={200} height={32} className="w-full" />
+              </div>
+            )}
+          </StatCard>
         ))}
       </div>
 
@@ -169,90 +213,40 @@ export default function AdminAnalyticsPage() {
         </div>
       </div>
 
-      {/* Scan Volume Table */}
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold text-text">Scan Volume</h2>
-        <div className="mt-4 rounded-lg border border-border bg-surface">
-          <div className="grid grid-cols-2 border-b border-border px-6 py-3 text-sm font-medium text-text-dim">
-            <span>Date</span>
-            <span className="text-right">Scans</span>
-          </div>
-          {scansData.length === 0 ? (
-            <div className="p-6 text-center text-sm text-text-dim">
-              No scan data for this period.
-            </div>
-          ) : (
-            <div className="max-h-64 overflow-y-auto">
-              {scansData.map((entry, i) => (
-                <div
-                  key={i}
-                  className="grid grid-cols-2 border-b border-border px-6 py-2 text-sm last:border-b-0"
-                >
-                  <span className="text-text-muted">{entry.date}</span>
-                  <span className="text-right font-medium text-text">{entry.count ?? 0}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Charts */}
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        <ChartCard
+          title="Scan Volume"
+          subtitle="Total QR scans over time"
+          className="lg:col-span-2"
+        >
+          <AreaChart data={scanSeries} color="primary" ariaLabel="Scan volume over time" />
+        </ChartCard>
 
-      {/* Revenue Table */}
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold text-text">Revenue</h2>
-        <div className="mt-4 rounded-lg border border-border bg-surface">
-          <div className="grid grid-cols-2 border-b border-border px-6 py-3 text-sm font-medium text-text-dim">
-            <span>Date</span>
-            <span className="text-right">Amount (AUD)</span>
-          </div>
-          {revenueData.length === 0 ? (
-            <div className="p-6 text-center text-sm text-text-dim">
-              No revenue data for this period.
-            </div>
-          ) : (
-            <div className="max-h-64 overflow-y-auto">
-              {revenueData.map((entry, i) => (
-                <div
-                  key={i}
-                  className="grid grid-cols-2 border-b border-border px-6 py-2 text-sm last:border-b-0"
-                >
-                  <span className="text-text-muted">{entry.date}</span>
-                  <span className="text-right font-medium text-primary">
-                    ${((entry.amountCents ?? 0) / 100).toFixed(2)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+        <ChartCard title="Revenue" subtitle="Order revenue (AUD)">
+          <BarChart
+            data={revenueSeries}
+            color="success"
+            ariaLabel="Revenue over time"
+            formatValue={(v) => `$${v.toLocaleString('en-AU', { maximumFractionDigits: 0 })}`}
+          />
+        </ChartCard>
 
-      {/* Tag Creation Table */}
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold text-text">Tag Registrations</h2>
-        <div className="mt-4 rounded-lg border border-border bg-surface">
-          <div className="grid grid-cols-2 border-b border-border px-6 py-3 text-sm font-medium text-text-dim">
-            <span>Date</span>
-            <span className="text-right">Tags Created</span>
-          </div>
-          {tagsData.length === 0 ? (
-            <div className="p-6 text-center text-sm text-text-dim">
-              No tag data for this period.
-            </div>
-          ) : (
-            <div className="max-h-64 overflow-y-auto">
-              {tagsData.map((entry, i) => (
-                <div
-                  key={i}
-                  className="grid grid-cols-2 border-b border-border px-6 py-2 text-sm last:border-b-0"
-                >
-                  <span className="text-text-muted">{entry.date}</span>
-                  <span className="text-right font-medium text-text">{entry.count ?? 0}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <ChartCard title="Tag Registrations" subtitle="New tags created">
+          <AreaChart data={tagSeries} color="accent" ariaLabel="Tag registrations over time" />
+        </ChartCard>
+
+        <ChartCard title="Tag Health" subtitle="Current status breakdown" className="lg:col-span-2">
+          <DonutChart
+            segments={[
+              { label: 'Active', value: activeTags, color: 'success' },
+              { label: 'Expiring (30d)', value: expiringSoon, color: 'warning' },
+              { label: 'Other', value: otherTags, color: 'text-muted' },
+            ]}
+            centerLabel={(overview?.totalTags ?? 0).toLocaleString()}
+            centerSublabel="total tags"
+          />
+        </ChartCard>
       </div>
     </div>
   );

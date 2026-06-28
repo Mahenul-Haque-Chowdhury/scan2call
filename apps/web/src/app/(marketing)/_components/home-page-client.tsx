@@ -9,7 +9,7 @@ import {
   PawPrint, Car, Luggage, KeyRound, HeartPulse, ArrowRight,
   EyeOff, ShieldCheck, Lock, Globe, Star,
 } from 'lucide-react';
-import { FadeIn, StaggerContainer, StaggerItem } from '@/components/ui/motion';
+import { FadeIn, StaggerContainer, StaggerItem, CountUp } from '@/components/ui/motion';
 import { useAuth } from '@/providers/auth-provider';
 
 const products = [
@@ -344,6 +344,9 @@ export default function HomePageClient() {
         </div>
       </section>
 
+      {/* ─── Trust Stats Band ─────────────────────── */}
+      <StatsBand />
+
       {/* ─── Product Showcase ─────────────────────── */}
       <section className="py-20 relative overflow-hidden">
         <div className="absolute inset-0 gradient-mesh-strong opacity-30" />
@@ -520,6 +523,50 @@ export default function HomePageClient() {
         </div>
       </section>
     </>
+  );
+}
+
+/* ── Trust Stats Band ────────────────────────────── */
+
+interface StatItem {
+  value?: number;
+  prefix?: string;
+  suffix?: string;
+  display?: string;
+  label: string;
+  sub: string;
+}
+
+const trustStats: StatItem[] = [
+  { value: 100, suffix: '%', label: 'Anonymous relay', sub: 'Your details stay hidden' },
+  { value: 3, label: 'Ways to reach you', sub: 'Call · SMS · WhatsApp' },
+  { prefix: '$', display: '7.25', label: 'Starting price / year', sub: 'No subscription required' },
+  { display: '24/7', label: 'Always-on protection', sub: 'Relay never sleeps' },
+];
+
+function StatsBand() {
+  return (
+    <section className="relative border-y border-border overflow-hidden bg-surface/30">
+      <div className="absolute inset-0 gradient-mesh opacity-40" />
+      <div className="relative mx-auto max-w-7xl px-6 py-12 sm:py-14">
+        <StaggerContainer
+          stagger={0.1}
+          className="grid grid-cols-2 gap-x-6 gap-y-10 lg:grid-cols-4"
+        >
+          {trustStats.map((stat) => (
+            <StaggerItem key={stat.label} className="text-center">
+              <div className="font-display text-4xl sm:text-5xl font-bold tracking-tight text-gradient">
+                {stat.prefix}
+                {stat.value !== undefined ? <CountUp value={stat.value} duration={1.6} /> : stat.display}
+                {stat.suffix}
+              </div>
+              <div className="mt-2 text-sm font-semibold text-text">{stat.label}</div>
+              <div className="mt-0.5 text-xs text-text-muted">{stat.sub}</div>
+            </StaggerItem>
+          ))}
+        </StaggerContainer>
+      </div>
+    </section>
   );
 }
 
