@@ -22,11 +22,17 @@ interface BlogResponse {
 }
 
 export const metadata = createMetadata({
-  title: 'Blog',
+  title: 'Blog - QR Tag Guides & Lost & Found Tips',
   description:
-    'Guides and updates from Scan2Call about QR identity tags, lost item recovery, privacy, and safer contact.',
+    'Guides and updates from Scan2Call on QR identity tags, lost item recovery, pet and luggage safety, and privacy-first contact.',
   path: '/blog',
-  keywords: ['scan2call blog', 'qr tag guides', 'lost item recovery', 'anonymous contact'],
+  keywords: [
+    'QR tag guides',
+    'lost and found tips',
+    'pet safety QR tag',
+    'luggage tracking tips',
+    'QR tag blog',
+  ],
 });
 
 async function getPosts(): Promise<BlogResponse> {

@@ -13,11 +13,12 @@ export const metadata = createMetadata({
   description: SITE_DESCRIPTION,
   path: '/',
   keywords: [
-    'privacy-first qr tags',
-    'lost item recovery',
-    'anonymous contact relay',
-    'qr identity tag',
-    'scan2call',
+    'privacy-first QR tags',
+    'QR pet tag',
+    'QR luggage tag',
+    'lost item recovery Australia',
+    'scan QR to contact owner',
+    'anonymous lost and found',
   ],
 });
 

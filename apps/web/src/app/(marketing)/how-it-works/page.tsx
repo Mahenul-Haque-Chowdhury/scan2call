@@ -2,11 +2,17 @@ import HowItWorksClient from './_components/how-it-works-client';
 import { absoluteUrl, createMetadata, createBreadcrumbSchema } from '@/lib/seo';
 
 export const metadata = createMetadata({
-  title: 'How it Works',
+  title: 'How It Works - Anonymous QR Lost & Found',
   description:
-    'Discover how Scan2Call QR tags protect your privacy while making it easy for finders to contact you.',
+    'See how Scan2Call QR tags reunite you with lost items while keeping your phone number, email, and address private. Scan, relay, reconnect - no app needed for finders.',
   path: '/how-it-works',
-  keywords: ['how scan2call works', 'qr tag privacy', 'anonymous contact relay'],
+  keywords: [
+    'how QR lost and found works',
+    'how Scan2Call works',
+    'anonymous QR contact',
+    'QR tag privacy',
+    'scan QR to contact owner',
+  ],
 });
 
 const howToSteps = [

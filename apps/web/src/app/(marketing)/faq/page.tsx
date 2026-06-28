@@ -3,10 +3,17 @@ import { createMetadata, absoluteUrl, SITE_NAME } from '@/lib/seo';
 import { faqCategories } from './faq-data';
 
 export const metadata = createMetadata({
-  title: 'FAQ',
-  description: 'Frequently asked questions about Scan2Call QR identity tags and privacy-first lost item recovery.',
+  title: 'FAQ - QR Tags, Pricing, Privacy & Renewals',
+  description:
+    'Answers to common questions about Scan2Call QR identity tags: how the anonymous relay works, pricing and renewals, activation, and privacy.',
   path: '/faq',
-  keywords: ['scan2call faq', 'qr tag questions', 'lost item recovery help'],
+  keywords: [
+    'Scan2Call FAQ',
+    'QR tag questions',
+    'how does a QR tag work',
+    'QR tag renewal',
+    'lost item recovery help',
+  ],
 });
 
 export default function FAQPage() {

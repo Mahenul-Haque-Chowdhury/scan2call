@@ -30,6 +30,21 @@ export const SOCIAL_LINKS = {
   linkedin: 'https://www.linkedin.com/company/117574338/',
   facebook: 'https://www.facebook.com/Scan2Call',
 } as const;
+
+// Brand + category keywords merged into every page's metadata. Page-specific
+// keywords are added on top (and de-duplicated) by createMetadata.
+export const BASE_KEYWORDS = [
+  'Scan2Call',
+  'QR identity tags',
+  'QR tags Australia',
+  'lost and found QR tag',
+  'lost item recovery',
+  'anonymous contact relay',
+  'pet ID QR tag',
+  'luggage QR tag',
+  'medical ID tag',
+  'Find My QR tag',
+];
 export const PUBLIC_SITE_LINKS = [
   { path: '/', name: 'Home' },
   { path: '/how-it-works', name: 'How It Works' },
@@ -143,10 +158,15 @@ export function createMetadata(input: {
         },
       ];
 
+  // Merge base brand/category keywords with page-specific ones (de-duplicated).
+  const keywords = Array.from(
+    new Set([...BASE_KEYWORDS, ...(input.keywords ?? [])]),
+  );
+
   return {
     title: input.title,
     description: input.description,
-    keywords: input.keywords,
+    keywords,
     alternates: { canonical: url },
     openGraph: {
       title: input.title,

@@ -62,7 +62,12 @@ export async function generateMetadata({
     description,
     path: `/store/${product.slug}`,
     images: ogImages,
-    keywords: ['scan2call store', 'qr identity tag', product.name.toLowerCase()],
+    keywords: [
+      product.name,
+      `buy ${product.name.toLowerCase()}`,
+      `${product.name.toLowerCase()} Australia`,
+      'QR identity tag',
+    ],
     noindex: !product.isActive,
   });
 }
