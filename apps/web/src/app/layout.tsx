@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Space_Grotesk, DM_Sans } from 'next/font/google';
 import './globals.css';
 import { CookieConsent } from '@/components/cookie-consent';
@@ -52,6 +52,7 @@ export const metadata: Metadata = {
     url: siteUrl,
     siteName: SITE_NAME,
     type: 'website',
+    locale: 'en_AU',
     images: [
       {
         url: DEFAULT_OG_IMAGE,
@@ -84,6 +85,13 @@ export const metadata: Metadata = {
     google: googleVerification,
     other: Object.keys(verificationOther).length ? verificationOther : undefined,
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+    { media: '(prefers-color-scheme: light)', color: '#fafaf9' },
+  ],
 };
 
 const themeScript = `

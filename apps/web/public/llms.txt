@@ -1,0 +1,38 @@
+# Scan2Call
+
+Scan2Call is a privacy-first QR identity tag system that helps reunite lost items with their owners. It is a product of ZTEC Group Pty Ltd (ABN 82 697 931 445), Australia, and is developed by GrayVally Software Solutions.
+
+## Key Facts
+- Product: Scan2Call (QR identity tags and anonymous contact relay)
+- Owner: ZTEC Group Pty Ltd (ABN 82 697 931 445), Australia
+- Developer: GrayVally Software Solutions (https://grayvally.tech)
+- Primary site: https://scan2call.com.au
+
+## What Scan2Call Does
+- Lets finders contact owners without revealing the owner's personal details
+- Routes phone calls, SMS, and WhatsApp through an anonymous relay
+- Works without any app for the person who finds the item
+- The QR tag is the paid product and is active for a chosen term (1 to 5 years), with optional auto-renewal
+
+## Pricing (AUD)
+- Stickers and tags (Car, Luggage, Passport/Standard): $7.25 per year
+- Medical ID Band: $14.49 per year
+- Find My devices (Pet Collar, Keychain): $29.99 including the first year, then $7.25 per year to renew the QR
+- Shipping: $5 flat within Australia, $10 flat worldwide
+
+## Important Pages
+- Home: https://scan2call.com.au/
+- How it works: https://scan2call.com.au/how-it-works
+- Pricing: https://scan2call.com.au/pricing
+- Store: https://scan2call.com.au/store
+- FAQ: https://scan2call.com.au/faq
+- Privacy: https://scan2call.com.au/privacy
+- Terms: https://scan2call.com.au/terms
+- Contact: https://scan2call.com.au/contact
+
+## Data & Privacy
+- Data residency: Australia (Sydney, ap-southeast-2)
+- Privacy policy: https://scan2call.com.au/privacy
+
+## Contact
+- Email: contact@scan2call.com.au

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import ProductDetailClient, { Product } from './product-detail-client';
-import { absoluteUrl, createMetadata } from '@/lib/seo';
+import { absoluteUrl, createMetadata, createBreadcrumbSchema, SITE_NAME } from '@/lib/seo';
 import { getApiOrigin } from '@/lib/api-origin';
 
 const API_BASE = getApiOrigin();
@@ -85,6 +85,18 @@ export default async function ProductDetailPage({
 
   const product = result.product;
 
+  // Find My devices (Pet Collar, Keychain) are priced as a flat device price that
+  // includes year 1; everything else is the per-year QR price.
+  const offerPriceInCents =
+    product.hasFindMy && product.devicePriceInCents
+      ? product.devicePriceInCents
+      : product.priceInCents;
+
+  // Offers should carry a validity date; use ~1 year out.
+  const priceValidUntilDate = new Date();
+  priceValidUntilDate.setFullYear(priceValidUntilDate.getFullYear() + 1);
+  const priceValidUntil = priceValidUntilDate.toISOString().slice(0, 10);
+
   const productSchema = {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -94,24 +106,37 @@ export default async function ProductDetailPage({
     sku: product.sku,
     brand: {
       '@type': 'Brand',
-      name: 'Scan2Call',
+      name: SITE_NAME,
     },
     offers: {
       '@type': 'Offer',
       url: absoluteUrl(`/store/${product.slug}`),
       priceCurrency: 'AUD',
-      price: (product.priceInCents / 100).toFixed(2),
+      price: (offerPriceInCents / 100).toFixed(2),
+      priceValidUntil,
+      itemCondition: 'https://schema.org/NewCondition',
       availability: product.isInStock
         ? 'https://schema.org/InStock'
         : 'https://schema.org/OutOfStock',
+      seller: { '@type': 'Organization', name: SITE_NAME },
     },
   };
+
+  const breadcrumbSchema = createBreadcrumbSchema([
+    { name: 'Home', path: '/' },
+    { name: 'Store', path: '/store' },
+    { name: product.name, path: `/store/${product.slug}` },
+  ]);
 
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
       <ProductDetailClient initialProduct={product} />
     </>

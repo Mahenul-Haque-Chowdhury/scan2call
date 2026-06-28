@@ -9,10 +9,29 @@ interface Product {
   updatedAt: string;
 }
 
+interface BlogPost {
+  slug: string;
+  publishedAt: string | null;
+  updatedAt?: string;
+}
+
 async function fetchProducts(): Promise<Product[]> {
   try {
     const res = await fetch(`${API_URL}/api/v1/products`, {
       next: { revalidate: 3600 }, // Cache for 1 hour
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.data || [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchBlogPosts(): Promise<BlogPost[]> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/blog-posts?pageSize=200`, {
+      next: { revalidate: 3600 },
     });
     if (!res.ok) return [];
     const data = await res.json();
@@ -61,8 +80,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  // Fetch product slugs from API for dynamic product pages
-  const products = await fetchProducts();
+  // Fetch dynamic product + blog pages from the API.
+  const [products, posts] = await Promise.all([fetchProducts(), fetchBlogPosts()]);
+
   const productPages: MetadataRoute.Sitemap = products.map((product) => ({
     url: `${BASE_URL}/store/${product.slug}`,
     lastModified: new Date(product.updatedAt),
@@ -70,5 +90,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  return [...staticPages, ...productPages];
+  const blogPages: MetadataRoute.Sitemap = posts.map((post) => ({
+    url: `${BASE_URL}/blog/${post.slug}`,
+    lastModified: post.updatedAt || post.publishedAt ? new Date(post.updatedAt || post.publishedAt || '') : new Date(),
+    changeFrequency: 'monthly' as const,
+    priority: 0.6,
+  }));
+
+  return [...staticPages, ...productPages, ...blogPages];
 }

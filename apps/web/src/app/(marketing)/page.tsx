@@ -4,6 +4,7 @@ import {
   SITE_NAME,
   absoluteUrl,
   createMetadata,
+  createOrganizationSchema,
   createSiteNavigationSchema,
 } from '@/lib/seo';
 
@@ -21,52 +22,16 @@ export const metadata = createMetadata({
 });
 
 export default function HomePage() {
-  const organizationSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: SITE_NAME,
-    url: absoluteUrl('/'),
-    logo: absoluteUrl('/sca2call-logo.png'),
-    parentOrganization: {
-      '@type': 'Organization',
-      name: 'ZTAC Group',
-      address: {
-        '@type': 'PostalAddress',
-        addressCountry: 'AU',
-      },
-    },
-    founder: {
-      '@type': 'Organization',
-      name: 'GrayVally Software Solutions',
-      url: 'https://grayvally.tech',
-    },
-    sameAs: [
-      'https://scan2call.com.au',
-    ],
-  };
-
-  const grayvallySchema = {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: 'GrayVally Software Solutions',
-    url: 'https://grayvally.tech',
-  };
-
-  const ztacSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: 'ZTAC Group',
-    address: {
-      '@type': 'PostalAddress',
-      addressCountry: 'AU',
-    },
-  };
+  const organizationSchema = createOrganizationSchema();
 
   const websiteSchema = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
     name: SITE_NAME,
+    description: SITE_DESCRIPTION,
     url: absoluteUrl('/'),
+    inLanguage: 'en-AU',
+    publisher: { '@type': 'Organization', name: SITE_NAME, url: absoluteUrl('/') },
     potentialAction: {
       '@type': 'SearchAction',
       target: `${absoluteUrl('/store')}?q={search_term_string}`,
@@ -80,14 +45,6 @@ export default function HomePage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(grayvallySchema) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(ztacSchema) }}
       />
       <script
         type="application/ld+json"

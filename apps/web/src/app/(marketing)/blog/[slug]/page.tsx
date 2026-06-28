@@ -1,7 +1,13 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, CalendarDays } from 'lucide-react';
-import { createMetadata } from '@/lib/seo';
+import {
+  SITE_NAME,
+  absoluteUrl,
+  createMetadata,
+  createBreadcrumbSchema,
+  DEFAULT_OG_IMAGE,
+} from '@/lib/seo';
 import { getApiOrigin } from '@/lib/api-origin';
 
 interface BlogPost {
@@ -105,8 +111,47 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
     ? `${post.author.firstName} ${post.author.lastName}`.trim()
     : 'Scan2Call';
 
+  const publishedIso = post.publishedAt || post.createdAt;
+  const blogPostingSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: post.title,
+    description: post.metaDescription || post.excerpt,
+    image: [post.coverImageUrl || absoluteUrl(DEFAULT_OG_IMAGE)],
+    datePublished: publishedIso,
+    dateModified: publishedIso,
+    inLanguage: 'en-AU',
+    url: absoluteUrl(`/blog/${post.slug}`),
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': absoluteUrl(`/blog/${post.slug}`),
+    },
+    author: { '@type': 'Organization', name: authorName, url: absoluteUrl('/') },
+    publisher: {
+      '@type': 'Organization',
+      name: SITE_NAME,
+      logo: { '@type': 'ImageObject', url: absoluteUrl('/sca2call-logo.png') },
+    },
+    ...(post.tags.length ? { keywords: post.tags.join(', ') } : {}),
+    ...(post.category ? { articleSection: post.category } : {}),
+  };
+
+  const breadcrumbSchema = createBreadcrumbSchema([
+    { name: 'Home', path: '/' },
+    { name: 'Blog', path: '/blog' },
+    { name: post.title, path: `/blog/${post.slug}` },
+  ]);
+
   return (
     <main className="min-h-screen bg-bg">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(blogPostingSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
       <article>
         <header className="border-b border-border bg-surface">
           <div className="mx-auto max-w-4xl px-6 pb-10 pt-28">
@@ -141,7 +186,7 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
               <img
                 src={post.coverImageUrl}
                 alt={post.title}
-                className="aspect-[16/8] w-full rounded-xl border border-border object-cover"
+                className="aspect-16/8 w-full rounded-xl border border-border object-cover"
               />
             </div>
           )}
