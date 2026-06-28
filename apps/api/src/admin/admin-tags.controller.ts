@@ -44,20 +44,28 @@ export class AdminTagsController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: 'List all tags (paginated, filterable)' })
+  @ApiOperation({ summary: 'List all tags (paginated, filterable, sortable)' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'pageSize', required: false, type: Number })
   @ApiQuery({ name: 'status', required: false, enum: TagStatus })
   @ApiQuery({ name: 'type', required: false, enum: TagType })
   @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'sort', required: false, enum: ['createdAt', 'expiresAt', 'status', 'type', 'token'] })
+  @ApiQuery({ name: 'order', required: false, enum: ['asc', 'desc'] })
+  @ApiQuery({ name: 'assigned', required: false, enum: ['assigned', 'unassigned'] })
+  @ApiQuery({ name: 'autoRenew', required: false, enum: ['true', 'false'] })
   async listTags(
     @Query('page') page?: number,
     @Query('pageSize') pageSize?: number,
     @Query('status') status?: PrismaTagStatus,
     @Query('type') type?: PrismaTagType,
     @Query('search') search?: string,
+    @Query('sort') sort?: string,
+    @Query('order') order?: string,
+    @Query('assigned') assigned?: string,
+    @Query('autoRenew') autoRenew?: string,
   ) {
-    return this.adminService.listTags({ page, pageSize, status, type, search });
+    return this.adminService.listTags({ page, pageSize, status, type, search, sort, order, assigned, autoRenew });
   }
 
   @Post('assign')

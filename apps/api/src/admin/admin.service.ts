@@ -388,6 +388,10 @@ export class AdminService {
     status?: TagStatus;
     type?: TagType;
     search?: string;
+    sort?: string;
+    order?: string;
+    assigned?: string;
+    autoRenew?: string;
   }) {
     const page = params.page || 1;
     const pageSize = Math.min(params.pageSize || 20, 100);
@@ -403,19 +407,38 @@ export class AdminService {
     if (params.type) {
       where.type = params.type;
     }
+    if (params.assigned === 'assigned') {
+      where.ownerId = { not: null };
+    } else if (params.assigned === 'unassigned') {
+      where.ownerId = null;
+    }
+    if (params.autoRenew === 'true') {
+      where.autoRenew = true;
+    } else if (params.autoRenew === 'false') {
+      where.autoRenew = false;
+    }
     if (params.search) {
+      const search = params.search.trim();
       where.OR = [
-        { token: { contains: params.search } },
-        { label: { contains: params.search, mode: 'insensitive' } },
+        { token: { contains: search } },
+        { label: { contains: search, mode: 'insensitive' } },
+        { owner: { is: { email: { contains: search, mode: 'insensitive' } } } },
+        { owner: { is: { firstName: { contains: search, mode: 'insensitive' } } } },
+        { owner: { is: { lastName: { contains: search, mode: 'insensitive' } } } },
       ];
     }
+
+    // Sorting: validated against an allowlist, default newest first.
+    const SORTABLE = new Set(['createdAt', 'expiresAt', 'status', 'type', 'token']);
+    const sortField = SORTABLE.has(params.sort ?? '') ? (params.sort as string) : 'createdAt';
+    const sortOrder = params.order === 'asc' ? 'asc' : 'desc';
 
     const [tags, total] = await Promise.all([
       this.prisma.tag.findMany({
         where,
         skip,
         take: pageSize,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { [sortField]: sortOrder },
         select: {
           id: true,
           token: true,
@@ -426,6 +449,9 @@ export class AdminService {
           isLostMode: true,
           batchId: true,
           createdAt: true,
+          expiresAt: true,
+          autoRenew: true,
+          activatedAt: true,
           owner: {
             select: { id: true, email: true, firstName: true, lastName: true },
           },
