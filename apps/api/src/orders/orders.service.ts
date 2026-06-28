@@ -190,28 +190,42 @@ export class OrdersService {
     }
 
     // Create Stripe Checkout session
-    const session = await this.stripeClient.checkout.sessions.create({
-      mode: 'payment',
-      customer: stripeCustomerId,
-      customer_email: stripeCustomerId ? undefined : user.email,
-      managed_payments: {
-        enabled: true,
-      },
-      line_items: lineItems,
-      // Save the card off-session so the renewal cron can charge it later.
-      ...(anyAutoRenew
-        ? { payment_intent_data: { setup_future_usage: 'off_session' } }
-        : {}),
-      metadata: {
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        userId,
-      },
-      success_url: `${this.config.getOrThrow<string>('APP_URL')}/checkout/success?orderId=${order.id}`,
-      cancel_url: `${this.config.getOrThrow<string>('APP_URL')}/store?status=cancelled`,
-    } as Stripe.Checkout.SessionCreateParams, {
-      apiVersion: STRIPE_MANAGED_PAYMENTS_API_VERSION,
-    });
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await this.stripeClient.checkout.sessions.create({
+        mode: 'payment',
+        customer: stripeCustomerId,
+        customer_email: stripeCustomerId ? undefined : user.email,
+        managed_payments: {
+          enabled: true,
+        },
+        line_items: lineItems,
+        // Save the card off-session so the renewal cron can charge it later.
+        ...(anyAutoRenew
+          ? { payment_intent_data: { setup_future_usage: 'off_session' } }
+          : {}),
+        metadata: {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          userId,
+        },
+        success_url: `${this.config.getOrThrow<string>('APP_URL')}/checkout/success?orderId=${order.id}`,
+        cancel_url: `${this.config.getOrThrow<string>('APP_URL')}/store?status=cancelled`,
+      } as Stripe.Checkout.SessionCreateParams, {
+        apiVersion: STRIPE_MANAGED_PAYMENTS_API_VERSION,
+      });
+    } catch (err) {
+      const stripeErr = err as Stripe.errors.StripeError;
+      // Surface the real Stripe reason instead of a generic 500 so it is visible
+      // in the logs and to the user (e.g. tax not active, no such customer).
+      this.logger.error(
+        `Stripe checkout session failed for order ${orderNumber}: ` +
+          `type=${stripeErr.type} code=${stripeErr.code} param=${stripeErr.param} message=${stripeErr.message}`,
+      );
+      throw new BadRequestException(
+        stripeErr.message || 'Failed to create checkout session',
+      );
+    }
 
     this.logger.log(`Checkout session ${session.id} created for order ${orderNumber}`);
 
