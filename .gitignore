@@ -55,6 +55,7 @@ apps/api/src/generated/
 *.crt
 *.sql
 !prisma/migrations/*/migration.sql
+!prisma/seed-blog.sql
 *.sql.gz
 *.tgz
 *.zip
