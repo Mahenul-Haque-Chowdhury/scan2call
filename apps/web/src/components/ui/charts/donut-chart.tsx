@@ -35,15 +35,16 @@ export function DonutChart({
   const cx = size / 2;
   const cy = size / 2;
 
-  let cursor = 0;
-  const arcs = segments
-    .filter((s) => s.value > 0)
-    .map((s) => {
-      const startAngle = (cursor / Math.max(total, 1)) * 360;
-      cursor += s.value;
-      const endAngle = (cursor / Math.max(total, 1)) * 360;
-      return { ...s, startAngle, endAngle };
-    });
+  const denom = Math.max(total, 1);
+  const visible = segments.filter((s) => s.value > 0);
+  const arcs = visible.map((s, i) => {
+    const offset = visible.slice(0, i).reduce((sum, prev) => sum + prev.value, 0);
+    return {
+      ...s,
+      startAngle: (offset / denom) * 360,
+      endAngle: ((offset + s.value) / denom) * 360,
+    };
+  });
 
   return (
     <div className={className}>
