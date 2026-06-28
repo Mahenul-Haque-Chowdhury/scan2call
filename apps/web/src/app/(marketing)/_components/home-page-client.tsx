@@ -319,7 +319,7 @@ export default function HomePageClient() {
                   href={getStartedHref}
                   className="group inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-4 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary-hover glow-md hover:glow-lg hover:scale-[1.03] active:scale-[0.98]"
                 >
-                  Get Started - from $7.25/yr
+                  Get Your Tag - from $7.25
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>
                 <Link
@@ -534,7 +534,7 @@ interface StatItem {
   suffix?: string;
   display?: string;
   label: string;
-  sub: string;
+  sub?: string;
   /** Optional highlight pill shown beneath the sub-line (e.g. "Always free"). */
   badge?: string;
 }
@@ -542,7 +542,7 @@ interface StatItem {
 const trustStats: StatItem[] = [
   { value: 100, suffix: '%', label: 'Anonymous relay', sub: 'Your details stay hidden' },
   { value: 3, label: 'Ways to reach you', sub: 'Call · SMS · WhatsApp', badge: 'Always free' },
-  { prefix: '$', display: '7.25', label: 'Starting price / year', sub: 'No subscription required' },
+  { prefix: '$', display: '7.25', label: 'Per tag, billed yearly', badge: 'No subscription Required' },
   { display: '24/7', label: 'Always-on protection', sub: 'Relay never sleeps' },
 ];
 
@@ -550,10 +550,10 @@ function StatsBand() {
   return (
     <section className="relative border-y border-border overflow-hidden bg-surface/30">
       <div className="absolute inset-0 gradient-mesh opacity-40" />
-      <div className="relative mx-auto max-w-7xl px-6 py-12 sm:py-14">
+      <div className="relative mx-auto max-w-7xl px-6 py-8 sm:py-9">
         <StaggerContainer
           stagger={0.1}
-          className="grid grid-cols-2 gap-x-6 gap-y-10 lg:grid-cols-4"
+          className="grid grid-cols-2 gap-x-6 gap-y-8 lg:grid-cols-4"
         >
           {trustStats.map((stat) => (
             <StaggerItem key={stat.label} className="flex flex-col items-center text-center">
@@ -563,7 +563,7 @@ function StatsBand() {
                 {stat.suffix}
               </div>
               <div className="mt-2 text-sm font-semibold text-text">{stat.label}</div>
-              <div className="mt-0.5 text-xs text-text-muted">{stat.sub}</div>
+              {stat.sub && <div className="mt-0.5 text-xs text-text-muted">{stat.sub}</div>}
               {stat.badge && (
                 <span className="mt-2 inline-flex items-center gap-1 rounded-full border border-success/30 bg-success-muted px-2.5 py-0.5 text-[11px] font-semibold text-success">
                   <span className="relative flex h-1.5 w-1.5">
