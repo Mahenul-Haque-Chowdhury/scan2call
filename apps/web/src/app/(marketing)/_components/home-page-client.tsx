@@ -24,7 +24,7 @@ const products = [
   },
   {
     name: 'Pet Collar Tag',
-    description: 'Keep your furry friends safe with scannable collar tags. Works with Apple Find My and Google Find My Device.',
+    description: 'Keep your furry friends safe with scannable collar tags.',
     icon: PawPrint,
     image: '/images/products/pet-collar-tag.png',
     iconColor: 'text-amber-400',
@@ -34,7 +34,7 @@ const products = [
   },
   {
     name: 'Keychain Tag',
-    description: 'Attach to keys, bags, or anything you carry daily. Works with Apple Find My and Google Find My Device.',
+    description: 'Attach to keys, bags, or anything you carry daily.',
     icon: KeyRound,
     image: '/images/products/keychain-tag.png',
     iconColor: 'text-emerald-400',
@@ -52,7 +52,7 @@ const products = [
     price: '$7.25/yr',
   },
   {
-    name: 'Passport Sticker & Standard Stickers',
+    name: 'Passport & Standard Stickers',
     description: 'Low-profile stickers for passports, notebooks, and everyday gear.',
     icon: QrCode,
     image: '/images/products/passport.png',
@@ -631,13 +631,13 @@ function ProductCard({ product }: { product: Product }) {
           }`}
         >
           <div className="absolute inset-0 flex flex-col backface-hidden">
-            <div className="relative h-52 bg-linear-to-b from-surface-raised/50 to-surface/50 overflow-hidden">
+            <div className="relative aspect-4/3 bg-linear-to-b from-surface-raised/50 to-surface/50 overflow-hidden">
               <Image
                 src={product.image}
                 alt={product.name}
                 fill
                 className="object-cover transition-transform duration-700 group-hover:scale-110"
-                sizes="(max-width: 768px) 100vw, 33vw"
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               />
               <div className="absolute inset-0 bg-linear-to-t from-surface via-transparent to-transparent opacity-60" />
 
@@ -658,16 +658,16 @@ function ProductCard({ product }: { product: Product }) {
               )}
             </div>
 
-            <div className="p-5 flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-raised border border-border">
+            <div className="flex flex-1 flex-col p-5">
+              <div className="mb-2 flex items-start gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-raised border border-border">
                   <product.icon className={`h-4 w-4 ${product.iconColor}`} />
                 </div>
-                <h3 className="text-base font-semibold tracking-tight group-hover:text-primary transition-colors duration-300">
+                <h3 className="line-clamp-2 min-h-12 text-base font-semibold leading-tight tracking-tight group-hover:text-primary transition-colors duration-300">
                   {product.name}
                 </h3>
               </div>
-              <p className="text-sm text-text-muted leading-relaxed">
+              <p className="line-clamp-2 text-sm text-text-muted leading-relaxed">
                 {product.description}
               </p>
             </div>
