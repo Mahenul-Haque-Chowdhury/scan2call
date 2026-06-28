@@ -591,11 +591,9 @@ function ProductCard({ product }: { product: Product }) {
               {product.hasFindMy && (
                 <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
                   <div className="flex h-7 w-7 items-center justify-center rounded-full bg-black/70 backdrop-blur-sm border border-white/10 p-1">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src="/images/products/apple_Find_My_logo.svg" alt="Apple Find My" className="h-full w-full object-contain" />
                   </div>
                   <div className="flex h-7 w-7 items-center justify-center rounded-full bg-black/70 backdrop-blur-sm border border-white/10 p-1">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src="/images/products/Google_Find_My_Device_2023.svg.png" alt="Google Find My Device" className="h-full w-full object-contain" />
                   </div>
                 </div>

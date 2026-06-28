@@ -5,7 +5,11 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { calculateTagUnitPriceInCents } from '@scan2call/shared';
+import {
+  calculateTagUnitPriceInCents,
+  calculateShippingInCents,
+  SHIPPING_AUSTRALIA_IN_CENTS,
+} from '@scan2call/shared';
 import { PrismaService } from '../database/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto } from './dto/order-query.dto';
@@ -107,7 +111,9 @@ export class OrdersService {
       };
     });
 
-    const totalInCents = subtotalInCents; // Shipping/tax can be added later
+    // Flat shipping fee based on destination ($5 AU / $10 worldwide).
+    const shippingInCents = calculateShippingInCents(dto.shippingCountry);
+    const totalInCents = subtotalInCents + shippingInCents;
 
     // Create order in PENDING status
     const order = await this.prisma.order.create({
@@ -116,6 +122,7 @@ export class OrdersService {
         userId,
         status: OrderStatus.PENDING,
         subtotalInCents,
+        shippingInCents,
         totalInCents,
         shippingFirstName: dto.shippingFirstName,
         shippingLastName: dto.shippingLastName,
@@ -162,6 +169,23 @@ export class OrdersService {
       }),
     );
 
+    // Add shipping as its own line so it shows up in the Stripe total and amount_total.
+    if (shippingInCents > 0) {
+      lineItems.push({
+        price_data: {
+          currency: 'aud',
+          product_data: {
+            name:
+              shippingInCents === SHIPPING_AUSTRALIA_IN_CENTS
+                ? 'Shipping (Australia)'
+                : 'Shipping (Worldwide)',
+          },
+          unit_amount: shippingInCents,
+        },
+        quantity: 1,
+      });
+    }
+
     // Create Stripe Checkout session
     const session = await this.stripeClient.checkout.sessions.create({
       mode: 'payment',
@@ -180,7 +204,7 @@ export class OrdersService {
         orderNumber: order.orderNumber,
         userId,
       },
-      success_url: `${this.config.getOrThrow<string>('APP_URL')}/store/checkout/success?orderId=${order.id}`,
+      success_url: `${this.config.getOrThrow<string>('APP_URL')}/checkout/success?orderId=${order.id}`,
       cancel_url: `${this.config.getOrThrow<string>('APP_URL')}/store?status=cancelled`,
     } as Stripe.Checkout.SessionCreateParams, {
       apiVersion: STRIPE_MANAGED_PAYMENTS_API_VERSION,

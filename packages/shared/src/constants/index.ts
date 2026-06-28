@@ -10,3 +10,9 @@ export {
   calculateTagUnitPriceInCents,
 } from './tag-pricing';
 export type { TagPriceInput } from './tag-pricing';
+export {
+  SHIPPING_AUSTRALIA_IN_CENTS,
+  SHIPPING_WORLDWIDE_IN_CENTS,
+  DEFAULT_SHIPPING_COUNTRY,
+  calculateShippingInCents,
+} from './shipping';
