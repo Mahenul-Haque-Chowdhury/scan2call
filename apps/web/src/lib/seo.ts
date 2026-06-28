@@ -25,6 +25,11 @@ export const COMPANY_ADDRESS = {
   postalCode: '6158',
   addressCountry: 'AU',
 } as const;
+
+export const SOCIAL_LINKS = {
+  linkedin: 'https://www.linkedin.com/company/117574338/',
+  facebook: 'https://www.facebook.com/Scan2Call',
+} as const;
 export const PUBLIC_SITE_LINKS = [
   { path: '/', name: 'Home' },
   { path: '/how-it-works', name: 'How It Works' },
@@ -86,6 +91,7 @@ export function createOrganizationSchema() {
       name: DEVELOPER_NAME,
       url: DEVELOPER_URL,
     },
+    sameAs: [SOCIAL_LINKS.linkedin, SOCIAL_LINKS.facebook],
   };
 }
 
