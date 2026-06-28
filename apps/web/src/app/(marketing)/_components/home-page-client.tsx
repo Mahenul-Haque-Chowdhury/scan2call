@@ -366,7 +366,7 @@ export default function HomePageClient() {
             </p>
           </FadeIn>
 
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {products.map((product, i) => (
               <FadeIn key={product.name} delay={i * 0.1}>
                 <ProductCard product={product} />
@@ -615,7 +615,7 @@ function ProductCard({ product }: { product: Product }) {
     <motion.div
       whileHover={{ y: -8, scale: 1.02 }}
       transition={{ type: 'spring', stiffness: 300, damping: 24 }}
-      className="group relative rounded-2xl border border-border bg-surface/80 backdrop-blur-sm overflow-hidden h-full cursor-pointer"
+      className="group relative rounded-2xl border border-border bg-surface/80 backdrop-blur-sm overflow-hidden cursor-pointer"
       onClick={handleToggleFlip}
       onMouseLeave={handleResetFlip}
       role="button"
@@ -624,13 +624,13 @@ function ProductCard({ product }: { product: Product }) {
     >
       <div className="absolute top-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-primary/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
       <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10 blur-3xl bg-linear-to-br from-primary/10 via-transparent to-primary/5" />
-      <div className="relative min-h-90 perspective-distant">
+      <div className="perspective-distant">
         <div
-          className={`relative min-h-90 transition-transform duration-900 ease-in-out will-change-transform transform-3d group-hover:transform-[rotateY(180deg)] ${
+          className={`grid transition-transform duration-900 ease-in-out will-change-transform transform-3d group-hover:transform-[rotateY(180deg)] ${
             isFlipped ? 'transform-[rotateY(180deg)]' : ''
           }`}
         >
-          <div className="absolute inset-0 flex flex-col backface-hidden">
+          <div className="col-start-1 row-start-1 flex flex-col backface-hidden">
             <div className="relative aspect-4/3 bg-linear-to-b from-surface-raised/50 to-surface/50 overflow-hidden">
               <Image
                 src={product.image}
@@ -673,15 +673,15 @@ function ProductCard({ product }: { product: Product }) {
             </div>
           </div>
 
-          <div className="absolute inset-0 flex flex-col justify-between p-5 bg-surface/95 transform-[rotateY(180deg)] backface-hidden">
+          <div className="col-start-1 row-start-1 flex flex-col justify-between gap-4 p-5 bg-surface/95 transform-[rotateY(180deg)] backface-hidden">
             <div>
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-text-dim">
                 Details
               </div>
-              <h3 className="mt-3 text-lg font-semibold text-text">
+              <h3 className="mt-3 line-clamp-2 text-lg font-semibold text-text">
                 {product.name}
               </h3>
-              <p className="mt-2 text-sm text-text-muted leading-relaxed">
+              <p className="mt-2 line-clamp-3 text-sm text-text-muted leading-relaxed">
                 {(() => {
                   const stories: Record<string, string> = {
                     'Pet Collar Tag': 'When your pet slips out, a quick scan turns a stranger into a helping hand in minutes.',
