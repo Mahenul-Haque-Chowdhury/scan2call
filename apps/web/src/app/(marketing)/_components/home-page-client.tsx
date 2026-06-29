@@ -8,6 +8,7 @@ import {
   Shield, Phone, MapPin, QrCode, User,
   PawPrint, Car, Luggage, KeyRound, HeartPulse, ArrowRight,
   EyeOff, ShieldCheck, Lock, Globe, Star,
+  MessageSquare, Wifi, DollarSign, Activity,
 } from 'lucide-react';
 import { FadeIn, StaggerContainer, StaggerItem, CountUp } from '@/components/ui/motion';
 import { useAuth } from '@/providers/auth-provider';
@@ -528,54 +529,219 @@ export default function HomePageClient() {
 
 /* ── Trust Stats Band ────────────────────────────── */
 
-interface StatItem {
+const CHANNELS = [
+  { Icon: Phone, label: 'Call', color: 'text-emerald-400', bg: 'bg-emerald-400/10 border-emerald-400/20' },
+  { Icon: MessageSquare, label: 'SMS', color: 'text-blue-400', bg: 'bg-blue-400/10 border-blue-400/20' },
+  { Icon: Wifi, label: 'WhatsApp', color: 'text-green-400', bg: 'bg-green-400/10 border-green-400/20' },
+];
+
+interface StatCardConfig {
+  id: string;
+  icon: React.ComponentType<{ className?: string }>;
+  iconColor: string;
+  iconBg: string;
+  accent: string;
   value?: number;
   prefix?: string;
   suffix?: string;
   display?: string;
   label: string;
   sub?: string;
-  /** Optional highlight pill shown beneath the sub-line (e.g. "Always free"). */
   badge?: string;
+  badgeVariant?: 'success' | 'primary';
+  special?: 'channels';
 }
 
-const trustStats: StatItem[] = [
-  { value: 100, suffix: '%', label: 'Anonymous relay', sub: 'Your details stay hidden' },
-  { value: 3, label: 'Ways to reach you', sub: 'Call · SMS · WhatsApp', badge: 'Always free' },
-  { prefix: '$', display: '7.25', label: 'Per tag, billed yearly', badge: 'No subscription Required' },
-  { display: '24/7', label: 'Always-on protection', sub: 'Relay never sleeps' },
+const statCards: StatCardConfig[] = [
+  {
+    id: 'relay',
+    icon: Shield,
+    iconColor: 'text-primary',
+    iconBg: 'bg-primary/10',
+    accent: 'from-primary/60 to-primary/0',
+    value: 100,
+    suffix: '%',
+    label: 'Anonymous Relay',
+    sub: 'Your number stays private - always',
+  },
+  {
+    id: 'channels',
+    icon: Phone,
+    iconColor: 'text-emerald-400',
+    iconBg: 'bg-emerald-400/10',
+    accent: 'from-emerald-400/60 to-emerald-400/0',
+    label: 'Ways to Reach You',
+    sub: 'Finder picks how to contact you',
+    badge: 'Always free',
+    badgeVariant: 'success',
+    special: 'channels',
+  },
+  {
+    id: 'price',
+    icon: DollarSign,
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-400/10',
+    accent: 'from-amber-400/60 to-amber-400/0',
+    prefix: '$',
+    display: '7.25',
+    label: 'Per Tag, Billed Yearly',
+    badge: 'No subscription',
+    badgeVariant: 'primary',
+  },
+  {
+    id: 'uptime',
+    icon: Activity,
+    iconColor: 'text-rose-400',
+    iconBg: 'bg-rose-400/10',
+    accent: 'from-rose-400/60 to-rose-400/0',
+    display: '24/7',
+    label: 'Always-On Protection',
+    sub: 'Relay never sleeps',
+    badge: 'Live now',
+    badgeVariant: 'success',
+  },
 ];
 
 function StatsBand() {
   return (
-    <section className="relative border-y border-border overflow-hidden bg-surface/30">
-      <div className="absolute inset-0 gradient-mesh opacity-40" />
-      <div className="relative mx-auto max-w-7xl px-6 py-8 sm:py-9">
-        <StaggerContainer
-          stagger={0.1}
-          className="grid grid-cols-2 gap-x-6 gap-y-8 lg:grid-cols-4"
-        >
-          {trustStats.map((stat) => (
-            <StaggerItem key={stat.label} className="flex flex-col items-center text-center">
-              <div className="font-display text-4xl sm:text-5xl font-bold tracking-tight text-gradient">
-                {stat.prefix}
-                {stat.value !== undefined ? <CountUp value={stat.value} duration={1.6} /> : stat.display}
-                {stat.suffix}
-              </div>
-              <div className="mt-2 text-sm font-semibold text-text">{stat.label}</div>
-              {stat.sub && <div className="mt-0.5 text-xs text-text-muted">{stat.sub}</div>}
-              {stat.badge && (
-                <span className="mt-2 inline-flex items-center gap-1 rounded-full border border-success/30 bg-success-muted px-2.5 py-0.5 text-[11px] font-semibold text-success">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-70" />
-                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
-                  </span>
-                  {stat.badge}
-                </span>
-              )}
-            </StaggerItem>
-          ))}
-        </StaggerContainer>
+    <section
+      className="relative overflow-hidden"
+      style={{ background: '#0a0a0a' }}
+    >
+      {/* Ambient glow blobs */}
+      <div className="pointer-events-none absolute inset-0">
+        <div style={{
+          position: 'absolute', top: '-40%', left: '10%',
+          width: '500px', height: '500px', borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(250,204,21,0.07) 0%, transparent 70%)',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: '-40%', right: '10%',
+          width: '400px', height: '400px', borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(250,204,21,0.05) 0%, transparent 70%)',
+        }} />
+      </div>
+
+      <div className="relative mx-auto max-w-7xl px-6">
+        {/* Top border with yellow center glow */}
+        <div style={{
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent 0%, rgba(250,204,21,0.5) 50%, transparent 100%)',
+        }} />
+
+        <div className="relative grid grid-cols-2 lg:grid-cols-4 divide-x divide-white/6">
+          {/* Stat 1 - 100% */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.6, delay: 0, ease: [0.16, 1, 0.3, 1] }}
+            className="group flex flex-col items-center justify-center py-10 px-6 text-center relative"
+          >
+            <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700"
+              style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(250,204,21,0.05) 0%, transparent 70%)' }}
+            />
+            <Shield className="mb-4 h-7 w-7 text-primary opacity-80" />
+            <div className="font-display text-3xl sm:text-4xl font-black tracking-tight" style={{ color: '#FACC15', textShadow: '0 0 40px rgba(250,204,21,0.4)' }}>
+              <CountUp value={100} duration={2} />%
+            </div>
+            <div className="mt-2 text-sm font-semibold text-white/90">Anonymous Relay</div>
+            <div className="mt-1 text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Your number stays private</div>
+          </motion.div>
+
+
+
+          {/* Stat 2 - Channels */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            className="group flex flex-col items-center justify-center py-10 px-6 text-center relative"
+          >
+            <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700"
+              style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(52,211,153,0.05) 0%, transparent 70%)' }}
+            />
+            <Phone className="mb-4 h-7 w-7" style={{ color: '#34D399', opacity: 0.8 }} />
+            <div className="mb-3 flex gap-2 justify-center flex-nowrap">
+              {CHANNELS.map(({ Icon: CIcon, label, color, bg }, i) => (
+                <motion.div
+                  key={label}
+                  initial={{ opacity: 0, scale: 0.6 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: 0.2 + i * 0.1, ease: [0.16, 1, 0.3, 1] }}
+                  className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold ${bg} ${color}`}
+                >
+                  <CIcon className="h-3 w-3" />
+                  {label}
+                </motion.div>
+              ))}
+            </div>
+            <div className="text-sm font-semibold text-white/90">Ways to Reach You</div>
+            <div className="mt-1 text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Finder picks how to contact you</div>
+            <span className="mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+              <span className="relative flex h-1.5 w-1.5 shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              </span>
+              Always free
+            </span>
+          </motion.div>
+
+          {/* Stat 3 - Price */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="group flex flex-col items-center justify-center py-10 px-6 text-center relative"
+          >
+            <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700"
+              style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(251,191,36,0.05) 0%, transparent 70%)' }}
+            />
+            <DollarSign className="mb-4 h-7 w-7 text-amber-400 opacity-80" />
+            <div className="font-display text-3xl sm:text-4xl font-black tracking-tight" style={{ color: '#FACC15', textShadow: '0 0 40px rgba(250,204,21,0.4)' }}>
+              $7.25
+            </div>
+            <div className="mt-2 text-sm font-semibold text-white/90">Per Tag, Billed Yearly</div>
+            <span className="mt-3 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border border-primary/30 bg-primary/10 text-primary">
+              No subscription
+            </span>
+          </motion.div>
+
+          {/* Stat 4 - 24/7 */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.6, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            className="group flex flex-col items-center justify-center py-10 px-6 text-center relative"
+          >
+            <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700"
+              style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(251,113,133,0.05) 0%, transparent 70%)' }}
+            />
+            <Activity className="mb-4 h-7 w-7 text-rose-400 opacity-80" />
+            <div className="font-display text-3xl sm:text-4xl font-black tracking-tight" style={{ color: '#FACC15', textShadow: '0 0 40px rgba(250,204,21,0.4)' }}>
+              24/7
+            </div>
+            <div className="mt-2 text-sm font-semibold text-white/90">Always-On Protection</div>
+            <div className="mt-1 text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Relay never sleeps</div>
+            <span className="mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+              <span className="relative flex h-1.5 w-1.5 shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              </span>
+              Live now
+            </span>
+          </motion.div>
+        </div>
+
+        {/* Bottom border */}
+        <div style={{
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent 0%, rgba(250,204,21,0.5) 50%, transparent 100%)',
+        }} />
       </div>
     </section>
   );
