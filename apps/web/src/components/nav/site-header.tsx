@@ -53,7 +53,9 @@ export function SiteHeader() {
           </ul>
 
           <div className="flex items-center gap-2">
-            <CurrencySwitcher />
+            <div className="hidden md:block">
+              <CurrencySwitcher />
+            </div>
             <ThemeToggle />
             <CartDropdown />
             {!isLoading && (

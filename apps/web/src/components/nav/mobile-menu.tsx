@@ -1,9 +1,11 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Menu, ChevronRight } from 'lucide-react';
+import { X, Menu, ChevronRight, Check, Globe } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useCurrency } from '@/providers/currency-provider';
+import type { CurrencyCode } from '@/lib/currency';
 
 interface MobileMenuProps {
   isOpen: boolean;
@@ -86,6 +88,11 @@ const ctaVariants = {
 
 export function MobileMenu({ isOpen, onClose, links, cta }: MobileMenuProps) {
   const pathname = usePathname();
+  const { currency, setCurrency, options } = useCurrency();
+  const currencyEntries = Object.entries(options) as [
+    CurrencyCode,
+    (typeof options)[CurrencyCode],
+  ][];
 
   return (
     <AnimatePresence mode="wait">
@@ -159,6 +166,35 @@ export function MobileMenu({ isOpen, onClose, links, cta }: MobileMenuProps) {
                   );
                 })}
               </nav>
+
+              {/* Currency selector */}
+              <motion.div variants={itemVariants} className="px-4 pb-1 pt-1">
+                <div className="h-px bg-border/50 mb-3" />
+                <div className="mb-2 flex items-center gap-1.5 px-1 text-xs font-medium uppercase tracking-widest text-text-dim">
+                  <Globe className="h-3.5 w-3.5" />
+                  Currency
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {currencyEntries.map(([code, meta]) => {
+                    const active = code === currency;
+                    return (
+                      <button
+                        key={code}
+                        onClick={() => setCurrency(code)}
+                        title={meta.label}
+                        className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
+                          active
+                            ? 'border-primary/40 bg-primary/10 text-primary'
+                            : 'border-border bg-surface-raised/60 text-text-muted hover:text-text hover:bg-surface-raised'
+                        }`}
+                      >
+                        {active && <Check className="h-3 w-3" />}
+                        {code}
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
 
               {/* CTA button */}
               {cta && (
