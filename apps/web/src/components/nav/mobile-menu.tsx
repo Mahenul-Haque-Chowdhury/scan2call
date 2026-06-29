@@ -1,9 +1,10 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Menu, ChevronRight, Check, Globe } from 'lucide-react';
+import { X, Menu, ChevronRight, ChevronDown, Check, Globe } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState } from 'react';
 import { useCurrency } from '@/providers/currency-provider';
 import type { CurrencyCode } from '@/lib/currency';
 
@@ -89,6 +90,7 @@ const ctaVariants = {
 export function MobileMenu({ isOpen, onClose, links, cta }: MobileMenuProps) {
   const pathname = usePathname();
   const { currency, setCurrency, options } = useCurrency();
+  const [currencyOpen, setCurrencyOpen] = useState(false);
   const currencyEntries = Object.entries(options) as [
     CurrencyCode,
     (typeof options)[CurrencyCode],
@@ -167,33 +169,65 @@ export function MobileMenu({ isOpen, onClose, links, cta }: MobileMenuProps) {
                 })}
               </nav>
 
-              {/* Currency selector */}
+              {/* Currency selector - single button with dropdown */}
               <motion.div variants={itemVariants} className="px-4 pb-1 pt-1">
                 <div className="h-px bg-border/50 mb-3" />
-                <div className="mb-2 flex items-center gap-1.5 px-1 text-xs font-medium uppercase tracking-widest text-text-dim">
-                  <Globe className="h-3.5 w-3.5" />
-                  Currency
-                </div>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {currencyEntries.map(([code, meta]) => {
-                    const active = code === currency;
-                    return (
-                      <button
-                        key={code}
-                        onClick={() => setCurrency(code)}
-                        title={meta.label}
-                        className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
-                          active
-                            ? 'border-primary/40 bg-primary/10 text-primary'
-                            : 'border-border bg-surface-raised/60 text-text-muted hover:text-text hover:bg-surface-raised'
-                        }`}
-                      >
-                        {active && <Check className="h-3 w-3" />}
-                        {code}
-                      </button>
-                    );
-                  })}
-                </div>
+                <button
+                  onClick={() => setCurrencyOpen((v) => !v)}
+                  aria-expanded={currencyOpen}
+                  className="flex w-full items-center justify-between rounded-xl border border-border bg-surface-raised/60 px-3 py-3 text-[15px] font-medium text-text-muted transition-colors hover:bg-surface-raised hover:text-text"
+                >
+                  <span className="flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    Currency
+                  </span>
+                  <span className="flex items-center gap-1.5 text-text">
+                    {currency}
+                    <ChevronDown
+                      className={`h-4 w-4 text-text-dim transition-transform duration-200 ${
+                        currencyOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </span>
+                </button>
+
+                <AnimatePresence initial={false}>
+                  {currencyOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-1.5 max-h-56 space-y-0.5 overflow-y-auto rounded-xl border border-border bg-surface/80 p-1">
+                        {currencyEntries.map(([code, meta]) => {
+                          const active = code === currency;
+                          return (
+                            <button
+                              key={code}
+                              onClick={() => {
+                                setCurrency(code);
+                                setCurrencyOpen(false);
+                              }}
+                              className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                                active
+                                  ? 'bg-primary/10 text-primary'
+                                  : 'text-text-muted hover:bg-surface-raised hover:text-text'
+                              }`}
+                            >
+                              <span>
+                                <span className="font-medium">{code}</span>
+                                <span className="ml-2 text-text-dim">{meta.label}</span>
+                              </span>
+                              {active && <Check className="h-4 w-4 text-primary" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
 
               {/* CTA button */}
