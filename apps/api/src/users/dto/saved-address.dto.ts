@@ -3,7 +3,6 @@ import {
   IsOptional,
   IsString,
   Length,
-  Matches,
   MaxLength,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -35,15 +34,19 @@ export class SavedAddressDto {
   @MaxLength(100)
   city: string;
 
-  @ApiProperty()
+  // State/province optional - many countries don't use states.
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  state?: string;
+
+  // Postcode optional - some countries have no postal code system.
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
   @MaxLength(20)
-  state: string;
-
-  @ApiProperty()
-  @IsString()
-  @Matches(/^\d{4}$/, { message: 'Postcode must be a 4-digit Australian postcode' })
-  postcode: string;
+  postcode?: string;
 
   @ApiPropertyOptional({ default: 'AU' })
   @IsOptional()
@@ -91,13 +94,13 @@ export class UpdateSavedAddressDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  @MaxLength(20)
+  @MaxLength(50)
   state?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  @Matches(/^\d{4}$/, { message: 'Postcode must be a 4-digit Australian postcode' })
+  @MaxLength(20)
   postcode?: string;
 
   @ApiPropertyOptional()

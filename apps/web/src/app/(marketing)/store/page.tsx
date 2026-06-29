@@ -79,7 +79,7 @@ export default function StorePage() {
           </div>
 
           <p className="mt-8 text-sm text-text-muted">
-            Tags ship across Australia ($5 flat) and worldwide ($10 flat). Have a question first?
+            Tags ship across Australia ($5 flat) and worldwide ($5 flat). Have a question first?
             Read the{' '}
             <Link href="/faq" className="text-primary hover:underline">
               frequently asked questions

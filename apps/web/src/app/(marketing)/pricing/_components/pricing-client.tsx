@@ -12,6 +12,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { FadeIn, StaggerContainer, StaggerItem } from '@/components/ui/motion';
+import { useCurrency } from '@/providers/currency-provider';
 
 const includedFeatures = [
   'Anonymous call, SMS & WhatsApp relay',
@@ -22,21 +23,23 @@ const includedFeatures = [
   'Optional auto-renewal before expiry',
 ];
 
+// Base prices in AUD cents (the charge currency). The card headline is rendered in the
+// visitor's local currency (approximate); prose/cadence stays AUD for clarity.
 const plans = [
   {
     name: 'Stickers & Tags',
-    price: '$7.25',
-    cadence: '/year AUD',
+    priceCents: 725,
+    cadence: '/year',
     summary: 'Car windshield, luggage, passport and standard QR stickers.',
     badge: 'Most popular',
     note: 'Pay only for the years you want, from 1 to 5.',
     highlight: true,
-    savings: 'From $7.25/yr - the everyday choice',
+    savings: 'From $7.25/yr AUD - the everyday choice',
   },
   {
     name: 'Medical ID Band',
-    price: '$14.49',
-    cadence: '/year AUD',
+    priceCents: 1449,
+    cadence: '/year',
     summary: 'Adjustable QR wristband for medical, dementia, or child safety.',
     badge: 'For people',
     note: 'Built for fast, reliable contact in an emergency.',
@@ -45,13 +48,13 @@ const plans = [
   },
   {
     name: 'Find My Devices',
-    price: '$29.99',
-    cadence: 'device + $7.25/yr',
+    priceCents: 2999,
+    cadence: 'device + $7.25/yr AUD',
     summary: 'Pet Collar and Keychain trackers with Apple Find My and Google Find My Device.',
     badge: 'Smart tracking',
     note: 'Device price includes the first year of QR service.',
     highlight: false,
-    savings: 'Renews at $7.25/yr',
+    savings: 'Renews at $7.25/yr AUD',
   },
 ];
 
@@ -81,6 +84,7 @@ const highlights = [
 ];
 
 export default function PricingClient() {
+  const { formatCompact, isBase } = useCurrency();
   return (
     <>
       {/* Header */}
@@ -100,6 +104,11 @@ export default function PricingClient() {
             <p className="mt-4 text-lg text-text-muted">
               No subscription. Buy a QR tag, choose 1 to 5 years at checkout, and turn on auto-renewal if you want it to never lapse.
             </p>
+            {!isBase && (
+              <p className="mt-2 text-xs text-text-dim">
+                Prices shown in your local currency are approximate. You are charged in AUD.
+              </p>
+            )}
           </FadeIn>
 
           {/* Highlights */}
@@ -149,7 +158,7 @@ export default function PricingClient() {
                   <p className="text-sm text-text-muted mb-5 leading-relaxed">{plan.summary}</p>
 
                   <div className="flex items-baseline gap-1.5 mb-1">
-                    <span className="text-5xl font-bold tracking-tight text-gradient">{plan.price}</span>
+                    <span className="text-5xl font-bold tracking-tight text-gradient">{formatCompact(plan.priceCents)}</span>
                     <span className="text-text-dim">{plan.cadence}</span>
                   </div>
 

@@ -5,10 +5,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Trash2, Minus, Plus, ShoppingBag } from 'lucide-react';
 import { useCart, type CartItem } from '@/providers/cart-provider';
-
-function formatPrice(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
+import { useCurrency } from '@/providers/currency-provider';
 
 const dropdownVariants = {
   hidden: {
@@ -46,6 +43,7 @@ const itemVariants = {
 
 export function CartDropdown() {
   const { items, itemCount, getTotal, removeItem, updateQuantity } = useCart();
+  const { formatCompact, isBase } = useCurrency();
   const [open, setOpen] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -165,7 +163,7 @@ export function CartDropdown() {
                   <div className="flex items-center justify-between px-1">
                     <span className="text-sm text-text-muted">Subtotal</span>
                     <span className="text-sm font-bold text-text">
-                      ${formatPrice(getTotal())} <span className="text-xs font-normal text-text-dim">AUD</span>
+                      {formatCompact(getTotal())} <span className="text-xs font-normal text-text-dim">{isBase ? 'AUD' : 'approx.'}</span>
                     </span>
                   </div>
                   <Link
@@ -196,6 +194,7 @@ function CartDropdownItem({
   onRemove: () => void;
   onUpdateQty: (qty: number) => void;
 }) {
+  const { formatCompact } = useCurrency();
   return (
     <motion.div
       layout
@@ -220,7 +219,7 @@ function CartDropdownItem({
       <div className="min-w-0 flex-1">
         <p className="text-xs font-medium text-text truncate">{item.name}</p>
         <p className="text-xs text-primary font-semibold mt-0.5">
-          ${formatPrice(item.priceInCents)}<span className="font-normal text-text-dim">/yr</span>
+          {formatCompact(item.priceInCents)}<span className="font-normal text-text-dim">/yr</span>
           <span className="ml-1 font-normal text-text-dim">
             &middot; {item.durationYears}
             {item.durationYears === 1 ? ' yr' : ' yrs'}

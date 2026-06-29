@@ -14,9 +14,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { COUNTRIES } from '@/lib/countries';
+import { useCurrency } from '@/providers/currency-provider';
 import {
   calculateShippingInCents,
   SHIPPING_AUSTRALIA_IN_CENTS,
+  validatePostcode,
+  countryUsesPostcode,
 } from '@scan2call/shared';
 
 const AU_STATES = [
@@ -30,8 +33,10 @@ const AU_STATES = [
   { value: 'NT', label: 'Northern Territory' },
 ];
 
-function formatPrice(cents: number): string {
-  return (cents / 100).toFixed(2);
+// Checkout shows the committed AUD price (what Stripe charges), with the approximate
+// local-currency equivalent underneath. This helper formats the exact AUD figure.
+function formatAud(cents: number): string {
+  return `$${(cents / 100).toFixed(2)} AUD`;
 }
 
 interface CheckoutSessionResponse {
@@ -83,6 +88,7 @@ function inputClass(hasError: boolean): string {
 export default function CheckoutPage() {
   const { items, getTotal, getLineTotal, itemCount } = useCart();
   const { user } = useAuth();
+  const { format, isBase } = useCurrency();
 
   const [form, setForm] = useState<ShippingForm>({
     firstName: '',
@@ -161,12 +167,12 @@ export default function CheckoutPage() {
     if (!form.lastName.trim()) e.lastName = 'Required';
     if (!form.address1.trim()) e.address1 = 'Required';
     if (!form.city.trim()) e.city = 'Required';
-    if (!form.state.trim()) e.state = 'Required';
-    if (!form.postcode.trim()) {
-      e.postcode = 'Required';
-    } else if (isAU && !/^\d{4}$/.test(form.postcode.trim())) {
-      e.postcode = 'Must be a 4-digit postcode';
-    }
+    // State is required for Australia; optional elsewhere (many countries have none).
+    if (isAU && !form.state.trim()) e.state = 'Required';
+    // Postcode follows the 3-tier rule (strict AU, optional for no-postcode countries,
+    // lenient sanity check otherwise).
+    const pc = validatePostcode(form.postcode, form.country);
+    if (!pc.valid) e.postcode = pc.message ?? 'Invalid postcode';
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -220,8 +226,8 @@ export default function CheckoutPage() {
         shippingAddress1: form.address1.trim(),
         ...(form.address2.trim() && { shippingAddress2: form.address2.trim() }),
         shippingCity: form.city.trim(),
-        shippingState: form.state,
-        shippingPostcode: form.postcode.trim(),
+        ...(form.state.trim() && { shippingState: form.state.trim() }),
+        ...(form.postcode.trim() && { shippingPostcode: form.postcode.trim() }),
         shippingCountry: form.country,
         ...(form.customerNotes.trim() && { customerNotes: form.customerNotes.trim() }),
       };
@@ -235,6 +241,7 @@ export default function CheckoutPage() {
   }
 
   const isAU = form.country === 'AU';
+  const hasPostcode = countryUsesPostcode(form.country);
   const subtotal = getTotal();
   const shippingInCents = calculateShippingInCents(form.country);
   const total = subtotal + shippingInCents;
@@ -396,7 +403,12 @@ export default function CheckoutPage() {
                   </div>
                   <div>
                     <label htmlFor="state" className="block text-sm font-medium text-text-muted">
-                      {isAU ? 'State' : 'State / Province'} <span className="text-error">*</span>
+                      {isAU ? 'State' : 'State / Province'}{' '}
+                      {isAU ? (
+                        <span className="text-error">*</span>
+                      ) : (
+                        <span className="text-text-dim font-normal">(optional)</span>
+                      )}
                     </label>
                     {isAU ? (
                       <select
@@ -422,21 +434,23 @@ export default function CheckoutPage() {
                     )}
                     {errors.state && <p className="mt-1 text-xs text-error">{errors.state}</p>}
                   </div>
-                  <div>
-                    <label htmlFor="postcode" className="block text-sm font-medium text-text-muted">
-                      {isAU ? 'Postcode' : 'Postal / ZIP code'} <span className="text-error">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      id="postcode"
-                      value={form.postcode}
-                      onChange={(e) => updateField('postcode', e.target.value)}
-                      className={inputClass(!!errors.postcode)}
-                      placeholder={isAU ? '2000' : 'Postal / ZIP'}
-                      maxLength={isAU ? 4 : 12}
-                    />
-                    {errors.postcode && <p className="mt-1 text-xs text-error">{errors.postcode}</p>}
-                  </div>
+                  {hasPostcode && (
+                    <div>
+                      <label htmlFor="postcode" className="block text-sm font-medium text-text-muted">
+                        {isAU ? 'Postcode' : 'Postal / ZIP code'} <span className="text-error">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="postcode"
+                        value={form.postcode}
+                        onChange={(e) => updateField('postcode', e.target.value)}
+                        className={inputClass(!!errors.postcode)}
+                        placeholder={isAU ? '2000' : 'Postal / ZIP'}
+                        maxLength={isAU ? 4 : 12}
+                      />
+                      {errors.postcode && <p className="mt-1 text-xs text-error">{errors.postcode}</p>}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -448,8 +462,14 @@ export default function CheckoutPage() {
                     value={form.country}
                     onChange={(e) => {
                       const country = e.target.value;
-                      // Reset state when switching between AU (dropdown) and intl (text).
-                      setForm((prev) => ({ ...prev, country, state: '' }));
+                      // Reset state when switching between AU (dropdown) and intl (text),
+                      // and clear postcode for countries that don't use one.
+                      setForm((prev) => ({
+                        ...prev,
+                        country,
+                        state: '',
+                        postcode: countryUsesPostcode(country) ? prev.postcode : '',
+                      }));
                       setSelectedAddressId('');
                       setErrors((prev) => ({ ...prev, state: undefined, postcode: undefined }));
                     }}
@@ -462,7 +482,7 @@ export default function CheckoutPage() {
                   <p className="mt-1 text-xs text-text-dim">
                     {isAU
                       ? 'Flat shipping within Australia: $5.00 AUD.'
-                      : 'Worldwide shipping: $10.00 AUD flat.'}
+                      : 'Worldwide shipping: $7.50 AUD flat (about $5 USD).'}
                   </p>
                 </div>
 
@@ -547,7 +567,7 @@ export default function CheckoutPage() {
                           </div>
                         </div>
                         <span className="shrink-0 text-sm font-semibold text-text">
-                          ${formatPrice(getLineTotal(item))}
+                          {formatAud(getLineTotal(item))}
                         </span>
                       </div>
                     </div>
@@ -557,19 +577,24 @@ export default function CheckoutPage() {
                 <div className="mt-3 space-y-1.5 border-t border-border pt-4 text-sm">
                   <div className="flex items-center justify-between">
                     <span className="text-text-muted">Subtotal ({itemCount} {itemCount === 1 ? 'item' : 'items'})</span>
-                    <span className="font-medium text-text">${formatPrice(subtotal)} AUD</span>
+                    <span className="font-medium text-text">{formatAud(subtotal)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-text-muted">
                       Shipping {shippingInCents === SHIPPING_AUSTRALIA_IN_CENTS ? '(Australia)' : '(Worldwide)'}
                     </span>
-                    <span className="font-medium text-text">${formatPrice(shippingInCents)} AUD</span>
+                    <span className="font-medium text-text">{formatAud(shippingInCents)}</span>
                   </div>
                 </div>
 
                 <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
                   <span className="font-bold text-text">Total</span>
-                  <span className="text-2xl font-bold text-primary">${formatPrice(total)}<span className="text-sm font-normal text-text-dim ml-1">AUD</span></span>
+                  <div className="text-right">
+                    <span className="text-2xl font-bold text-primary">${(total / 100).toFixed(2)}<span className="text-sm font-normal text-text-dim ml-1">AUD</span></span>
+                    {!isBase && (
+                      <p className="text-xs font-normal text-text-dim">{format(total)}</p>
+                    )}
+                  </div>
                 </div>
 
                 {submitError && (

@@ -61,7 +61,7 @@ export default function PricingPage() {
             <div>
               <h3 className="font-semibold text-text">How much is shipping?</h3>
               <p className="mt-2 text-sm leading-relaxed text-text-muted">
-                Shipping is a $5 flat rate within Australia and $10 flat worldwide. See{' '}
+                Shipping is a $5 flat rate within Australia and $5 flat worldwide. See{' '}
                 <Link href="/how-it-works" className="text-primary hover:underline">
                   how Scan2Call works
                 </Link>{' '}

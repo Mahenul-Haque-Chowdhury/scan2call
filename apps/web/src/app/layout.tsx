@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from 'next';
 import { Space_Grotesk, DM_Sans } from 'next/font/google';
+import { cookies } from 'next/headers';
 import './globals.css';
 import { CookieConsent } from '@/components/cookie-consent';
 import { AuthProvider } from '@/providers/auth-provider';
 import { CartProvider } from '@/providers/cart-provider';
 import { ThemeProvider } from '@/providers/theme-provider';
+import { CurrencyProvider } from '@/providers/currency-provider';
 import { DEFAULT_OG_IMAGE, SITE_DESCRIPTION, SITE_NAME, getSiteUrl } from '@/lib/seo';
 
 const spaceGrotesk = Space_Grotesk({
@@ -101,7 +103,10 @@ const themeScript = `
   })();
 `;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Geo middleware writes the visitor's default currency to this cookie; read it here
+  // so the first paint already uses the right currency (no flash of AUD).
+  const initialCurrency = (await cookies()).get('s2c_currency')?.value;
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${dmSans.variable}`} suppressHydrationWarning>
       <head>
@@ -109,12 +114,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="bg-bg text-text antialiased" suppressHydrationWarning>
         <ThemeProvider>
-          <AuthProvider>
-            <CartProvider>
-              {children}
-              <CookieConsent />
-            </CartProvider>
-          </AuthProvider>
+          <CurrencyProvider initialCurrency={initialCurrency}>
+            <AuthProvider>
+              <CartProvider>
+                {children}
+                <CookieConsent />
+              </CartProvider>
+            </AuthProvider>
+          </CurrencyProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { FadeIn, StaggerContainer, StaggerItem, CountUp } from '@/components/ui/motion';
 import { useAuth } from '@/providers/auth-provider';
+import { useCurrency } from '@/providers/currency-provider';
 
 const products = [
   {
@@ -21,7 +22,8 @@ const products = [
     image: '/images/products/luggage-tag.png',
     iconColor: 'text-violet-400',
     badge: 'Most Popular',
-    price: '$7.25/yr',
+    priceCents: 725,
+    perYear: true,
   },
   {
     name: 'Pet Collar Tag',
@@ -30,7 +32,8 @@ const products = [
     image: '/images/products/pet-collar-tag.png',
     iconColor: 'text-amber-400',
     badge: 'Most Popular',
-    price: '$29.99',
+    priceCents: 2999,
+    perYear: false,
     hasFindMy: true,
   },
   {
@@ -40,7 +43,8 @@ const products = [
     image: '/images/products/keychain-tag.png',
     iconColor: 'text-emerald-400',
     badge: null,
-    price: '$29.99',
+    priceCents: 2999,
+    perYear: false,
     hasFindMy: true,
   },
   {
@@ -50,7 +54,8 @@ const products = [
     image: '/images/products/car-sticker.png',
     iconColor: 'text-blue-400',
     badge: null,
-    price: '$7.25/yr',
+    priceCents: 725,
+    perYear: true,
   },
   {
     name: 'Passport & Standard Stickers',
@@ -59,7 +64,8 @@ const products = [
     image: '/images/products/passport.png',
     iconColor: 'text-yellow-400',
     badge: 'Featured',
-    price: '$7.25/yr',
+    priceCents: 725,
+    perYear: true,
   },
   {
     name: 'Medical ID Band',
@@ -68,7 +74,8 @@ const products = [
     image: '/images/products/medical-band.png',
     iconColor: 'text-rose-400',
     badge: null,
-    price: '$14.49/yr',
+    priceCents: 1449,
+    perYear: true,
   },
 ];
 
@@ -165,6 +172,7 @@ const heroSlides = [
 
 export default function HomePageClient() {
   const { user } = useAuth();
+  const { formatCompact } = useCurrency();
   const getStartedHref = user ? '/store' : '/register';
   const heroRef = useRef<HTMLElement>(null);
   const [availableHeroSlides, setAvailableHeroSlides] = useState<string[]>([heroSlides[0]]);
@@ -320,7 +328,7 @@ export default function HomePageClient() {
                   href={getStartedHref}
                   className="group inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-4 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary-hover glow-md hover:glow-lg hover:scale-[1.03] active:scale-[0.98]"
                 >
-                  Get Your Tag - from $7.25
+                  Get Your Tag - from {formatCompact(725)}
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>
                 <Link
@@ -603,6 +611,7 @@ const statCards: StatCardConfig[] = [
 ];
 
 function StatsBand() {
+  const { formatCompact } = useCurrency();
   return (
     <section
       className="relative overflow-hidden"
@@ -702,7 +711,7 @@ function StatsBand() {
             />
             <DollarSign className="mb-4 h-7 w-7 text-amber-400 opacity-80" />
             <div className="font-display text-3xl sm:text-4xl font-black tracking-tight" style={{ color: '#FACC15', textShadow: '0 0 40px rgba(250,204,21,0.4)' }}>
-              $7.25
+              {formatCompact(725)}
             </div>
             <div className="mt-2 text-sm font-semibold text-white/90">Per Tag, Billed Yearly</div>
             <span className="mt-3 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border border-primary/30 bg-primary/10 text-primary">
@@ -756,12 +765,14 @@ interface Product {
   image: string;
   iconColor: string;
   badge: string | null;
-  price: string;
+  priceCents: number;
+  perYear: boolean;
   hasFindMy?: boolean;
 }
 
 function ProductCard({ product }: { product: Product }) {
   const [isFlipped, setIsFlipped] = useState(false);
+  const { formatCompact } = useCurrency();
 
   const handleToggleFlip = () => {
     if (typeof window === 'undefined') return;
@@ -863,9 +874,9 @@ function ProductCard({ product }: { product: Product }) {
 
               <div className="flex flex-col gap-3">
                 <span className="text-lg font-bold text-primary">
-                  {product.price}
-                  <span className="text-xs font-normal text-text-dim"> AUD</span>
-                  {!product.price.includes('/yr') && (
+                  {formatCompact(product.priceCents)}
+                  {product.perYear && <span className="text-xs font-normal text-text-dim">/yr</span>}
+                  {!product.perYear && (
                     <span className="text-xs font-normal text-text-dim"> incl. yr 1</span>
                   )}
                 </span>

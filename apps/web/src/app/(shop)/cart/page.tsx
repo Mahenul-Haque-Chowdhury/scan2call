@@ -16,10 +16,7 @@ import {
   TAG_MAX_DURATION_YEARS,
   TAG_MIN_DURATION_YEARS,
 } from '@scan2call/shared';
-
-function formatPrice(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
+import { useCurrency } from '@/providers/currency-provider';
 
 const DURATION_OPTIONS = Array.from(
   { length: TAG_MAX_DURATION_YEARS - TAG_MIN_DURATION_YEARS + 1 },
@@ -39,6 +36,7 @@ export default function CartPage() {
     getLineTotal,
     itemCount,
   } = useCart();
+  const { formatCompact, isBase } = useCurrency();
 
   const [expandedCustomize, setExpandedCustomize] = useState<Set<string>>(new Set());
 
@@ -125,8 +123,8 @@ export default function CartPage() {
                             </Link>
                             <p className="mt-1 text-sm text-text-muted">
                               {item.hasFindMy
-                                ? `$${formatPrice(item.devicePriceInCents ?? 0)} device + $${formatPrice(item.priceInCents)}/yr QR`
-                                : `$${formatPrice(item.priceInCents)}/yr`}
+                                ? `${formatCompact(item.devicePriceInCents ?? 0)} device + ${formatCompact(item.priceInCents)}/yr QR`
+                                : `${formatCompact(item.priceInCents)}/yr`}
                             </p>
                             {item.tagLabel && (
                               <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-surface-raised border border-border px-2.5 py-0.5 text-xs text-text-muted">
@@ -137,9 +135,9 @@ export default function CartPage() {
                           </div>
                           <div className="text-right shrink-0">
                             <p className="text-lg font-bold text-text">
-                              ${formatPrice(getLineTotal(item))}
+                              {formatCompact(getLineTotal(item))}
                             </p>
-                            <p className="text-xs text-text-dim">AUD</p>
+                            <p className="text-xs text-text-dim">{isBase ? 'AUD' : 'approx.'}</p>
                           </div>
                         </div>
                       </div>
@@ -299,7 +297,7 @@ export default function CartPage() {
                         </p>
                       </div>
                       <span className="shrink-0 font-medium text-text">
-                        ${formatPrice(getLineTotal(item))}
+                        {formatCompact(getLineTotal(item))}
                       </span>
                     </div>
                   ))}
@@ -308,7 +306,7 @@ export default function CartPage() {
                 <div className="mt-5 space-y-2.5 border-t border-border pt-5 text-sm">
                   <div className="flex items-center justify-between">
                     <span className="text-text-muted">Subtotal ({itemCount} {itemCount === 1 ? 'item' : 'items'})</span>
-                    <span className="font-medium text-text">${formatPrice(total)} AUD</span>
+                    <span className="font-medium text-text">{isBase ? `${formatCompact(total)} AUD` : formatCompact(total)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-text-muted">
@@ -321,7 +319,7 @@ export default function CartPage() {
 
                 <div className="mt-5 flex items-center justify-between border-t border-border pt-5">
                   <span className="font-semibold text-text">Estimated Total</span>
-                  <span className="text-xl font-bold text-primary">${formatPrice(total)} AUD</span>
+                  <span className="text-xl font-bold text-primary">{isBase ? `${formatCompact(total)} AUD` : formatCompact(total)}</span>
                 </div>
 
                 <Button
@@ -335,6 +333,7 @@ export default function CartPage() {
 
                 <p className="mt-3 text-center text-xs text-text-dim">
                   Shipping and final total shown at checkout.
+                  {!isBase && ' Local prices are approximate; you are charged in AUD.'}
                 </p>
               </CardContent>
             </Card>

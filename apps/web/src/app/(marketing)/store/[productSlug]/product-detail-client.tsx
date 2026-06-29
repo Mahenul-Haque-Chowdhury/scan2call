@@ -11,6 +11,7 @@ import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { getApiOrigin } from '@/lib/api-origin';
+import { useCurrency } from '@/providers/currency-provider';
 
 export interface ProductImage {
   url: string;
@@ -41,10 +42,6 @@ export interface Product {
 
 const API_BASE = getApiOrigin();
 
-function formatPrice(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
-
 export default function ProductDetailClient({
   initialProduct,
   initialError,
@@ -63,6 +60,7 @@ export default function ProductDetailClient({
   const [addedToCart, setAddedToCart] = useState(false);
 
   const { addItem } = useCart();
+  const { formatCompact, isBase } = useCurrency();
 
   useEffect(() => {
     if (initialProduct || initialError) {
@@ -259,30 +257,31 @@ export default function ProductDetailClient({
           >
             {product.hasFindMy ? (
               <span className="text-2xl font-bold text-primary">
-                ${formatPrice(product.devicePriceInCents ?? 0)}
+                {formatCompact(product.devicePriceInCents ?? 0)}
                 <span className="ml-2 text-sm font-normal text-text-dim">
-                  + ${formatPrice(product.priceInCents)}/yr QR
+                  + {formatCompact(product.priceInCents)}/yr QR
                 </span>
               </span>
             ) : (
               <span className="text-2xl font-bold text-primary">
-                ${formatPrice(product.priceInCents)}
+                {formatCompact(product.priceInCents)}
                 <span className="ml-1 text-sm font-normal text-text-dim">/year</span>
               </span>
             )}
             {product.compareAtPrice && (
               <span className="text-lg text-text-dim line-through">
-                ${formatPrice(product.compareAtPrice)}
+                {formatCompact(product.compareAtPrice)}
               </span>
             )}
           </motion.div>
 
           <p className="mt-2 text-sm text-text-dim">
             {product.hasFindMy
-              ? 'Includes the first year of QR service. Choose 1 to 5 years at checkout; renewals are $' +
-                formatPrice(product.priceInCents) +
+              ? 'Includes the first year of QR service. Choose 1 to 5 years at checkout; renewals are ' +
+                formatCompact(product.priceInCents) +
                 '/yr.'
               : 'Choose how long you want the QR active (1 to 5 years) at checkout.'}
+            {!isBase && ' Local prices are approximate; you are charged in AUD.'}
           </p>
 
           <p className="mt-4 leading-relaxed text-text-muted">{product.description}</p>

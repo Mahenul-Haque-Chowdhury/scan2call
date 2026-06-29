@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
+import { COUNTRIES, countryUsesPostcode, validatePostcode } from '@/lib/countries';
 
 const AU_STATES = [
   { value: 'NSW', label: 'New South Wales' },
@@ -125,8 +126,10 @@ export default function SavedAddressesPage() {
     if (!form.lastName.trim()) return 'Last name is required';
     if (!form.address1.trim()) return 'Address line 1 is required';
     if (!form.city.trim()) return 'City is required';
-    if (!form.state) return 'State is required';
-    if (!/^\d{4}$/.test(form.postcode.trim())) return 'Postcode must be a 4-digit Australian postcode';
+    // State required only for Australia; optional elsewhere.
+    if (form.country === 'AU' && !form.state.trim()) return 'State is required';
+    const pc = validatePostcode(form.postcode, form.country);
+    if (!pc.valid) return pc.message ?? 'Invalid postcode';
     return null;
   }
 
@@ -147,8 +150,8 @@ export default function SavedAddressesPage() {
       address1: form.address1.trim(),
       ...(form.address2.trim() && { address2: form.address2.trim() }),
       city: form.city.trim(),
-      state: form.state,
-      postcode: form.postcode.trim(),
+      ...(form.state.trim() && { state: form.state.trim() }),
+      ...(form.postcode.trim() && { postcode: form.postcode.trim() }),
       country: form.country,
       isDefault: form.isDefault,
     };
@@ -310,29 +313,52 @@ export default function SavedAddressesPage() {
                   </div>
                   <div>
                     <label htmlFor="state" className="block text-sm font-medium text-text-muted">
-                      State *
+                      {form.country === 'AU' ? 'State *' : 'State / Province'}
                     </label>
-                    <select id="state" value={form.state} onChange={(e) => updateField('state', e.target.value)} className={inputClass()}>
-                      <option value="">Select state...</option>
-                      {AU_STATES.map((state) => (
-                        <option key={state.value} value={state.value}>{state.label}</option>
-                      ))}
-                    </select>
+                    {form.country === 'AU' ? (
+                      <select id="state" value={form.state} onChange={(e) => updateField('state', e.target.value)} className={inputClass()}>
+                        <option value="">Select state...</option>
+                        {AU_STATES.map((state) => (
+                          <option key={state.value} value={state.value}>{state.label}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input id="state" value={form.state} onChange={(e) => updateField('state', e.target.value)} className={inputClass()} placeholder="State / Province / Region" />
+                    )}
                   </div>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label htmlFor="postcode" className="block text-sm font-medium text-text-muted">
-                      Postcode *
-                    </label>
-                    <input id="postcode" value={form.postcode} onChange={(e) => updateField('postcode', e.target.value)} className={inputClass()} maxLength={4} />
-                  </div>
+                  {countryUsesPostcode(form.country) && (
+                    <div>
+                      <label htmlFor="postcode" className="block text-sm font-medium text-text-muted">
+                        {form.country === 'AU' ? 'Postcode *' : 'Postal / ZIP code *'}
+                      </label>
+                      <input id="postcode" value={form.postcode} onChange={(e) => updateField('postcode', e.target.value)} className={inputClass()} maxLength={form.country === 'AU' ? 4 : 12} />
+                    </div>
+                  )}
                   <div>
                     <label htmlFor="country" className="block text-sm font-medium text-text-muted">
-                      Country
+                      Country *
                     </label>
-                    <input id="country" value="Australia" disabled className="mt-1 block w-full rounded-lg border border-border bg-surface-raised px-4 py-2.5 text-sm text-text-dim" />
+                    <select
+                      id="country"
+                      value={form.country}
+                      onChange={(e) => {
+                        const country = e.target.value;
+                        setForm((prev) => ({
+                          ...prev,
+                          country,
+                          state: '',
+                          postcode: countryUsesPostcode(country) ? prev.postcode : '',
+                        }));
+                      }}
+                      className={inputClass()}
+                    >
+                      {COUNTRIES.map((c) => (
+                        <option key={c.code} value={c.code}>{c.name}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
@@ -400,7 +426,7 @@ export default function SavedAddressesPage() {
                         <p className="text-sm text-text-muted">
                           {address.city}, {address.state} {address.postcode}
                         </p>
-                        <p className="text-sm text-text-muted">{address.country === 'AU' ? 'Australia' : address.country}</p>
+                        <p className="text-sm text-text-muted">{COUNTRIES.find((c) => c.code === address.country)?.name ?? address.country}</p>
                       </div>
                     </div>
 

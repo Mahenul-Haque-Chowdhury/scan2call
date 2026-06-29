@@ -83,13 +83,17 @@ export class CreateOrderDto {
   @IsString()
   shippingCity: string;
 
-  @ApiProperty()
+  // State/province is optional - many countries don't use states.
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  shippingState: string;
+  shippingState?: string;
 
-  @ApiProperty()
+  // Postcode is optional - some countries have no postal code system.
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  shippingPostcode: string;
+  shippingPostcode?: string;
 
   @ApiProperty({ default: 'AU' })
   @IsOptional()

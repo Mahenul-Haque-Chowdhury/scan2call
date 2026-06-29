@@ -108,7 +108,7 @@ export class OrdersService {
       };
     });
 
-    // Flat shipping fee based on destination ($5 AU / $10 worldwide).
+    // Flat shipping fee based on destination ($5 AU / $5 worldwide).
     const shippingInCents = calculateShippingInCents(dto.shippingCountry);
     const totalInCents = subtotalInCents + shippingInCents;
 
@@ -126,8 +126,10 @@ export class OrdersService {
         shippingAddress1: dto.shippingAddress1,
         shippingAddress2: dto.shippingAddress2,
         shippingCity: dto.shippingCity,
-        shippingState: dto.shippingState,
-        shippingPostcode: dto.shippingPostcode,
+        // State and postcode are optional (some countries have neither); store '' so
+        // the non-null columns are satisfied without a migration.
+        shippingState: dto.shippingState ?? '',
+        shippingPostcode: dto.shippingPostcode ?? '',
         shippingCountry: dto.shippingCountry ?? 'AU',
         customerNotes: dto.customerNotes,
         items: {

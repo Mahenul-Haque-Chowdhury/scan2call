@@ -15,10 +15,10 @@ Scan2Call is a privacy-first QR identity tag system that helps reunite lost item
 - The QR tag is the paid product and is active for a chosen term (1 to 5 years), with optional auto-renewal
 
 ## Pricing (AUD)
-- Stickers and tags (Car, Luggage, Passport/Standard): $7.25 per year
+- Stickers and tags (Car, Luggage, Passport/Standard): $7.25 per year QR Renew
 - Medical ID Band: $14.49 per year
 - Find My devices (Pet Collar, Keychain): $29.99 including the first year, then $7.25 per year to renew the QR
-- Shipping: $5 flat within Australia, $10 flat worldwide
+- Shipping: $5 AUD flat within Australia, $7.50 AUD flat worldwide (about $5 USD)
 
 ## Important Pages
 - Home: https://scan2call.com.au/

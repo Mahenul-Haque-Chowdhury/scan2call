@@ -16,3 +16,9 @@ export {
   DEFAULT_SHIPPING_COUNTRY,
   calculateShippingInCents,
 } from './shipping';
+export {
+  COUNTRIES_WITHOUT_POSTCODE,
+  countryUsesPostcode,
+  validatePostcode,
+} from './postcode';
+export type { PostcodeCheck } from './postcode';

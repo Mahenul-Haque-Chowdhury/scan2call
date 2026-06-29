@@ -10,6 +10,7 @@ import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { FadeIn } from '@/components/ui/motion';
 import { getApiOrigin } from '@/lib/api-origin';
+import { useCurrency } from '@/providers/currency-provider';
 
 interface ProductImage {
   url: string;
@@ -45,15 +46,12 @@ interface ProductsResponse {
 
 const API_BASE = getApiOrigin();
 
-function formatPrice(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
-
 export default function StorePageClient() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { addItem } = useCart();
+  const { formatCompact, isBase } = useCurrency();
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
 
   const handleAddToCart = useCallback((product: Product) => {
@@ -174,6 +172,11 @@ export default function StorePageClient() {
             <p className="mt-3 text-lg text-text-muted max-w-xl">
               Browse our range of QR identity tags. Choose how long you want each QR active (1 to 5 years) at checkout.
             </p>
+            {!isBase && (
+              <p className="mt-2 text-xs text-text-dim max-w-xl">
+                Prices shown in your local currency are approximate. You are charged in AUD at checkout.
+              </p>
+            )}
           </FadeIn>
         </div>
       </section>
@@ -284,16 +287,16 @@ export default function StorePageClient() {
                             {product.hasFindMy ? (
                               <>
                                 <span className="text-lg font-bold text-primary">
-                                  ${formatPrice(product.devicePriceInCents ?? 0)}
+                                  {formatCompact(product.devicePriceInCents ?? 0)}
                                 </span>
                                 <span className="text-xs text-text-dim">
-                                  + ${formatPrice(product.priceInCents)}/yr
+                                  + {formatCompact(product.priceInCents)}/yr
                                 </span>
                               </>
                             ) : (
                               <>
                                 <span className="text-lg font-bold text-primary">
-                                  ${formatPrice(product.priceInCents)}
+                                  {formatCompact(product.priceInCents)}
                                 </span>
                                 <span className="text-xs text-text-dim">/yr</span>
                               </>

@@ -369,8 +369,10 @@ export class UsersService {
       address1: dto.address1.trim(),
       address2: dto.address2?.trim() || null,
       city: dto.city.trim(),
-      state: dto.state.trim(),
-      postcode: dto.postcode.trim(),
+      // State/postcode optional (some countries have neither); store '' to satisfy
+      // the non-null columns.
+      state: dto.state?.trim() ?? '',
+      postcode: dto.postcode?.trim() ?? '',
       country: dto.country?.trim() || 'AU',
     };
   }

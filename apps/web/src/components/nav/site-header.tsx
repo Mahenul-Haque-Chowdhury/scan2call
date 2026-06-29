@@ -9,6 +9,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useAuth } from '@/providers/auth-provider';
 import { WelcomeButton } from '@/components/nav/welcome-button';
 import { CartDropdown } from '@/components/nav/cart-dropdown';
+import { CurrencySwitcher } from '@/components/nav/currency-switcher';
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -52,6 +53,7 @@ export function SiteHeader() {
           </ul>
 
           <div className="flex items-center gap-2">
+            <CurrencySwitcher />
             <ThemeToggle />
             <CartDropdown />
             {!isLoading && (
