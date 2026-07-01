@@ -5,9 +5,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ShoppingCart, ImageIcon, Minus, Plus, Trash2, RefreshCw, ArrowRight, Tag, Truck,
+  ShoppingCart, ImageIcon, Minus, Plus, Trash2, RefreshCw, ArrowRight, Tag, Truck, LogIn,
 } from 'lucide-react';
 import { useCart } from '@/providers/cart-provider';
+import { useAuth } from '@/providers/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -25,6 +26,7 @@ const DURATION_OPTIONS = Array.from(
 
 export default function CartPage() {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const {
     items,
     removeItem,
@@ -39,6 +41,7 @@ export default function CartPage() {
   const { formatCompact, isBase } = useCurrency();
 
   const [expandedCustomize, setExpandedCustomize] = useState<Set<string>>(new Set());
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
 
   function toggleCustomize(productId: string) {
     setExpandedCustomize((prev) => {
@@ -47,6 +50,14 @@ export default function CartPage() {
       else next.add(productId);
       return next;
     });
+  }
+
+  function handleCheckout() {
+    if (isAuthenticated) {
+      router.push('/checkout');
+    } else {
+      setShowSignInPrompt(true);
+    }
   }
 
   const total = getTotal();
@@ -323,7 +334,7 @@ export default function CartPage() {
                 </div>
 
                 <Button
-                  onClick={() => router.push('/checkout')}
+                  onClick={handleCheckout}
                   className="mt-6 w-full"
                   size="lg"
                   icon={<ArrowRight className="h-4 w-4" />}
@@ -340,6 +351,54 @@ export default function CartPage() {
           </motion.div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showSignInPrompt && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowSignInPrompt(false)}
+          >
+            <motion.div
+              className="w-full max-w-sm"
+              initial={{ opacity: 0, scale: 0.95, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary-muted text-primary">
+                    <LogIn className="h-5 w-5" />
+                  </div>
+                  <h2 className="mt-4 text-lg font-semibold text-text">Sign in to check out</h2>
+                  <p className="mt-1.5 text-sm text-text-muted">
+                    Your cart is saved. Sign in or create an account to continue to checkout.
+                  </p>
+                  <div className="mt-6 flex gap-3">
+                    <Button
+                      variant="secondary"
+                      className="flex-1"
+                      onClick={() => setShowSignInPrompt(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      onClick={() => router.push('/login?next=/checkout')}
+                    >
+                      Sign In
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

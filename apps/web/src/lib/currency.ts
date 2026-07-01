@@ -180,6 +180,10 @@ export function formatMoney(
   const formatted = new Intl.NumberFormat(meta.locale, {
     style: 'currency',
     currency: meta.code,
+    // Force ASCII digits: our fonts only ship the latin glyph subset, so
+    // locales with native numbering systems (bn-BD, ar-AE, etc.) would
+    // otherwise render as tofu boxes.
+    numberingSystem: 'latn',
   }).format(value);
 
   // Only label as approximate when we actually converted away from the base currency.

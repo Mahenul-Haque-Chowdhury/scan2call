@@ -85,6 +85,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 <a href="mailto:contact@scan2call.com.au" className="inline-flex text-primary hover:underline">
                   contact@scan2call.com.au
                 </a>
+                <a href="mailto:support@scan2call.com.au" className="inline-flex text-primary hover:underline">
+                  support@scan2call.com.au
+                </a>
               </div>
               <div className="mt-5 flex items-center gap-3">
                 <a

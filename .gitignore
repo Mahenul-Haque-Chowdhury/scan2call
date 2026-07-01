@@ -68,3 +68,16 @@ docker/.env.production
 docker/.env.*
 !docker/.env.production.example
 Caddyfile.local
+.claude/settings.local.json
+
+# ──────────────────────────────────────────────
+# Local tooling
+# ──────────────────────────────────────────────
+.mcp.json
+.playwright-mcp/
+
+# ──────────────────────────────────────────────
+# Local-only docs (internal notes, not for the repo)
+# ──────────────────────────────────────────────
+docs/admin-panel-manual.md
+docs/testing-report.md
