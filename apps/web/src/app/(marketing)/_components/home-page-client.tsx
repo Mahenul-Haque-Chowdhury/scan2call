@@ -638,14 +638,14 @@ function StatsBand() {
           background: 'linear-gradient(90deg, transparent 0%, rgba(250,204,21,0.5) 50%, transparent 100%)',
         }} />
 
-        <div className="relative grid grid-cols-2 lg:grid-cols-4 divide-x divide-white/6">
+        <div className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 divide-x-0 sm:divide-x divide-white/6">
           {/* Stat 1 - 100% */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-40px' }}
             transition={{ duration: 0.6, delay: 0, ease: [0.16, 1, 0.3, 1] }}
-            className="group flex flex-col items-center justify-center py-10 px-6 text-center relative"
+            className="group flex flex-col items-center justify-center py-8 sm:py-10 px-6 text-center relative"
           >
             <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700"
               style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(250,204,21,0.05) 0%, transparent 70%)' }}
@@ -666,13 +666,13 @@ function StatsBand() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-40px' }}
             transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-            className="group flex flex-col items-center justify-center py-10 px-6 text-center relative"
+            className="group flex flex-col items-center justify-center py-8 sm:py-10 px-6 text-center relative"
           >
             <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700"
               style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(52,211,153,0.05) 0%, transparent 70%)' }}
             />
             <Phone className="mb-4 h-7 w-7" style={{ color: '#34D399', opacity: 0.8 }} />
-            <div className="mb-3 flex gap-2 justify-center flex-nowrap">
+            <div className="mb-3 flex gap-2 justify-center flex-wrap">
               {CHANNELS.map(({ Icon: CIcon, label, color, bg }, i) => (
                 <motion.div
                   key={label}
@@ -704,7 +704,7 @@ function StatsBand() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-40px' }}
             transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="group flex flex-col items-center justify-center py-10 px-6 text-center relative"
+            className="group flex flex-col items-center justify-center py-8 sm:py-10 px-6 text-center relative"
           >
             <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700"
               style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(251,191,36,0.05) 0%, transparent 70%)' }}
@@ -725,7 +725,7 @@ function StatsBand() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-40px' }}
             transition={{ duration: 0.6, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="group flex flex-col items-center justify-center py-10 px-6 text-center relative"
+            className="group flex flex-col items-center justify-center py-8 sm:py-10 px-6 text-center relative"
           >
             <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700"
               style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(251,113,133,0.05) 0%, transparent 70%)' }}
