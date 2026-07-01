@@ -2,6 +2,9 @@
 
 set -Eeuo pipefail
 
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_ARGS=(
   -f "$ROOT_DIR/docker/docker-compose.yml"

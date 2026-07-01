@@ -19,7 +19,8 @@ WORKDIR /app
 
 COPY . .
 
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+	pnpm install --frozen-lockfile
 
 RUN pnpm -C packages/shared exec tsc -p tsconfig.build.json && pnpm -C apps/web exec next build
 

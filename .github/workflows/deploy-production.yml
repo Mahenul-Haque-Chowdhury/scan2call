@@ -21,6 +21,7 @@ jobs:
           key: ${{ secrets.PROD_SSH_KEY }}
           port: ${{ secrets.PROD_PORT || 22 }}
           script_stop: true
+          command_timeout: 30m
           script: |
             cd /opt/scan2call
             git fetch --all --prune
